@@ -1,12 +1,19 @@
+import path from "node:path";
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
 
-// @ts-expect-error process는 Node 런타임에서 주입된다
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
-  plugins: [svelte()],
+  plugins: [svelte(), tailwindcss()],
+
+  resolve: {
+    alias: {
+      $lib: path.resolve("./src/lib"),
+    },
+  },
 
   // Tauri가 CLI 오류를 명확히 볼 수 있도록 설정
   clearScreen: false,
