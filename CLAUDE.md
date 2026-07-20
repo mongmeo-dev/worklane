@@ -3,7 +3,11 @@
 ## Project Description
 
 * 이 프로젝트는 여러 프로젝트를 동시에 진행하는 개발자가 여러 AI Agent를 쉽게 관리할 수 있게 만드는 프로그램이다.
-* 유사한 도구로는 [Superset](https://superset.sh/)이나 [Orca](https://www.onorca.dev/)가 있다.
+* 핵심 목표는 Claude Code, Codex, Cursor, Gemini 등 여러 CLI 기반 코딩 에이전트를 하나의 데스크톱 앱에서 병렬로 실행하고 관리하는 것이다.
+* 각 에이전트의 작업을 독립적으로 격리(예: Git worktree 기반)하여 병합 충돌 없이 동시에 여러 작업을 진행하고, 변경사항을 검토한 뒤 병합할 수 있는 통합 워크플로우를 지향한다.
+* 유사한 도구로는 [Superset](https://superset.sh/)이나 [Orca](https://www.onorca.dev/)가 있으며, 이들의 특징은 다음과 같다.
+  * **Superset** ("The Code Editor for AI Agents"): 100개 이상의 코딩 에이전트를 병렬 실행하는 데스크톱 앱. Claude Code, Cursor, Codex, Copilot, Gemini 등 다양한 CLI 도구 지원 및 에이전트 간 전환, Git worktree 격리를 통한 충돌 방지, VS Code·JetBrains·Xcode 등 IDE 통합을 제공한다. (macOS 지원)
+  * **Orca** ("Agent Development Environment", MIT 오픈소스): 25개 이상의 CLI 에이전트를 병렬 실행하는 IDE. Git worktree 격리, WebGL 터미널, 내장 편집기, 실시간 브라우저 미리보기, GitHub·Linear 통합, 앱 내 PR 검토/승인을 제공한다. (macOS·Windows·Linux·iOS·Android 전 플랫폼 지원)
 
 ## Technical Requirements
 
