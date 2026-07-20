@@ -12,6 +12,8 @@ export interface Agent {
   status: AgentStatus;
   /** 격리된 git worktree의 브랜치명 */
   branch: string;
+  /** 격리된 git worktree의 로컬 경로. diff 계산의 기준이 된다. */
+  worktreePath: string;
   /** 마지막 활동으로부터 경과한 상대 시간 표기 */
   lastActivity: string;
 }

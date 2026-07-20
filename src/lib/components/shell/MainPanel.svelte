@@ -7,6 +7,7 @@
   import StatusDot from "./StatusDot.svelte";
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import Terminal from "./Terminal.svelte";
+  import DiffView from "./DiffView.svelte";
 
   interface Props {
     agent: Agent | undefined;
@@ -61,12 +62,12 @@
         {/key}
       </Tabs.Content>
 
-      <Tabs.Content value="diff" class="min-h-0 flex-1 p-4">
-        <div
-          class="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/30"
-        >
-          <p class="text-sm text-muted-foreground">변경사항 Diff 뷰 (예정)</p>
-        </div>
+      <Tabs.Content value="diff" class="min-h-0 flex-1 p-2">
+        {#key agent.id}
+          <div class="h-full w-full overflow-hidden rounded-lg border bg-background">
+            <DiffView worktreePath={agent.worktreePath} />
+          </div>
+        {/key}
       </Tabs.Content>
     </Tabs.Root>
   {:else}

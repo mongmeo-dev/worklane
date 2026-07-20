@@ -13,6 +13,7 @@ export const mockProjects: Project[] = [
         kind: "claude-code",
         status: "running",
         branch: "feat/app-shell",
+        worktreePath: ".",
         lastActivity: "방금 전",
       },
       {
@@ -21,6 +22,7 @@ export const mockProjects: Project[] = [
         kind: "codex",
         status: "blocked",
         branch: "feat/pty-tracking",
+        worktreePath: ".",
         lastActivity: "3분 전",
       },
       {
@@ -29,6 +31,7 @@ export const mockProjects: Project[] = [
         kind: "gemini",
         status: "done",
         branch: "chore/icons",
+        worktreePath: ".",
         lastActivity: "1시간 전",
       },
     ],
@@ -44,6 +47,7 @@ export const mockProjects: Project[] = [
         kind: "cursor",
         status: "running",
         branch: "feat/charts-v2",
+        worktreePath: ".",
         lastActivity: "방금 전",
       },
       {
@@ -52,6 +56,7 @@ export const mockProjects: Project[] = [
         kind: "claude-code",
         status: "idle",
         branch: "test/e2e-flaky",
+        worktreePath: ".",
         lastActivity: "12분 전",
       },
     ],
