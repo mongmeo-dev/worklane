@@ -15,7 +15,7 @@
   let { projects, selectedAgentId, onSelect }: Props = $props();
 </script>
 
-<aside class="flex w-72 shrink-0 flex-col border-r bg-sidebar">
+<aside class="flex h-full w-full flex-col border-r bg-sidebar">
   <div class="flex h-9 items-center px-3">
     <span class="text-xs font-medium text-muted-foreground">프로젝트 & 에이전트</span>
   </div>
