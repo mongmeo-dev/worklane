@@ -20,6 +20,28 @@
   let fit: FitAddon | undefined;
   let ro: ResizeObserver | undefined;
   let ime: HangulImeAddon | undefined;
+  let rafId = 0;
+  // 마지막으로 PTY에 통지한 크기. 값이 실제로 바뀔 때만 resize를 보내
+  // SIGWINCH 폭주(사이드바 드래그 시 프롬프트 반복 출력)를 막는다.
+  let lastRows = 0;
+  let lastCols = 0;
+
+  // 컨테이너 크기 변화를 rAF로 코얼레싱해 fit()을 한 번만 수행하고,
+  // rows/cols가 실제로 달라졌을 때만 PTY에 새 크기를 통지한다.
+  function syncSize() {
+    rafId = 0;
+    if (!term || !fit) return;
+    fit.fit();
+    if (term.rows === lastRows && term.cols === lastCols) return;
+    lastRows = term.rows;
+    lastCols = term.cols;
+    resizePty(sessionId, term.rows, term.cols);
+  }
+
+  function scheduleResize() {
+    if (rafId) return;
+    rafId = requestAnimationFrame(syncSize);
+  }
 
   function writeBytes(data: string) {
     writeToPty(sessionId, new TextEncoder().encode(data));
@@ -57,6 +79,10 @@
       onOutput: (o) => term?.write(new Uint8Array(o.bytes)),
     });
 
+    // PTY는 이 크기로 생성됐으므로 기준값으로 기록한다.
+    lastRows = term.rows;
+    lastCols = term.cols;
+
     // IME 조합 키는 애드온이 소유한다.
     term.attachCustomKeyEventHandler((ev) => ime?.handleKeyEvent(ev) ?? true);
 
@@ -66,15 +92,13 @@
       writeBytes(data);
     });
 
-    ro = new ResizeObserver(() => {
-      fit?.fit();
-      if (term) resizePty(sessionId, term.rows, term.cols);
-    });
+    ro = new ResizeObserver(scheduleResize);
     ro.observe(el);
   });
 
   onDestroy(() => {
     ro?.disconnect();
+    if (rafId) cancelAnimationFrame(rafId);
     closeSession(sessionId).catch(() => {});
     term?.dispose();
   });
