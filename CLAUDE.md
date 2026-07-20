@@ -9,6 +9,14 @@
   * **Superset** ("The Code Editor for AI Agents"): 100개 이상의 코딩 에이전트를 병렬 실행하는 데스크톱 앱. Claude Code, Cursor, Codex, Copilot, Gemini 등 다양한 CLI 도구 지원 및 에이전트 간 전환, Git worktree 격리를 통한 충돌 방지, VS Code·JetBrains·Xcode 등 IDE 통합을 제공한다. (macOS 지원)
   * **Orca** ("Agent Development Environment", MIT 오픈소스): 25개 이상의 CLI 에이전트를 병렬 실행하는 IDE. Git worktree 격리, WebGL 터미널, 내장 편집기, 실시간 브라우저 미리보기, GitHub·Linear 통합, 앱 내 PR 검토/승인을 제공한다. (macOS·Windows·Linux·iOS·Android 전 플랫폼 지원)
 
+### 차별화 포인트
+
+* 유사 도구들이 대체로 "여러 에이전트를 병렬 실행하는 IDE"에 초점을 맞추는 반면, 이 프로젝트는 **여러 프로젝트를 동시에 진행하는 개발자의 "다중 프로젝트 × 다중 에이전트" 관리**에 무게를 둔다. 즉, 단일 저장소 내 병렬 작업뿐 아니라 프로젝트 전반에 걸친 에이전트 오케스트레이션을 지향한다.
+* 아래는 조사 결과 도출된 잠재적 차별화 영역 후보이며, 제품 방향이 확정되는 대로 구체화한다. (현재는 후보 상태이므로 임의 확정하지 않음)
+  * 프로젝트 단위의 에이전트 그룹핑 및 컨텍스트 전환 최적화
+  * MacOS 우선 지원을 통한 네이티브 사용성 (크로스플랫폼 확장은 후속)
+  * 병렬 작업의 상태·진행률을 한눈에 파악하는 통합 대시보드 관점
+
 ## Technical Requirements
 
 * 이 프로젝트는 크로스플랫폼으로 작동한다.
