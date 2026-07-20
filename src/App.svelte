@@ -45,6 +45,7 @@
   <div class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal" class="h-full w-full">
       <Resizable.Pane
+        class="flex"
         defaultSize={initialSize}
         minSize={15}
         maxSize={40}
@@ -53,7 +54,7 @@
         <Sidebar {projects} {selectedAgentId} onSelect={handleSelect} />
       </Resizable.Pane>
       <Resizable.Handle withHandle />
-      <Resizable.Pane>
+      <Resizable.Pane class="flex">
         <MainPanel agent={selectedAgent} />
       </Resizable.Pane>
     </Resizable.PaneGroup>
