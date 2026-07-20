@@ -23,6 +23,42 @@ impl Session {
     pub fn mark_output(&self, now_ms: u64) {
         self.last_output_ms.store(now_ms, Ordering::Relaxed);
     }
+
+    /// ① 프로세스가 아직 살아있는지 확인한다.
+    pub fn is_alive(&self) -> bool {
+        match self.child.lock() {
+            Ok(mut child) => matches!(child.try_wait(), Ok(None)),
+            Err(_) => false,
+        }
+    }
+
+    /// ③ 상태파일(status.json)을 읽어 (HookStatus, 신선도)를 반환한다.
+    /// 파일이 없거나 파싱 실패면 (None, false).
+    pub fn read_hook(&self, now_ms_val: u64, stale_ms: u64) -> (Option<crate::status::HookStatus>, bool) {
+        let path = self.hook_dir.join("status.json");
+        let Ok(meta) = std::fs::metadata(&path) else {
+            return (None, false);
+        };
+        let mtime_ms = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as u64)
+            .unwrap_or(0);
+        let fresh = now_ms_val.saturating_sub(mtime_ms) <= stale_ms;
+
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            return (None, false);
+        };
+        #[derive(serde::Deserialize)]
+        struct HookFile {
+            status: crate::status::HookStatus,
+        }
+        match serde_json::from_str::<HookFile>(&text) {
+            Ok(f) => (Some(f.status), fresh),
+            Err(_) => (None, false),
+        }
+    }
 }
 
 /// 현재 시각을 UNIX epoch 밀리초로 반환.
