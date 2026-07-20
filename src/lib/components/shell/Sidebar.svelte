@@ -2,6 +2,7 @@
   import type { Agent, Project } from "$lib/types";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { agentKindLabels } from "$lib/data/mock";
+  import { sessionStatus } from "$lib/stores/sessions.svelte";
   import StatusDot from "./StatusDot.svelte";
   import Folder from "@lucide/svelte/icons/folder";
 
@@ -14,7 +15,7 @@
   let { projects, selectedAgentId, onSelect }: Props = $props();
 </script>
 
-<aside class="flex w-72 shrink-0 flex-col border-r bg-sidebar">
+<aside class="flex h-full w-full flex-col border-r bg-sidebar">
   <div class="flex h-9 items-center px-3">
     <span class="text-xs font-medium text-muted-foreground">프로젝트 & 에이전트</span>
   </div>
@@ -39,7 +40,7 @@
                 {agent.id === selectedAgentId ? 'bg-sidebar-accent' : ''}"
             >
               <div class="flex w-full items-center gap-2">
-                <StatusDot status={agent.status} />
+                <StatusDot status={sessionStatus.get(agent.id) ?? agent.status} />
                 <span class="truncate text-sm">{agent.title}</span>
               </div>
               <div class="flex w-full items-center gap-2 pl-3.5">

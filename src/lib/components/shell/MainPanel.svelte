@@ -6,13 +6,18 @@
   import { agentKindLabels, statusLabels } from "$lib/data/mock";
   import StatusDot from "./StatusDot.svelte";
   import GitBranch from "@lucide/svelte/icons/git-branch";
-  import TerminalIcon from "@lucide/svelte/icons/terminal";
+  import Terminal from "./Terminal.svelte";
 
   interface Props {
     agent: Agent | undefined;
   }
 
   let { agent }: Props = $props();
+
+  // 플랫폼 기본 셸. Windows는 후속 대응 (현재 개발 대상은 macOS 우선).
+  function defaultShell(): string {
+    return "/bin/zsh";
+  }
 </script>
 
 <section class="flex min-w-0 flex-1 flex-col bg-background">
@@ -44,17 +49,16 @@
         </Tabs.List>
       </div>
 
-      <Tabs.Content value="terminal" class="min-h-0 flex-1 p-4">
-        <!-- xterm.js 터미널이 들어갈 자리 (다음 단계에서 PTY 연동) -->
-        <div
-          class="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/30"
-        >
-          <div class="flex flex-col items-center gap-2 text-muted-foreground">
-            <TerminalIcon class="size-8" />
-            <p class="text-sm">터미널 영역 (xterm.js 연동 예정)</p>
-            <p class="text-xs">{agent.branch} · {agentKindLabels[agent.kind]}</p>
+      <Tabs.Content value="terminal" class="min-h-0 flex-1 p-2">
+        {#key agent.id}
+          <div class="h-full w-full overflow-hidden rounded-lg border bg-black p-1">
+            <Terminal
+              sessionId={agent.id}
+              cmd={defaultShell()}
+              cwd="."
+            />
           </div>
-        </div>
+        {/key}
       </Tabs.Content>
 
       <Tabs.Content value="diff" class="min-h-0 flex-1 p-4">
