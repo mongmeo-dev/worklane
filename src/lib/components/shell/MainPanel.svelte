@@ -20,7 +20,7 @@
   }
 </script>
 
-<section class="flex min-w-0 flex-1 flex-col bg-background">
+<section class="flex h-full min-w-0 flex-1 flex-col bg-background">
   {#if agent}
     <!-- 선택된 에이전트 헤더 -->
     <div class="flex items-center gap-3 px-4 py-3">
