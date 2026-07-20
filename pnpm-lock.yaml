@@ -11,9 +11,6 @@ importers:
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
-      '@lucide/svelte':
-        specifier: ^1.25.0
-        version: 1.25.0(svelte@5.56.6)
       '@tauri-apps/api':
         specifier: ^2
         version: 2.11.1
@@ -48,6 +45,9 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
     devDependencies:
+      '@lucide/svelte':
+        specifier: ^1.25.0
+        version: 1.25.0(svelte@5.56.6)
       '@sveltejs/vite-plugin-svelte':
         specifier: ^5.0.0
         version: 5.1.1(svelte@5.56.6)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0))
