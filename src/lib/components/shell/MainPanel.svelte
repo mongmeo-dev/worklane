@@ -1,0 +1,73 @@
+<script lang="ts">
+  import type { Agent } from "$lib/types";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Separator } from "$lib/components/ui/separator";
+  import * as Tabs from "$lib/components/ui/tabs";
+  import { agentKindLabels, statusLabels } from "$lib/data/mock";
+  import StatusDot from "./StatusDot.svelte";
+  import GitBranch from "@lucide/svelte/icons/git-branch";
+  import TerminalIcon from "@lucide/svelte/icons/terminal";
+
+  interface Props {
+    agent: Agent | undefined;
+  }
+
+  let { agent }: Props = $props();
+</script>
+
+<section class="flex min-w-0 flex-1 flex-col bg-background">
+  {#if agent}
+    <!-- 선택된 에이전트 헤더 -->
+    <div class="flex items-center gap-3 px-4 py-3">
+      <StatusDot status={agent.status} />
+      <div class="min-w-0">
+        <h2 class="truncate text-sm font-semibold">{agent.title}</h2>
+        <div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{agentKindLabels[agent.kind]}</span>
+          <GitBranch class="size-3" />
+          <span class="truncate">{agent.branch}</span>
+        </div>
+      </div>
+      <Badge variant="secondary" class="ml-auto shrink-0">
+        {statusLabels[agent.status]}
+      </Badge>
+    </div>
+
+    <Separator />
+
+    <!-- 터미널 / 변경사항 탭 -->
+    <Tabs.Root value="terminal" class="flex min-h-0 flex-1 flex-col gap-0">
+      <div class="px-4 pt-3">
+        <Tabs.List>
+          <Tabs.Trigger value="terminal">터미널</Tabs.Trigger>
+          <Tabs.Trigger value="diff">변경사항</Tabs.Trigger>
+        </Tabs.List>
+      </div>
+
+      <Tabs.Content value="terminal" class="min-h-0 flex-1 p-4">
+        <!-- xterm.js 터미널이 들어갈 자리 (다음 단계에서 PTY 연동) -->
+        <div
+          class="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/30"
+        >
+          <div class="flex flex-col items-center gap-2 text-muted-foreground">
+            <TerminalIcon class="size-8" />
+            <p class="text-sm">터미널 영역 (xterm.js 연동 예정)</p>
+            <p class="text-xs">{agent.branch} · {agentKindLabels[agent.kind]}</p>
+          </div>
+        </div>
+      </Tabs.Content>
+
+      <Tabs.Content value="diff" class="min-h-0 flex-1 p-4">
+        <div
+          class="flex h-full items-center justify-center rounded-lg border border-dashed bg-muted/30"
+        >
+          <p class="text-sm text-muted-foreground">변경사항 Diff 뷰 (예정)</p>
+        </div>
+      </Tabs.Content>
+    </Tabs.Root>
+  {:else}
+    <div class="flex flex-1 items-center justify-center">
+      <p class="text-sm text-muted-foreground">좌측에서 에이전트를 선택하세요</p>
+    </div>
+  {/if}
+</section>
