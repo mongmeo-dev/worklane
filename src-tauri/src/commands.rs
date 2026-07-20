@@ -66,3 +66,18 @@ pub fn close_session(
 ) -> Result<(), String> {
     pty::close(&state, &session_id)
 }
+
+/// 시스템에 설치된 폰트 패밀리 이름을 열거한다. 자동완성 목록으로 사용된다.
+/// 실패 시 에러 문자열을 반환하며, 프론트는 이를 조용히 무시하고 빈 목록으로 폴백한다.
+#[tauri::command]
+pub fn list_system_fonts() -> Result<Vec<String>, String> {
+    use font_kit::source::SystemSource;
+
+    let source = SystemSource::new();
+    let mut names = source
+        .all_families()
+        .map_err(|e| e.to_string())?;
+    names.sort();
+    names.dedup();
+    Ok(names)
+}

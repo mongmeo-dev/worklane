@@ -21,6 +21,7 @@ pub fn run() {
             commands::write_to_pty,
             commands::resize_pty,
             commands::close_session,
+            commands::list_system_fonts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
