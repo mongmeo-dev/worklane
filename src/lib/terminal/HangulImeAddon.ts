@@ -74,15 +74,15 @@ export class HangulImeAddon implements ITerminalAddon {
       return false;
     }
 
-    // 조합 중인데 IME 키가 아니면(Enter, 방향키 등) 조합을 확정한다.
+    // 조합 중인데 IME 키가 아니면(Enter, 방향키, backspace 등) 조합을 종료한다.
     if (this.imeActive) {
       const k = event.key;
       // 수정자 키는 조합을 유지한다(쌍자음 ㅆ 등).
       if (k === "Shift" || k === "Control" || k === "Alt" || k === "Meta") {
         return false;
       }
-      this.commit();
-      // 확정 후 이 키(Enter 등)는 xterm이 정상 처리하도록 통과시킨다.
+      this.endComposition();
+      // 종료 후 이 키(backspace/방향키/Enter 등)는 xterm이 정상 처리하도록 통과시킨다.
     }
     return true;
   }
@@ -112,9 +112,9 @@ export class HangulImeAddon implements ITerminalAddon {
         this.baseLen = this.textarea?.value.length ?? 0;
         return;
       }
-      // 한글이 아닌 문자가 조합 중 들어오면 현재 조합을 확정한다.
+      // 한글이 아닌 문자가 들어오면 조합을 종료한다(이 문자는 xterm이 정상 처리).
       if (this.imeActive) {
-        this.commit();
+        this.endComposition();
       }
     }
   };
@@ -149,11 +149,24 @@ export class HangulImeAddon implements ITerminalAddon {
   // ── 확정 ──────────────────────────────────────────────────────
 
   /**
-   * 현재 조합 글자를 확정한다. 조합 글자는 이미 PTY 에코로 셸에 그려져 있으므로
-   * 다시 보내지 않고, 상태만 초기화한다.
+   * 음절 경계에서 현재 조합 글자를 확정하되 조합 세션은 계속 이어간다.
+   * 조합 글자는 이미 PTY 에코로 셸에 그려져 있으므로 다시 보내지 않고,
+   * 다음 글자 조합을 위해 preedit만 비운다. (imeActive는 유지)
    */
   private commit(): void {
     this.preedit = "";
     this.baseLen = this.textarea?.value.length ?? 0;
+  }
+
+  /**
+   * 조합 세션을 완전히 종료한다. WKWebView는 마지막 글자에 대해 compositionend를
+   * 보내지 않는 경우가 있어, IME가 아닌 키(backspace/방향키 등)를 만나면 여기서
+   * imeActive를 내려야 이후 키가 onData 가드(isComposing)에 막히지 않는다.
+   */
+  private endComposition(): void {
+    this.imeActive = false;
+    this.preedit = "";
+    this.baseLen = 0;
+    if (this.textarea) this.textarea.value = "";
   }
 }
