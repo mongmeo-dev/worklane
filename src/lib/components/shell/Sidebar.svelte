@@ -2,6 +2,7 @@
   import type { Agent, Project } from "$lib/types";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { agentKindLabels } from "$lib/data/mock";
+  import { sessionStatus } from "$lib/stores/sessions.svelte";
   import StatusDot from "./StatusDot.svelte";
   import Folder from "@lucide/svelte/icons/folder";
 
@@ -39,7 +40,7 @@
                 {agent.id === selectedAgentId ? 'bg-sidebar-accent' : ''}"
             >
               <div class="flex w-full items-center gap-2">
-                <StatusDot status={agent.status} />
+                <StatusDot status={sessionStatus.get(agent.id) ?? agent.status} />
                 <span class="truncate text-sm">{agent.title}</span>
               </div>
               <div class="flex w-full items-center gap-2 pl-3.5">

@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { Agent } from "$lib/types";
   import { mockProjects } from "$lib/data/mock";
+  import { sessionStatus } from "$lib/stores/sessions.svelte";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
   import Sidebar from "$lib/components/shell/Sidebar.svelte";
   import MainPanel from "$lib/components/shell/MainPanel.svelte";
@@ -17,6 +19,10 @@
   function handleSelect(agent: Agent) {
     selectedAgentId = agent.id;
   }
+
+  onMount(() => {
+    sessionStatus.start();
+  });
 </script>
 
 <div class="flex h-screen w-screen flex-col overflow-hidden text-sm">
