@@ -24,9 +24,20 @@ pub fn spawn_poller(app: tauri::AppHandle, state: Arc<DashMap<String, Arc<Sessio
         loop {
             std::thread::sleep(std::time::Duration::from_millis(250));
             let now = now_ms();
-            for entry in state.iter() {
-                let sid = entry.key().clone();
-                let session = entry.value();
+
+            // DashMap 순회 가드는 (id, Arc<Session>) 스냅샷만 뽑고 즉시 해제한다.
+            // 파일 I/O(read_hook)나 락(is_alive)을 가드 안에서 하면 같은 샤드의
+            // create/close(insert/remove)가 그 시간만큼 블록되므로, 가드 밖에서 처리한다.
+            let sessions: Vec<(String, Arc<Session>)> = state
+                .iter()
+                .map(|entry| (entry.key().clone(), entry.value().clone()))
+                .collect();
+
+            // 현재 살아있는 세션 ID. last 맵에서 사라진(닫힌) 세션 항목을 정리하는 데 쓴다.
+            let mut live_ids = std::collections::HashSet::with_capacity(sessions.len());
+
+            for (sid, session) in sessions {
+                live_ids.insert(sid.clone());
 
                 let alive = session.is_alive();
                 let last_out = session.last_output_ms.load(Ordering::Relaxed);
@@ -49,6 +60,9 @@ pub fn spawn_poller(app: tauri::AppHandle, state: Arc<DashMap<String, Arc<Sessio
                     );
                 }
             }
+
+            // 닫힌 세션 항목을 last 맵에서 제거해 무한 증가를 막는다.
+            last.retain(|id, _| live_ids.contains(id));
         }
     });
 }
