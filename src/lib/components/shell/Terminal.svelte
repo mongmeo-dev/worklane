@@ -20,16 +20,19 @@
   let fit: FitAddon | undefined;
   let ro: ResizeObserver | undefined;
   let ime: HangulImeAddon | undefined;
-  let rafId = 0;
-  // 마지막으로 PTY에 통지한 크기. 값이 실제로 바뀔 때만 resize를 보내
-  // SIGWINCH 폭주(사이드바 드래그 시 프롬프트 반복 출력)를 막는다.
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  // 마지막으로 PTY에 통지한 크기. 값이 실제로 바뀔 때만 resize를 보낸다.
   let lastRows = 0;
   let lastCols = 0;
 
-  // 컨테이너 크기 변화를 rAF로 코얼레싱해 fit()을 한 번만 수행하고,
-  // rows/cols가 실제로 달라졌을 때만 PTY에 새 크기를 통지한다.
-  function syncSize() {
-    rafId = 0;
+  // fit()은 xterm 버퍼를 새 폭으로 reflow하고, 이어지는 PTY resize는 zsh가
+  // SIGWINCH로 프롬프트를 다시 그리게 한다. 드래그처럼 크기가 연속으로 바뀌면
+  // 이 재배치가 매 프레임 반복되어 프롬프트가 여러 번 출력된다.
+  // 따라서 드래그 중에는 아무것도 하지 않고, 크기가 멈춘 뒤 한 번만 fit()과
+  // PTY resize를 수행한다(VS Code 터미널 등이 쓰는 트레일링 방식).
+  const SETTLE_MS = 120;
+
+  function applyResize() {
     if (!term || !fit) return;
     fit.fit();
     if (term.rows === lastRows && term.cols === lastCols) return;
@@ -39,8 +42,8 @@
   }
 
   function scheduleResize() {
-    if (rafId) return;
-    rafId = requestAnimationFrame(syncSize);
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(applyResize, SETTLE_MS);
   }
 
   function writeBytes(data: string) {
@@ -98,7 +101,7 @@
 
   onDestroy(() => {
     ro?.disconnect();
-    if (rafId) cancelAnimationFrame(rafId);
+    clearTimeout(settleTimer);
     closeSession(sessionId).catch(() => {});
     term?.dispose();
   });
