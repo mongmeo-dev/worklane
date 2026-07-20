@@ -6,6 +6,7 @@
   import "@xterm/xterm/css/xterm.css";
   import { createSession, writeToPty, resizePty, closeSession } from "$lib/ipc/pty";
   import { HangulImeAddon } from "$lib/terminal/HangulImeAddon";
+  import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
 
   interface Props {
     sessionId: string;
@@ -28,8 +29,8 @@
   onMount(async () => {
     term = new Terminal({
       cursorBlink: true,
-      fontFamily: "monospace",
-      fontSize: 13,
+      fontFamily: terminalSettings.fontFamily,
+      fontSize: terminalSettings.fontSize,
       allowProposedApi: true,
     });
     fit = new FitAddon();
@@ -71,6 +72,17 @@
       if (term) resizePty(sessionId, term.rows, term.cols);
     });
     ro.observe(el);
+  });
+
+  // 설정 store 변경 시 실행 중인 터미널에 즉시 반영한다.
+  $effect(() => {
+    const family = terminalSettings.fontFamily;
+    const size = terminalSettings.fontSize;
+    if (!term) return;
+    term.options.fontFamily = family;
+    term.options.fontSize = size;
+    fit?.fit();
+    if (term) resizePty(sessionId, term.rows, term.cols);
   });
 
   onDestroy(() => {
