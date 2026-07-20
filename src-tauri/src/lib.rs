@@ -1,5 +1,6 @@
 mod status;
 mod pty;
+mod git;
 mod commands;
 
 use pty::PtyState;
@@ -21,6 +22,7 @@ pub fn run() {
             commands::write_to_pty,
             commands::resize_pty,
             commands::close_session,
+            commands::git_diff,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

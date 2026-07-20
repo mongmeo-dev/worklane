@@ -66,3 +66,11 @@ pub fn close_session(
 ) -> Result<(), String> {
     pty::close(&state, &session_id)
 }
+
+/// 지정한 worktree 경로의 uncommitted 변경(working tree diff)을 unified diff 문자열로 반환한다.
+#[tauri::command]
+pub async fn git_diff(cwd: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::git::diff_working_tree(&cwd))
+        .await
+        .map_err(|e| e.to_string())?
+}
