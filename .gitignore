@@ -1,0 +1,13 @@
+.idea
+*.iml
+
+.DS_Store
+
+.orca
+.superset
+.omx
+.omc
+.remember
+
+.env
+.envrc
