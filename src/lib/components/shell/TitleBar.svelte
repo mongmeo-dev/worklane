@@ -2,6 +2,7 @@
   import { Button } from "$lib/components/ui/button";
   import Plus from "@lucide/svelte/icons/plus";
   import Settings from "@lucide/svelte/icons/settings";
+  import { settingsUi } from "$lib/stores/settingsUi.svelte";
 </script>
 
 <!-- 상단 타이틀바. macOS 신호등 버튼 영역을 피하기 위해 좌측에 여백을 둔다. -->
@@ -17,7 +18,12 @@
       <Plus class="size-4" />
       새 에이전트
     </Button>
-    <Button variant="ghost" size="icon" aria-label="설정">
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="설정"
+      onclick={() => settingsUi.open()}
+    >
       <Settings class="size-4" />
     </Button>
   </div>
