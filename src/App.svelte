@@ -7,6 +7,7 @@
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
   import Sidebar from "$lib/components/shell/Sidebar.svelte";
   import MainPanel from "$lib/components/shell/MainPanel.svelte";
+  import SettingsDialog from "$lib/components/shell/SettingsDialog.svelte";
 
   const projects = mockProjects;
   const STORAGE_KEY = "shell:sidebar-size";
@@ -58,4 +59,6 @@
       </Resizable.Pane>
     </Resizable.PaneGroup>
   </div>
+
+  <SettingsDialog />
 </div>
