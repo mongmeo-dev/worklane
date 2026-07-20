@@ -11,3 +11,12 @@
 
 .env
 .envrc
+
+# Node / 프론트엔드 빌드 산출물
+node_modules
+dist
+.vite
+
+# Tauri (Rust) 빌드 산출물
+src-tauri/target
+src-tauri/gen/schemas

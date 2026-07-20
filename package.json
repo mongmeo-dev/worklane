@@ -1,0 +1,28 @@
+{
+  "name": "ai-agent-workspace",
+  "version": "0.1.0",
+  "description": "여러 CLI 코딩 에이전트를 병렬로 실행·관리하는 데스크톱 앱",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-opener": "^2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@tauri-apps/cli": "^2",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "tslib": "^2.8.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3"
+  }
+}
