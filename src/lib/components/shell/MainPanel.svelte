@@ -3,7 +3,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Separator } from "$lib/components/ui/separator";
   import * as Tabs from "$lib/components/ui/tabs";
-  import { agentKindLabels, statusLabels } from "$lib/data/mock";
+  import { agentKindLabels, statusLabels } from "$lib/data/labels";
   import StatusDot from "./StatusDot.svelte";
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import Terminal from "./Terminal.svelte";
@@ -14,18 +14,13 @@
   }
 
   let { agent }: Props = $props();
-
-  // 플랫폼 기본 셸. Windows는 후속 대응 (현재 개발 대상은 macOS 우선).
-  function defaultShell(): string {
-    return "/bin/zsh";
-  }
 </script>
 
 <section class="flex min-w-0 flex-1 flex-col bg-background">
   {#if agent}
     <!-- 선택된 에이전트 헤더 -->
     <div class="flex items-center gap-3 px-4 py-3">
-      <StatusDot status={agent.status} />
+      <StatusDot status={agent.status ?? "idle"} />
       <div class="min-w-0">
         <h2 class="truncate text-sm font-semibold">{agent.title}</h2>
         <div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -35,7 +30,7 @@
         </div>
       </div>
       <Badge variant="secondary" class="ml-auto shrink-0">
-        {statusLabels[agent.status]}
+        {statusLabels[agent.status ?? "idle"]}
       </Badge>
     </div>
 
@@ -55,8 +50,8 @@
           <div class="h-full w-full overflow-hidden rounded-lg border bg-black p-1">
             <Terminal
               sessionId={agent.id}
-              cmd={defaultShell()}
-              cwd="."
+              cmd={agent.command}
+              cwd={agent.worktreePath}
             />
           </div>
         {/key}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { Agent } from "$lib/types";
-  import { mockProjects } from "$lib/data/mock";
+  import { projectStore } from "$lib/stores/projects.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -9,14 +9,12 @@
   import MainPanel from "$lib/components/shell/MainPanel.svelte";
   import SettingsDialog from "$lib/components/shell/SettingsDialog.svelte";
 
-  const projects = mockProjects;
   const STORAGE_KEY = "shell:sidebar-size";
 
-  // 초기 선택: 첫 프로젝트의 첫 에이전트
-  let selectedAgentId = $state(projects[0]?.agents[0]?.id ?? "");
+  let selectedAgentId = $state("");
 
   const selectedAgent = $derived<Agent | undefined>(
-    projects.flatMap((p) => p.agents).find((a) => a.id === selectedAgentId),
+    projectStore.projects.flatMap((p) => p.agents).find((a) => a.id === selectedAgentId),
   );
 
   function handleSelect(agent: Agent) {
@@ -38,6 +36,7 @@
 
   onMount(() => {
     sessionStatus.start();
+    projectStore.load();
   });
 </script>
 
@@ -52,7 +51,7 @@
         maxSize={40}
         onResize={persistSize}
       >
-        <Sidebar {projects} {selectedAgentId} onSelect={handleSelect} />
+        <Sidebar projects={projectStore.projects} {selectedAgentId} onSelect={handleSelect} />
       </Resizable.Pane>
       <Resizable.Handle withHandle />
       <Resizable.Pane class="flex">

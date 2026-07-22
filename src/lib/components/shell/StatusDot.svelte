@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AgentStatus } from "$lib/types";
-  import { statusLabels } from "$lib/data/mock";
+  import { statusLabels } from "$lib/data/labels";
 
   interface Props {
     status: AgentStatus;
