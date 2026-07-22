@@ -6,16 +6,22 @@ export type AgentKind = "claude-code" | "codex" | "cursor" | "gemini";
 
 export interface Agent {
   id: string;
+  projectId: string;
   /** 사용자가 붙인 작업 이름 (예: "로그인 리팩터링") */
   title: string;
   kind: AgentKind;
-  status: AgentStatus;
+  /** 실행 커맨드 (예: "claude", "codex --model o3") */
+  command: string;
   /** 격리된 git worktree의 브랜치명 */
   branch: string;
   /** 격리된 git worktree의 로컬 경로. diff 계산의 기준이 된다. */
   worktreePath: string;
-  /** 마지막 활동으로부터 경과한 상대 시간 표기 */
-  lastActivity: string;
+  /** 앱이 자동 생성한 worktree면 true (삭제 시 정리 대상) */
+  worktreeManaged: boolean;
+  /** 런타임 파생: 3계층 트래킹이 판별하는 실행 상태. 미실행 시 idle. */
+  status?: AgentStatus;
+  /** 런타임 파생: 마지막 활동 상대 시간 표기 */
+  lastActivity?: string;
 }
 
 export interface Project {
@@ -23,5 +29,7 @@ export interface Project {
   name: string;
   /** 로컬 저장소 경로 */
   path: string;
+  createdAt: number;
+  updatedAt: number;
   agents: Agent[];
 }

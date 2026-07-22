@@ -3,7 +3,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Separator } from "$lib/components/ui/separator";
   import * as Tabs from "$lib/components/ui/tabs";
-  import { agentKindLabels, statusLabels } from "$lib/data/mock";
+  import { agentKindLabels, statusLabels } from "$lib/data/labels";
   import StatusDot from "./StatusDot.svelte";
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import Terminal from "./Terminal.svelte";
@@ -25,7 +25,7 @@
   {#if agent}
     <!-- 선택된 에이전트 헤더 -->
     <div class="flex items-center gap-3 px-4 py-3">
-      <StatusDot status={agent.status} />
+      <StatusDot status={agent.status ?? "idle"} />
       <div class="min-w-0">
         <h2 class="truncate text-sm font-semibold">{agent.title}</h2>
         <div class="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -35,7 +35,7 @@
         </div>
       </div>
       <Badge variant="secondary" class="ml-auto shrink-0">
-        {statusLabels[agent.status]}
+        {statusLabels[agent.status ?? "idle"]}
       </Badge>
     </div>
 
