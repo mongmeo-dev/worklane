@@ -85,6 +85,13 @@ pub async fn read_system_resources() -> Result<crate::system::SystemResources, S
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub async fn read_codex_usage() -> Result<crate::usage::UsageInfo, String> {
+    tauri::async_runtime::spawn_blocking(crate::usage::codex::read_usage)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// 시스템에 설치된 폰트 패밀리 이름을 열거한다. 자동완성 목록으로 사용된다.
 /// 실패 시 에러 문자열을 반환하며, 프론트는 이를 조용히 무시하고 빈 목록으로 폴백한다.
 #[tauri::command]
