@@ -1,25 +1,22 @@
 <script lang="ts">
   import type { AgentStatus } from "$lib/types";
   import { statusLabels } from "$lib/data/labels";
+  import { dotClasses } from "./statusDot";
 
   interface Props {
     status: AgentStatus;
+    size?: number;
     showLabel?: boolean;
   }
 
-  let { status, showLabel = false }: Props = $props();
-
-  // 상태별 점 색상 (Tailwind 클래스). running은 은은한 펄스 애니메이션을 준다.
-  const dotClass: Record<AgentStatus, string> = {
-    running: "bg-emerald-500 animate-pulse",
-    idle: "bg-zinc-400",
-    blocked: "bg-amber-500",
-    done: "bg-sky-500",
-  };
+  let { status, size = 8, showLabel = false }: Props = $props();
 </script>
 
 <span class="inline-flex items-center gap-1.5">
-  <span class="size-2 rounded-full {dotClass[status]}"></span>
+  <span
+    class="shrink-0 rounded-full {dotClasses(status)}"
+    style="width:{size}px;height:{size}px"
+  ></span>
   {#if showLabel}
     <span class="text-xs text-muted-foreground">{statusLabels[status]}</span>
   {/if}
