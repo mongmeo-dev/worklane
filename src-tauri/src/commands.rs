@@ -79,6 +79,39 @@ pub async fn git_diff(cwd: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub async fn list_worktree_files(
+    worktree_path: String,
+) -> Result<Vec<crate::git::FileEntry>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::git::list_files(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn read_worktree_file(
+    worktree_path: String,
+    rel_path: String,
+) -> Result<crate::files::FileContent, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::files::read_file(&worktree_path, &rel_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_file_diff(
+    worktree_path: String,
+    rel_path: String,
+) -> Result<Vec<crate::git::DiffLine>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::git::file_diff_lines(&worktree_path, &rel_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn read_system_resources() -> Result<crate::system::SystemResources, String> {
     tauri::async_runtime::spawn_blocking(crate::system::read_resources)
         .await
