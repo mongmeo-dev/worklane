@@ -2,6 +2,7 @@ mod status;
 mod pty;
 mod git;
 mod commands;
+mod store;
 
 use pty::PtyState;
 use tauri::Manager;
