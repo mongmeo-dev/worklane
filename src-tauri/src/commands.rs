@@ -227,6 +227,9 @@ pub fn create_agent(
     worktree_path: Option<String>,
 ) -> Result<Agent, String> {
     use tauri::Manager;
+    let explicit_path = worktree_path
+        .as_deref()
+        .is_some_and(|path| !path.trim().is_empty());
     // worktree 경로 결정: 미지정 시 app_data_dir/worktrees/<project_id>/<branch>
     let wt_path = match worktree_path {
         Some(p) if !p.trim().is_empty() => p,
@@ -238,15 +241,15 @@ pub fn create_agent(
     };
 
     // 1) 이미 존재하는 worktree는 재사용하고, 새 경로만 앱 관리 대상으로 생성한다.
-    let (created, managed) = if git::is_existing_worktree(&wt_path) {
+    let reused = git::is_existing_worktree(&wt_path);
+    let created = if reused {
         let canonical = std::fs::canonicalize(&wt_path).map_err(|e| e.to_string())?;
-        (canonical.to_string_lossy().into_owned(), false)
+        canonical.to_string_lossy().into_owned()
     } else {
-        (
-            git::create_worktree(&project_path, &branch, &start_point, &wt_path)?,
-            true,
-        )
+        git::create_worktree(&project_path, &branch, &start_point, &wt_path)?
     };
+    let created_new = !reused;
+    let managed = should_manage_worktree(explicit_path, reused);
 
     // 2) DB insert. 새로 만든 worktree만 실패 시 롤백하며, 재사용 경로는 건드리지 않는다.
     let now = now_ms() as i64;
@@ -265,14 +268,14 @@ pub fn create_agent(
     let inserted = match store.0.lock() {
         Ok(conn) => store::repo::insert_agent(&conn, &agent),
         Err(error) => {
-            if managed {
+            if created_new {
                 let _ = git::remove_worktree(&project_path, &created, true);
             }
             return Err(error.to_string());
         }
     };
     if let Err(e) = inserted {
-        if managed {
+        if created_new {
             let _ = git::remove_worktree(&project_path, &created, true);
         }
         return Err(e.to_string());
@@ -337,6 +340,10 @@ fn should_remove_worktree(remove_requested: bool, managed: bool, references: i64
     remove_requested && managed && references <= 1
 }
 
+fn should_manage_worktree(explicit_path: bool, reused: bool) -> bool {
+    !explicit_path && !reused
+}
+
 #[cfg(test)]
 mod shared_worktree_tests {
     use super::*;
@@ -347,5 +354,13 @@ mod shared_worktree_tests {
         assert!(!should_remove_worktree(true, true, 2));
         assert!(!should_remove_worktree(true, false, 1));
         assert!(!should_remove_worktree(false, true, 1));
+    }
+
+    #[test]
+    fn 명시한_worktree_경로는_앱_관리_대상으로_표시하지_않는다() {
+        assert!(!should_manage_worktree(true, false));
+        assert!(!should_manage_worktree(true, true));
+        assert!(should_manage_worktree(false, false));
+        assert!(!should_manage_worktree(false, true));
     }
 }
