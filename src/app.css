@@ -36,6 +36,22 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  /* 상태 시맨틱 토큰 (라이트) */
+  --status-running: oklch(0.6 0.14 163);
+  --status-running-fg: oklch(0.55 0.13 163);
+  --status-idle: oklch(0.55 0.01 264);
+  --status-blocked: oklch(0.7 0.15 70);
+  --status-blocked-fg: oklch(0.6 0.14 70);
+  --status-blocked-on: oklch(0.2 0.02 80);
+  --status-done: oklch(0.6 0.14 233);
+  --status-done-fg: oklch(0.55 0.12 233);
+  --diff-add: oklch(0.6 0.14 163);
+  --diff-remove: oklch(0.6 0.2 25);
+  --accent-share: oklch(0.6 0.15 277);
+  /* 터미널/에디터는 라이트에서도 다크 고정 */
+  --terminal-bg: oklch(0.15 0.008 265);
+  --editor-bg: oklch(0.17 0.008 275);
+  --editor-chrome: oklch(0.2 0.008 275);
 }
 
 .dark {
@@ -70,6 +86,21 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  /* 상태 시맨틱 토큰 (다크) */
+  --status-running: oklch(0.77 0.15 163);
+  --status-running-fg: oklch(0.85 0.13 163);
+  --status-idle: oklch(0.63 0.01 264);
+  --status-blocked: oklch(0.82 0.15 82);
+  --status-blocked-fg: oklch(0.86 0.14 88);
+  --status-blocked-on: oklch(0.2 0.02 80);
+  --status-done: oklch(0.75 0.13 233);
+  --status-done-fg: oklch(0.83 0.1 227);
+  --diff-add: oklch(0.77 0.15 163);
+  --diff-remove: oklch(0.7 0.18 22);
+  --accent-share: oklch(0.77 0.11 277);
+  --terminal-bg: oklch(0.15 0.008 265);
+  --editor-bg: oklch(0.17 0.008 275);
+  --editor-chrome: oklch(0.2 0.008 275);
 }
 
 @theme inline {
@@ -108,6 +139,20 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-status-running: var(--status-running);
+  --color-status-running-fg: var(--status-running-fg);
+  --color-status-idle: var(--status-idle);
+  --color-status-blocked: var(--status-blocked);
+  --color-status-blocked-fg: var(--status-blocked-fg);
+  --color-status-blocked-on: var(--status-blocked-on);
+  --color-status-done: var(--status-done);
+  --color-status-done-fg: var(--status-done-fg);
+  --color-diff-add: var(--diff-add);
+  --color-diff-remove: var(--diff-remove);
+  --color-accent-share: var(--accent-share);
+  --color-terminal: var(--terminal-bg);
+  --color-editor: var(--editor-bg);
+  --color-editor-chrome: var(--editor-chrome);
 }
 
 @layer base {
