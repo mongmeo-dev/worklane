@@ -25,7 +25,8 @@
 - **공유 worktree**: "단일 디렉토리 실제 공유". 여러 에이전트가 같은 물리적 worktree 경로에서 동작. AgentDialog에 "기존 worktree 재사용" 옵션 추가. 모델 확장 필요.
 - **CLI 사용량**: 로컬 파일 파싱 가능한 것만 실제 구현.
   - **Codex**: `~/.codex/sessions/**/rollout-*.jsonl`의 `rate_limits`를 파싱 (마지막 non-null 폴백).
-  - **Claude Code / Cursor / Gemini**: 로컬에 신뢰할 수 있는 사용량 파일이 없음 → "연동 안 됨" 배지로 명시.
+  - **Claude Code**: **statusLine 훅 설치 방식**. 앱이 `~/.claude/settings.json`의 `statusLine.command`에 스풀 스크립트를 설치(기존 command가 있으면 보존·위임)하면, Claude Code가 stdin으로 넘기는 `rate_limits.five_hour`/`.seven_day`(%·resets_at)를 스크립트가 파일로 저장한다. 앱은 그 파일을 읽는다. 세션이 활성일 때만 값이 채워지며, 훅 미설치/미실행 시 "연동 대기" 표시.
+  - **Cursor / Gemini**: 로컬에 신뢰할 수 있는 사용량 파일이 없음이 확인됨(Cursor=달러 미터 서버측만, Gemini=메인테이너가 로컬 조회 불가 확인) → "연동 안 됨" 배지로 명시.
 - **CPU/RAM**: Rust `sysinfo` crate로 실제 폴링.
 - **파일 에디터**: 실제 worktree 파일 트리 열거 + 파일 내용 읽기(읽기 전용). 변경 파일은 실제 git diff 기반 +/− 및 라인 하이라이트.
 
@@ -103,6 +104,8 @@
 | `read_worktree_file(worktreePath, relPath)` | `{ content, isBinary }` | 에디터: 무변경 파일 원문 |
 | `git_file_diff(worktreePath, relPath)` | 라인별 diff(`add`/`del`/`ctx` + 원/신 라인번호 + 텍스트) | 에디터: 변경 파일 라인 하이라이트 |
 | `read_codex_usage()` | `UsageInfo \| null` | 하단 바 Codex 사용량 |
+| `install_claude_statusline()` | `()` | Claude Code `~/.claude/settings.json`에 스풀 훅 설치(기존 command 보존·위임) |
+| `read_claude_usage()` | `UsageInfo \| null` | 스풀 파일에서 Claude 5시간/주간 % 읽기 |
 | `read_system_resources()` | `{ cpuPercent, ramUsedGb, ramTotalGb }` | 하단 바 CPU/RAM |
 
 - 파일 트리/diff는 기존 `git/mod.rs` 패턴(`Command::new("git")`)을 확장. 파일 목록은 `git ls-files` + `git status --porcelain` + 무변경 파일까지 포함하려면 worktree 디렉토리 walk(단, `.gitignore`/`.git` 제외).
@@ -189,8 +192,9 @@ usagePopover: providerId | null
 **Phase B — 백엔드**
 - B1. `sysinfo` 추가 + `read_system_resources` 명령
 - B2. Codex 사용량 파서 + `read_codex_usage` 명령
-- B3. 파일 트리/읽기/파일별 diff 명령 3종 (+경로 이스케이프 방지)
-- B4. 공유 worktree: create_agent 재사용 분기 + delete_agent 참조 카운트
+- B3. Claude statusLine 훅 설치(`install_claude_statusline`, 기존 command 보존·위임) + 스풀 파일 파서(`read_claude_usage`)
+- B4. 파일 트리/읽기/파일별 diff 명령 3종 (+경로 이스케이프 방지)
+- B5. 공유 worktree: create_agent 재사용 분기 + delete_agent 참조 카운트
 
 **Phase C — 셸 레이아웃/라우팅**
 - C1. shell store(selected/filter/panels/editor) + localStorage
@@ -214,7 +218,7 @@ usagePopover: providerId | null
 ## 7. YAGNI / 범위 밖
 
 - 사용량 대시보드 외부 링크의 실제 브라우저 오픈은 `tauri-plugin-opener`로 연결(이미 있음), 대시보드 URL은 provider별 상수.
-- Claude/Cursor/Gemini 사용량 실제 조회는 **범위 밖**(연동 안 됨 배지). 향후 사용자가 원하면 statusLine 훅 설치 옵션 별도 논의.
+- Cursor/Gemini 사용량 실제 조회는 **범위 밖**(연동 안 됨 배지) — 로컬 소스 부재 확인됨. Claude Code는 statusLine 훅 설치로 포함(위 3.3/6 참조).
 - 프로토타입의 `density`(컴팩트) / `overviewCols` props는 프로토타입 편집용 노브 — 설정 UI에는 넣지 않되, 오버뷰 열 수는 컨테이너 폭 기반 반응형(2~4열)으로 자동 처리.
 - 모바일/반응형은 데스크톱 최소폭(1180px) 기준만.
 
