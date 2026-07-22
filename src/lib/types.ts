@@ -18,6 +18,8 @@ export interface Agent {
   worktreePath: string;
   /** 앱이 자동 생성한 worktree면 true (삭제 시 정리 대상) */
   worktreeManaged: boolean;
+  createdAt: number;
+  updatedAt: number;
   /** 런타임 파생: 3계층 트래킹이 판별하는 실행 상태. 미실행 시 idle. */
   status?: AgentStatus;
   /** 런타임 파생: 마지막 활동 상대 시간 표기 */
