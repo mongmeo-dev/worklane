@@ -13,6 +13,7 @@
   import ProjectDialog from "./ProjectDialog.svelte";
   import AgentDialog from "./AgentDialog.svelte";
   import DeleteAgentDialog from "./DeleteAgentDialog.svelte";
+  import DeleteProjectDialog from "./DeleteProjectDialog.svelte";
 
   interface Props {
     projects: Project[];
@@ -27,6 +28,18 @@
   let agentDialogOpen = $state(false);
   let deleteAgentTarget = $state<Agent | null>(null);
   let deleteDialogOpen = $state(false);
+  let deleteProjectTarget = $state<Project | null>(null);
+  let deleteProjectDialogOpen = $state(false);
+
+  function requestDeleteProject(project: Project) {
+    deleteProjectTarget = project;
+    deleteProjectDialogOpen = true;
+  }
+
+  // 다이얼로그가 닫히면 대상 프로젝트도 정리
+  $effect(() => {
+    if (!deleteProjectDialogOpen) deleteProjectTarget = null;
+  });
 
   function openAgentDialog(p: Project) {
     agentDialogFor = p;
@@ -78,6 +91,10 @@
               onclick={() => openAgentDialog(project)}>
               <Plus class="size-3 text-muted-foreground" />
             </button>
+            <button type="button" class="rounded p-0.5 hover:bg-destructive/10"
+              onclick={() => requestDeleteProject(project)}>
+              <Trash class="size-3 text-muted-foreground" />
+            </button>
             <span class="text-[10px] text-muted-foreground">{project.agents.length}</span>
           </div>
 
@@ -112,6 +129,10 @@
             </div>
           {/each}
         </div>
+      {:else}
+        <p class="px-2 py-6 text-center text-xs text-muted-foreground">
+          아직 프로젝트가 없습니다. 위 + 버튼으로 프로젝트를 추가하세요.
+        </p>
       {/each}
     </div>
   </ScrollArea>
@@ -123,4 +144,7 @@
 {/if}
 {#if deleteAgentTarget}
   <DeleteAgentDialog bind:open={deleteDialogOpen} agent={deleteAgentTarget} />
+{/if}
+{#if deleteProjectTarget}
+  <DeleteProjectDialog bind:open={deleteProjectDialogOpen} project={deleteProjectTarget} />
 {/if}
