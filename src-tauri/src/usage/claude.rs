@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::{UsageInfo, UsageMetric};
+use super::{home_dir, UsageInfo, UsageMetric};
 
 #[derive(Deserialize)]
 struct Spool {
@@ -75,7 +75,7 @@ pub fn parse_spool(json: &str) -> UsageInfo {
 /// Claude Code statusLine 훅이 남긴 최신 스풀 파일을 읽는다.
 pub fn read_usage() -> UsageInfo {
     let disconnected = UsageInfo::disconnected("claude-code", "Claude Code");
-    let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+    let Some(home) = home_dir() else {
         return disconnected;
     };
     let spool = home.join(".claude").join("aiworkspace-usage.json");
@@ -113,11 +113,17 @@ pub fn merge_statusline(existing: &str, script_path: &str) -> Result<String, Str
         None => None,
     };
 
-    let mut status_line = serde_json::Map::new();
+    let mut status_line = object
+        .get("statusLine")
+        .and_then(serde_json::Value::as_object)
+        .cloned()
+        .unwrap_or_default();
     status_line.insert("type".into(), serde_json::json!("command"));
     status_line.insert("command".into(), serde_json::json!(script_path));
     if let Some(delegate) = delegate {
         status_line.insert("aiworkspaceDelegate".into(), serde_json::json!(delegate));
+    } else {
+        status_line.remove("aiworkspaceDelegate");
     }
     object.insert("statusLine".into(), serde_json::Value::Object(status_line));
 
@@ -134,15 +140,65 @@ fn build_statusline_script(spool_path: &std::path::Path, delegate: &str) -> Stri
     let delegate = shell_single_quote(delegate);
 
     format!(
-        "#!/usr/bin/env bash\nIN=$(cat)\nSPOOL={spool}\nprintf '%s' \"$IN\" > \"$SPOOL\"\nDELEGATE={delegate}\nif [ -n \"$DELEGATE\" ]; then\n  printf '%s' \"$IN\" | \"$DELEGATE\"\nfi\n"
+        "#!/usr/bin/env bash\nIN=$(cat)\nSPOOL={spool}\nprintf '%s' \"$IN\" > \"$SPOOL\"\nDELEGATE={delegate}\nif [ -n \"$DELEGATE\" ]; then\n  printf '%s' \"$IN\" | bash -lc \"$DELEGATE\"\nfi\n"
     )
+}
+
+fn write_atomic_with_backup(path: &std::path::Path, content: &str) -> Result<(), String> {
+    use std::io::Write;
+
+    let parent = path.parent().ok_or("설정 파일의 상위 디렉터리가 없음")?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("설정 파일 이름이 올바르지 않음")?;
+    let backup_path = parent.join(format!("{file_name}.aiworkspace-backup"));
+
+    if path.exists() && !backup_path.exists() {
+        std::fs::copy(path, &backup_path).map_err(|error| error.to_string())?;
+    }
+
+    let temporary_path = parent.join(format!(".{file_name}.{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| {
+        let mut temporary =
+            std::fs::File::create(&temporary_path).map_err(|error| error.to_string())?;
+        temporary
+            .write_all(content.as_bytes())
+            .map_err(|error| error.to_string())?;
+        temporary.sync_all().map_err(|error| error.to_string())?;
+
+        if let Ok(metadata) = std::fs::metadata(path) {
+            std::fs::set_permissions(&temporary_path, metadata.permissions())
+                .map_err(|error| error.to_string())?;
+        }
+
+        #[cfg(windows)]
+        if path.exists() {
+            std::fs::remove_file(path).map_err(|error| error.to_string())?;
+        }
+        std::fs::rename(&temporary_path, path).map_err(|error| error.to_string())
+    })();
+
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary_path);
+    }
+    result
 }
 
 /// ~/.claude에 스풀 스크립트를 쓰고 settings.json을 갱신한다.
 pub fn install_statusline() -> Result<(), String> {
-    let home = std::env::var_os("HOME")
-        .map(std::path::PathBuf::from)
-        .ok_or("HOME 환경변수 없음")?;
+    #[cfg(not(unix))]
+    {
+        return Err("Claude statusLine 자동 설치는 현재 Unix 계열에서만 지원됩니다.".into());
+    }
+
+    #[cfg(unix)]
+    install_statusline_unix()
+}
+
+#[cfg(unix)]
+fn install_statusline_unix() -> Result<(), String> {
+    let home = home_dir().ok_or("홈 디렉터리 환경변수 없음")?;
     let directory = home.join(".claude");
     std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
 
@@ -179,7 +235,7 @@ pub fn install_statusline() -> Result<(), String> {
         permissions.set_mode(0o755);
         std::fs::set_permissions(&script_path, permissions).map_err(|error| error.to_string())?;
     }
-    std::fs::write(settings_path, merged).map_err(|error| error.to_string())
+    write_atomic_with_backup(&settings_path, &merged)
 }
 
 #[cfg(test)]
@@ -225,11 +281,11 @@ mod install_tests {
 
     #[test]
     fn 기존_command를_위임값으로_보존한다() {
-        let existing =
-            r#"{"statusLine":{"type":"command","command":"/old/hud.sh"},"theme":"dark"}"#;
+        let existing = r#"{"statusLine":{"type":"command","command":"/old/hud.sh","padding":1},"theme":"dark"}"#;
         let output = merge_statusline(existing, "/path/spool.sh").unwrap();
 
         assert!(output.contains("\"aiworkspaceDelegate\": \"/old/hud.sh\""));
+        assert!(output.contains("\"padding\": 1"));
         assert!(output.contains("\"theme\": \"dark\""));
     }
 
@@ -257,6 +313,22 @@ mod install_tests {
         assert!(output.contains("SPOOL='/tmp/사용량 파일.json'"));
         assert!(output.contains("DELEGATE='경로'\"'\"' 이름/hud.sh'"));
         assert!(output.contains("printf '%s' \"$IN\" > \"$SPOOL\""));
-        assert!(output.contains("printf '%s' \"$IN\" | \"$DELEGATE\""));
+        assert!(output.contains("printf '%s' \"$IN\" | bash -lc \"$DELEGATE\""));
+    }
+
+    #[test]
+    fn 설정을_원자_교체하고_최초_백업을_보존한다() {
+        let dir = std::env::temp_dir().join(format!("settings-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let settings = dir.join("settings.json");
+        let backup = dir.join("settings.json.aiworkspace-backup");
+        std::fs::write(&settings, "이전 설정").unwrap();
+
+        write_atomic_with_backup(&settings, "새 설정").unwrap();
+        write_atomic_with_backup(&settings, "최신 설정").unwrap();
+
+        assert_eq!(std::fs::read_to_string(&settings).unwrap(), "최신 설정");
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), "이전 설정");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

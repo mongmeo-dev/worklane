@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use super::{UsageInfo, UsageMetric};
+use super::{home_dir, UsageInfo, UsageMetric};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Window {
@@ -142,7 +142,7 @@ fn format_reset(epoch: i64) -> String {
 /// 최신 Codex 세션부터 사용량 한도가 있는 파일을 찾아 읽는다.
 pub fn read_usage() -> UsageInfo {
     let disconnected = UsageInfo::disconnected("codex", "Codex CLI");
-    let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+    let Some(home) = home_dir() else {
         return disconnected;
     };
     let root = home.join(".codex").join("sessions");

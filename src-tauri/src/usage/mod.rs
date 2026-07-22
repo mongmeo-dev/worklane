@@ -1,7 +1,16 @@
+use std::path::PathBuf;
+
 use serde::Serialize;
 
-pub mod codex;
 pub mod claude;
+pub mod codex;
+
+/// 플랫폼별 홈 디렉터리 환경변수를 공통 경로로 변환한다.
+pub fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
