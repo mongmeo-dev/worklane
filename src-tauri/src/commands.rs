@@ -80,8 +80,10 @@ pub async fn git_diff(cwd: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn list_worktree_files(
+    store: tauri::State<'_, StoreState>,
     worktree_path: String,
 ) -> Result<Vec<crate::git::FileEntry>, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
     tauri::async_runtime::spawn_blocking(move || crate::git::list_files(&worktree_path))
         .await
         .map_err(|e| e.to_string())?
@@ -89,9 +91,11 @@ pub async fn list_worktree_files(
 
 #[tauri::command]
 pub async fn read_worktree_file(
+    store: tauri::State<'_, StoreState>,
     worktree_path: String,
     rel_path: String,
 ) -> Result<crate::files::FileContent, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         crate::files::read_file(&worktree_path, &rel_path)
     })
@@ -101,9 +105,11 @@ pub async fn read_worktree_file(
 
 #[tauri::command]
 pub async fn git_file_diff(
+    store: tauri::State<'_, StoreState>,
     worktree_path: String,
     rel_path: String,
 ) -> Result<Vec<crate::git::DiffLine>, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
     tauri::async_runtime::spawn_blocking(move || {
         crate::git::file_diff_lines(&worktree_path, &rel_path)
     })
@@ -344,9 +350,44 @@ fn should_manage_worktree(explicit_path: bool, reused: bool) -> bool {
     !explicit_path && !reused
 }
 
+fn registered_worktree_path(store: &StoreState, worktree_path: &str) -> Result<String, String> {
+    let canonical = std::fs::canonicalize(worktree_path).map_err(|error| error.to_string())?;
+    let canonical = canonical.to_string_lossy().into_owned();
+    let conn = store.0.lock().map_err(|error| error.to_string())?;
+    let references = store::repo::count_agents_by_worktree(&conn, &canonical)
+        .map_err(|error| error.to_string())?;
+    if references == 0 {
+        return Err("등록되지 않은 worktree 경로 접근 거부".into());
+    }
+    Ok(canonical)
+}
+
 #[cfg(test)]
 mod shared_worktree_tests {
     use super::*;
+
+    fn store_with_agent(worktree_path: &str) -> StoreState {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        store::repo::migrate(&conn).unwrap();
+        let project = store::repo::insert_project(&conn, "테스트", "/tmp/project", 1).unwrap();
+        store::repo::insert_agent(
+            &conn,
+            &Agent {
+                id: uuid::Uuid::new_v4().to_string(),
+                project_id: project.id,
+                title: "테스트".into(),
+                kind: "codex".into(),
+                command: "codex".into(),
+                branch: "main".into(),
+                worktree_path: worktree_path.into(),
+                worktree_managed: false,
+                created_at: 1,
+                updated_at: 1,
+            },
+        )
+        .unwrap();
+        StoreState(std::sync::Mutex::new(conn))
+    }
 
     #[test]
     fn 마지막_관리_참조만_worktree를_제거한다() {
@@ -362,5 +403,22 @@ mod shared_worktree_tests {
         assert!(!should_manage_worktree(true, true));
         assert!(should_manage_worktree(false, false));
         assert!(!should_manage_worktree(false, true));
+    }
+
+    #[test]
+    fn 등록한_worktree만_파일_명령에_허용한다() {
+        let directory = std::env::temp_dir().join(format!("등록경로-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let canonical = std::fs::canonicalize(&directory).unwrap();
+        let canonical_text = canonical.to_string_lossy().into_owned();
+        let store = store_with_agent(&canonical_text);
+
+        assert_eq!(
+            registered_worktree_path(&store, &canonical_text).unwrap(),
+            canonical_text
+        );
+        assert!(registered_worktree_path(&store, "/").is_err());
+
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

@@ -80,18 +80,17 @@ pub fn diff_working_tree(cwd: &str) -> Result<String, String> {
     // 추적되지 않은 새 파일도 diff에 포함해 검토 누락을 방지한다.
     let untracked_files = run_git(
         repo_root,
-        &["ls-files", "--others", "--exclude-standard"],
+        &["ls-files", "-z", "--others", "--exclude-standard"],
     )?;
 
     let mut out = tracked;
-    for path in untracked_files.lines().filter(|l| !l.trim().is_empty()) {
-        // /dev/null 대비 새 파일 diff. --no-index는 non-zero exit을 내므로 상태코드를 무시한다.
-        if let Ok(d) = run_git_allow_fail(
+    for path in untracked_files.split_terminator('\0').filter(|path| !path.is_empty()) {
+        // /dev/null 대비 새 파일 diff. --no-index는 변경이 있으면 exit code 1을 반환한다.
+        let diff = run_git_diff(
             repo_root,
             &["diff", "--no-color", "--no-ext-diff", "--no-index", "--", "/dev/null", path],
-        ) {
-            out.push_str(&d);
-        }
+        )?;
+        out.push_str(&diff);
     }
 
     Ok(out)
@@ -128,6 +127,31 @@ pub struct DiffLine {
 
 /// git status --porcelain 출력을 파일 경로와 변경 상태로 변환한다.
 pub fn parse_status_porcelain(output: &str) -> Vec<(String, FileChange)> {
+    if output.contains('\0') {
+        let mut records = output.split_terminator('\0');
+        let mut changes = Vec::new();
+        while let Some(record) = records.next() {
+            let Some(code) = record.get(..2) else {
+                continue;
+            };
+            let Some(path) = record.get(3..) else {
+                continue;
+            };
+            let change = if code == "??" {
+                FileChange::New
+            } else if code.contains('D') {
+                FileChange::Deleted
+            } else {
+                FileChange::Modified
+            };
+            changes.push((path.to_string(), change));
+            if code.contains('R') || code.contains('C') {
+                records.next();
+            }
+        }
+        return changes;
+    }
+
     output
         .lines()
         .filter_map(|line| {
@@ -152,15 +176,27 @@ pub fn parse_status_porcelain(output: &str) -> Vec<(String, FileChange)> {
 
 /// 추적 파일과 변경 파일을 합쳐 worktree 파일 목록을 만든다.
 pub fn list_files(worktree: &str) -> Result<Vec<FileEntry>, String> {
-    let tracked = run_git(worktree, &["ls-files"])?;
-    let status = run_git(worktree, &["status", "--porcelain"])?;
-    let numstat = run_git(worktree, &["diff", "--numstat", "HEAD"])?;
+    let tracked = run_git(worktree, &["ls-files", "-z"])?;
+    let status = run_git(
+        worktree,
+        &["status", "--porcelain=v1", "-z", "--untracked-files=all"],
+    )?;
+    let numstat = run_git(worktree, &["diff", "--numstat", "-z", "HEAD"])?;
 
     let changes: std::collections::HashMap<String, FileChange> =
         parse_status_porcelain(&status).into_iter().collect();
-    let stats = parse_numstat(&numstat);
+    let mut stats = parse_numstat(&numstat);
+    for (path, change) in &changes {
+        if *change == FileChange::New && !stats.contains_key(path) {
+            let numstat = run_git_diff(
+                worktree,
+                &["diff", "--numstat", "-z", "--no-index", "--", "/dev/null", path],
+            )?;
+            stats.extend(parse_numstat(&numstat));
+        }
+    }
     let mut paths: std::collections::BTreeSet<String> =
-        tracked.lines().map(str::to_owned).collect();
+        tracked.split_terminator('\0').map(str::to_owned).collect();
     paths.extend(changes.keys().cloned());
 
     Ok(paths
@@ -182,6 +218,29 @@ pub fn list_files(worktree: &str) -> Result<Vec<FileEntry>, String> {
 }
 
 fn parse_numstat(output: &str) -> std::collections::HashMap<String, (u32, u32)> {
+    if output.contains('\0') {
+        let mut records = output.split_terminator('\0');
+        let mut stats = std::collections::HashMap::new();
+        while let Some(record) = records.next() {
+            let mut parts = record.splitn(3, '\t');
+            let add = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
+            let del = parts.next().and_then(|value| value.parse().ok()).unwrap_or(0);
+            let Some(path) = parts.next() else {
+                continue;
+            };
+            let target = if path.is_empty() {
+                records.next();
+                records.next().unwrap_or_default()
+            } else {
+                path
+            };
+            if !target.is_empty() {
+                stats.insert(target.to_string(), (add, del));
+            }
+        }
+        return stats;
+    }
+
     output
         .lines()
         .filter_map(|line| {
@@ -288,7 +347,7 @@ pub fn file_diff_lines(worktree: &str, relative: &str) -> Result<Vec<DiffLine>, 
         return Ok(Vec::new());
     }
 
-    let untracked = run_git_allow_fail(
+    let untracked = run_git_diff(
         worktree,
         &[
             "diff",
@@ -299,8 +358,7 @@ pub fn file_diff_lines(worktree: &str, relative: &str) -> Result<Vec<DiffLine>, 
             "/dev/null",
             relative,
         ],
-    )
-    .unwrap_or_default();
+    )?;
     Ok(parse_unified_diff(&untracked))
 }
 
@@ -326,6 +384,20 @@ fn run_git_allow_fail(cwd: &str, args: &[&str]) -> Result<String, String> {
         .current_dir(cwd)
         .output()
         .map_err(|e| format!("git 실행 실패: {e}"))?;
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// diff 존재를 뜻하는 exit code 1만 허용하고 실제 git 오류는 전달한다.
+fn run_git_diff(cwd: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|error| format!("git 실행 실패: {error}"))?;
+    if !output.status.success() && output.status.code() != Some(1) {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("git {:?} 실패: {}", args, stderr.trim()));
+    }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
@@ -427,11 +499,30 @@ mod file_tests {
     }
 
     #[test]
+    fn nul_porcelain에서_한글_공백과_이름변경을_파싱한다() {
+        let output = "?? 새 폴더/새 파일.txt\0R  변경 후.txt\0변경 전.txt\0";
+        let changes = parse_status_porcelain(output);
+
+        assert!(changes.contains(&("새 폴더/새 파일.txt".into(), FileChange::New)));
+        assert!(changes.contains(&("변경 후.txt".into(), FileChange::Modified)));
+        assert!(!changes.iter().any(|(path, _)| path == "변경 전.txt"));
+    }
+
+    #[test]
     fn numstat에서_파일별_증감을_파싱한다() {
         let stats = parse_numstat("5\t3\tsrc/a.rs\n-\t-\tasset.bin\n");
 
         assert_eq!(stats.get("src/a.rs"), Some(&(5, 3)));
         assert_eq!(stats.get("asset.bin"), Some(&(0, 0)));
+    }
+
+    #[test]
+    fn nul_numstat에서_한글_경로와_이름변경을_파싱한다() {
+        let stats = parse_numstat("2\t1\t새 폴더/파일.txt\03\t4\t\0이전.txt\0이후.txt\0");
+
+        assert_eq!(stats.get("새 폴더/파일.txt"), Some(&(2, 1)));
+        assert_eq!(stats.get("이후.txt"), Some(&(3, 4)));
+        assert!(!stats.contains_key("이전.txt"));
     }
 
     #[test]
@@ -444,15 +535,20 @@ mod file_tests {
     fn 추적_파일과_신규_파일을_변경_통계와_함께_나열한다() {
         let repo = temp_repo();
         std::fs::write(repo.join("tracked.txt"), "new\nextra\n").unwrap();
-        std::fs::write(repo.join("new.txt"), "untracked\n").unwrap();
+        std::fs::create_dir_all(repo.join("새 폴더")).unwrap();
+        std::fs::write(repo.join("새 폴더/새 파일.txt"), "첫 줄\n둘째 줄\n").unwrap();
 
         let files = list_files(repo.to_str().unwrap()).unwrap();
         let tracked = files.iter().find(|file| file.path == "tracked.txt").unwrap();
-        let untracked = files.iter().find(|file| file.path == "new.txt").unwrap();
+        let untracked = files
+            .iter()
+            .find(|file| file.path == "새 폴더/새 파일.txt")
+            .unwrap();
 
         assert_eq!(tracked.change, FileChange::Modified);
         assert_eq!((tracked.add, tracked.del), (2, 1));
         assert_eq!(untracked.change, FileChange::New);
+        assert_eq!((untracked.add, untracked.del), (2, 0));
         std::fs::remove_dir_all(repo).unwrap();
     }
 }
