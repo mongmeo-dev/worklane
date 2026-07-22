@@ -40,7 +40,14 @@
   async function requestDeleteAgent(agent: Agent) {
     // "묻지 않기"가 설정돼 있으면 팝업 없이 안전 제거(force=false)
     if (uiSettings.skipWorktreeDeletePrompt) {
-      await projectStore.removeAgent(agent.id, agent.worktreeManaged, false);
+      try {
+        await projectStore.removeAgent(agent.id, agent.worktreeManaged, false);
+      } catch {
+        // 자동 삭제 실패(예: worktree에 커밋되지 않은 변경) 시 다이얼로그를 열어
+        // 사용자가 상황을 인지하고 강제 삭제 여부를 선택하게 한다.
+        deleteAgentTarget = agent;
+        deleteDialogOpen = true;
+      }
       return;
     }
     deleteAgentTarget = agent;

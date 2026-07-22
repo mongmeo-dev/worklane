@@ -13,11 +13,16 @@
   let hasChanges = $state(false);
   let dontAskAgain = $state(false);
   let error = $state("");
+  let loading = $state(false);
 
   // 다이얼로그가 열릴 때 변경 유무 조회
   $effect(() => {
     if (open && agent) {
-      agentWorktreeHasChanges(agent.id).then((v) => (hasChanges = v)).catch(() => (hasChanges = false));
+      loading = true;
+      agentWorktreeHasChanges(agent.id)
+        .then((v) => (hasChanges = v))
+        .catch(() => (hasChanges = false))
+        .finally(() => (loading = false));
     }
   });
 
@@ -58,9 +63,9 @@
     <Dialog.Footer>
       <Button variant="ghost" onclick={() => (open = false)}>취소</Button>
       {#if hasChanges}
-        <Button variant="destructive" onclick={() => confirm(true)}>강제 삭제</Button>
+        <Button variant="destructive" disabled={loading} onclick={() => confirm(true)}>강제 삭제</Button>
       {:else}
-        <Button variant="destructive" onclick={() => confirm(false)}>삭제</Button>
+        <Button variant="destructive" disabled={loading} onclick={() => confirm(false)}>삭제</Button>
       {/if}
     </Dialog.Footer>
   </Dialog.Content>
