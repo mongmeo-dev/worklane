@@ -4,6 +4,9 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
+use crate::store::{self, models::{Agent, Project}, StoreState};
+use crate::git;
+use crate::pty::now_ms;
 
 /// 세션의 상태파일 디렉토리 경로를 계산한다. (app_data_dir/hooks/<session_id>)
 fn hook_dir_for(app: &tauri::AppHandle, session_id: &str) -> Result<PathBuf, String> {
@@ -88,4 +91,118 @@ pub fn list_system_fonts() -> Result<Vec<String>, String> {
     names.sort();
     names.dedup();
     Ok(names)
+}
+
+#[tauri::command]
+pub fn list_projects(store: tauri::State<'_, StoreState>) -> Result<Vec<Project>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_projects(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_project(
+    store: tauri::State<'_, StoreState>,
+    name: String,
+    path: String,
+) -> Result<Project, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_project(&conn, &name, &path, now_ms() as i64).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_project(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    // managed worktree 정리: 프로젝트 하위 에이전트를 조회해 정리 후 프로젝트 삭제.
+    let projects = store::repo::list_projects(&conn).map_err(|e| e.to_string())?;
+    if let Some(p) = projects.into_iter().find(|p| p.id == id) {
+        for a in &p.agents {
+            if a.worktree_managed {
+                let _ = git::remove_worktree(&p.path, &a.worktree_path, true);
+            }
+        }
+    }
+    store::repo::delete_project(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub fn create_agent(
+    store: tauri::State<'_, StoreState>,
+    app: tauri::AppHandle,
+    project_id: String,
+    project_path: String,
+    title: String,
+    kind: String,
+    command: String,
+    branch: String,
+    start_point: String,
+    worktree_path: Option<String>,
+) -> Result<Agent, String> {
+    use tauri::Manager;
+    // worktree 경로 결정: 미지정 시 app_data_dir/worktrees/<project_id>/<branch>
+    let (wt_path, managed) = match worktree_path {
+        Some(p) if !p.trim().is_empty() => (p, false),
+        _ => {
+            let base = app.path().app_data_dir().map_err(|e| e.to_string())?
+                .join("worktrees").join(&project_id).join(&branch);
+            (base.to_string_lossy().into_owned(), true)
+        }
+    };
+
+    // 1) worktree 생성
+    let created = git::create_worktree(&project_path, &branch, &start_point, &wt_path)?;
+
+    // 2) DB insert (실패 시 worktree 롤백)
+    let now = now_ms() as i64;
+    let agent = Agent {
+        id: uuid::Uuid::new_v4().to_string(),
+        project_id,
+        title,
+        kind,
+        command,
+        branch,
+        worktree_path: created.clone(),
+        worktree_managed: managed,
+        created_at: now,
+        updated_at: now,
+    };
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    if let Err(e) = store::repo::insert_agent(&conn, &agent) {
+        let _ = git::remove_worktree(&project_path, &created, true);
+        return Err(e.to_string());
+    }
+    Ok(agent)
+}
+
+#[tauri::command]
+pub fn agent_worktree_has_changes(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+) -> Result<bool, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    match store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())? {
+        Some(a) => git::worktree_has_changes(&a.worktree_path),
+        None => Ok(false),
+    }
+}
+
+#[tauri::command]
+pub fn delete_agent(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+    remove_worktree: bool,
+    force: bool,
+) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    let agent = store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?;
+    if let Some(a) = &agent {
+        if remove_worktree && a.worktree_managed {
+            // repo_path는 worktree 자체 경로로도 git worktree remove가 동작(공통 .git 참조).
+            git::remove_worktree(&a.worktree_path, &a.worktree_path, force)?;
+        }
+    }
+    store::repo::delete_agent(&conn, &id).map_err(|e| e.to_string())
 }
