@@ -25,6 +25,14 @@ export function readCodexUsage(): Promise<UsageInfo> {
   return invoke<UsageInfo>("read_codex_usage");
 }
 
+export function readClaudeUsage(): Promise<UsageInfo> {
+  return invoke<UsageInfo>("read_claude_usage");
+}
+
+export function installClaudeStatusline(): Promise<void> {
+  return invoke("install_claude_statusline");
+}
+
 /** 로컬 사용량 소스가 없는 CLI의 미연동 표시값을 만든다. */
 export function disconnectedUsage(
   provider: UsageProvider,

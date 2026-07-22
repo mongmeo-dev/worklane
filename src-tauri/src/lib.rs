@@ -36,6 +36,8 @@ pub fn run() {
             commands::git_diff,
             commands::read_system_resources,
             commands::read_codex_usage,
+            commands::read_claude_usage,
+            commands::install_claude_statusline,
             commands::list_system_fonts,
             commands::list_projects,
             commands::create_project,

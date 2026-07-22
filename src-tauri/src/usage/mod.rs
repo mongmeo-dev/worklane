@@ -1,6 +1,7 @@
 use serde::Serialize;
 
 pub mod codex;
+pub mod claude;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
