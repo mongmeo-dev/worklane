@@ -1,4 +1,5 @@
 mod status;
+mod system;
 mod pty;
 mod git;
 mod commands;
@@ -32,6 +33,7 @@ pub fn run() {
             commands::resize_pty,
             commands::close_session,
             commands::git_diff,
+            commands::read_system_resources,
             commands::list_system_fonts,
             commands::list_projects,
             commands::create_project,
