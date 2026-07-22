@@ -155,7 +155,7 @@ fn build_statusline_powershell(spool_path: &std::path::Path, delegate: &str) -> 
     let delegate = powershell_single_quote(delegate);
 
     format!(
-        "$inputJson = [Console]::In.ReadToEnd()\n$spool = {spool}\n$temporary = \"$spool.$PID.tmp\"\ntry {{\n  [System.IO.File]::WriteAllText($temporary, $inputJson, [System.Text.UTF8Encoding]::new($false))\n  Move-Item -LiteralPath $temporary -Destination $spool -Force\n}} finally {{\n  if (Test-Path -LiteralPath $temporary) {{ Remove-Item -LiteralPath $temporary -Force }}\n}}\n$delegate = {delegate}\nif (-not [string]::IsNullOrWhiteSpace($delegate)) {{\n  $inputJson | powershell -NoProfile -Command $delegate\n}}\n"
+        "$inputJson = [Console]::In.ReadToEnd()\n$spool = {spool}\n$temporary = \"$spool.$PID.tmp\"\ntry {{\n  [System.IO.File]::WriteAllText($temporary, $inputJson, [System.Text.UTF8Encoding]::new($false))\n  Move-Item -LiteralPath $temporary -Destination $spool -Force\n}} finally {{\n  if (Test-Path -LiteralPath $temporary) {{ Remove-Item -LiteralPath $temporary -Force }}\n}}\n$delegate = {delegate}\nif (-not [string]::IsNullOrWhiteSpace($delegate)) {{\n  $delegateScript = [scriptblock]::Create('$input | ' + $delegate)\n  $inputJson | & $delegateScript\n}}\n"
     )
 }
 
@@ -389,7 +389,8 @@ mod install_tests {
         assert!(output.contains("$delegate = '& ''C:/도구/상태.ps1'' -Mode compact'"));
         assert!(output.contains("[System.IO.File]::WriteAllText($temporary, $inputJson"));
         assert!(output.contains("Move-Item -LiteralPath $temporary -Destination $spool -Force"));
-        assert!(output.contains("$inputJson | powershell -NoProfile -Command $delegate"));
+        assert!(output.contains("$delegateScript = [scriptblock]::Create('$input | ' + $delegate)"));
+        assert!(output.contains("$inputJson | & $delegateScript"));
     }
 
     #[test]
