@@ -188,11 +188,7 @@ pub fn list_files(worktree: &str) -> Result<Vec<FileEntry>, String> {
     let mut stats = parse_numstat(&numstat);
     for (path, change) in &changes {
         if *change == FileChange::New && !stats.contains_key(path) {
-            let numstat = run_git_diff(
-                worktree,
-                &["diff", "--numstat", "-z", "--no-index", "--", "/dev/null", path],
-            )?;
-            stats.extend(parse_numstat(&numstat));
+            stats.insert(path.clone(), untracked_file_stats(worktree, path)?);
         }
     }
     let mut paths: std::collections::BTreeSet<String> =
@@ -258,6 +254,48 @@ fn split_path(path: &str) -> (String, String) {
         Some(index) => (path[..index].to_string(), path[index + 1..].to_string()),
         None => ("/".into(), path.to_string()),
     }
+}
+
+fn untracked_file_stats(worktree: &str, relative: &str) -> Result<(u32, u32), String> {
+    use std::io::Read;
+
+    crate::files::validate_relative_path(relative)?;
+    let base = std::fs::canonicalize(worktree).map_err(|error| error.to_string())?;
+    let target = base.join(relative);
+    let parent = target.parent().ok_or("파일의 상위 경로가 없음")?;
+    let canonical_parent = std::fs::canonicalize(parent).map_err(|error| error.to_string())?;
+    if !canonical_parent.starts_with(&base) {
+        return Err("worktree 밖 경로 접근 거부".into());
+    }
+
+    let metadata = std::fs::symlink_metadata(&target).map_err(|error| error.to_string())?;
+    if metadata.file_type().is_symlink() {
+        return Ok((1, 0));
+    }
+    if !metadata.is_file() {
+        return Ok((0, 0));
+    }
+
+    let mut file = std::fs::File::open(&target).map_err(|error| error.to_string())?;
+    let mut buffer = [0_u8; 8192];
+    let mut line_breaks = 0_u64;
+    let mut saw_bytes = false;
+    let mut ends_with_newline = false;
+    loop {
+        let read = file.read(&mut buffer).map_err(|error| error.to_string())?;
+        if read == 0 {
+            break;
+        }
+        let chunk = &buffer[..read];
+        if chunk.contains(&0) {
+            return Ok((0, 0));
+        }
+        saw_bytes = true;
+        line_breaks += chunk.iter().filter(|byte| **byte == b'\n').count() as u64;
+        ends_with_newline = chunk.last() == Some(&b'\n');
+    }
+    let lines = line_breaks + u64::from(saw_bytes && !ends_with_newline);
+    Ok((lines.min(u32::MAX as u64) as u32, 0))
 }
 
 /// unified diff 한 파일 분량을 화면 표시용 라인 배열로 변환한다.
@@ -529,6 +567,16 @@ mod file_tests {
     fn 경로를_디렉터리와_이름으로_나눈다() {
         assert_eq!(split_path("src/a.rs"), ("src".into(), "a.rs".into()));
         assert_eq!(split_path("README.md"), ("/".into(), "README.md".into()));
+    }
+
+    #[test]
+    fn 미추적_텍스트는_git_프로세스_없이_추가_줄수를_센다() {
+        let repo = temp_repo();
+        std::fs::write(repo.join("새 파일.txt"), "첫 줄\n둘째 줄").unwrap();
+
+        assert_eq!(untracked_file_stats(repo.to_str().unwrap(), "새 파일.txt").unwrap(), (2, 0));
+
+        std::fs::remove_dir_all(repo).unwrap();
     }
 
     #[test]

@@ -140,8 +140,28 @@ fn build_statusline_script(spool_path: &std::path::Path, delegate: &str) -> Stri
     let delegate = shell_single_quote(delegate);
 
     format!(
-        "#!/usr/bin/env bash\nIN=$(cat)\nSPOOL={spool}\nprintf '%s' \"$IN\" > \"$SPOOL\"\nDELEGATE={delegate}\nif [ -n \"$DELEGATE\" ]; then\n  printf '%s' \"$IN\" | bash -lc \"$DELEGATE\"\nfi\n"
+        "#!/usr/bin/env bash\nIN=$(cat)\nSPOOL={spool}\nTEMPORARY=\"${{SPOOL}}.tmp.$$\"\ntrap 'rm -f -- \"$TEMPORARY\"' EXIT\nprintf '%s' \"$IN\" > \"$TEMPORARY\"\nmv -f -- \"$TEMPORARY\" \"$SPOOL\"\ntrap - EXIT\nDELEGATE={delegate}\nif [ -n \"$DELEGATE\" ]; then\n  printf '%s' \"$IN\" | bash -lc \"$DELEGATE\"\nfi\n"
     )
+}
+
+#[cfg(any(windows, test))]
+fn powershell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+#[cfg(any(windows, test))]
+fn build_statusline_powershell(spool_path: &std::path::Path, delegate: &str) -> String {
+    let spool = powershell_single_quote(&spool_path.to_string_lossy().replace('\\', "/"));
+    let delegate = powershell_single_quote(delegate);
+
+    format!(
+        "$inputJson = [Console]::In.ReadToEnd()\n$spool = {spool}\n$temporary = \"$spool.$PID.tmp\"\ntry {{\n  [System.IO.File]::WriteAllText($temporary, $inputJson, [System.Text.UTF8Encoding]::new($false))\n  Move-Item -LiteralPath $temporary -Destination $spool -Force\n}} finally {{\n  if (Test-Path -LiteralPath $temporary) {{ Remove-Item -LiteralPath $temporary -Force }}\n}}\n$delegate = {delegate}\nif (-not [string]::IsNullOrWhiteSpace($delegate)) {{\n  $inputJson | powershell -NoProfile -Command $delegate\n}}\n"
+    )
+}
+
+#[cfg(any(windows, test))]
+fn windows_statusline_command() -> &'static str {
+    "powershell -NoProfile -File ~/.claude/aiworkspace-statusline.ps1"
 }
 
 fn write_atomic_with_backup(path: &std::path::Path, content: &str) -> Result<(), String> {
@@ -186,14 +206,19 @@ fn write_atomic_with_backup(path: &std::path::Path, content: &str) -> Result<(),
 }
 
 /// ~/.claude에 스풀 스크립트를 쓰고 settings.json을 갱신한다.
+#[cfg(unix)]
 pub fn install_statusline() -> Result<(), String> {
-    #[cfg(not(unix))]
-    {
-        return Err("Claude statusLine 자동 설치는 현재 Unix 계열에서만 지원됩니다.".into());
-    }
-
-    #[cfg(unix)]
     install_statusline_unix()
+}
+
+#[cfg(windows)]
+pub fn install_statusline() -> Result<(), String> {
+    install_statusline_windows()
+}
+
+#[cfg(not(any(unix, windows)))]
+pub fn install_statusline() -> Result<(), String> {
+    Err("Claude statusLine 자동 설치를 지원하지 않는 플랫폼입니다.".into())
 }
 
 #[cfg(unix)]
@@ -235,6 +260,42 @@ fn install_statusline_unix() -> Result<(), String> {
         permissions.set_mode(0o755);
         std::fs::set_permissions(&script_path, permissions).map_err(|error| error.to_string())?;
     }
+    write_atomic_with_backup(&settings_path, &merged)
+}
+
+#[cfg(windows)]
+fn install_statusline_windows() -> Result<(), String> {
+    let home = home_dir().ok_or("홈 디렉터리 환경변수 없음")?;
+    install_statusline_windows_at(&home)
+}
+
+#[cfg(any(windows, test))]
+fn install_statusline_windows_at(home: &std::path::Path) -> Result<(), String> {
+    let directory = home.join(".claude");
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+
+    let script_path = directory.join("aiworkspace-statusline.ps1");
+    let spool_path = directory.join("aiworkspace-usage.json");
+    let settings_path = directory.join("settings.json");
+    let existing = match std::fs::read_to_string(&settings_path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(error.to_string()),
+    };
+    let merged = merge_statusline(&existing, windows_statusline_command())?;
+    let delegate = serde_json::from_str::<serde_json::Value>(&merged)
+        .ok()
+        .and_then(|settings| {
+            settings
+                .get("statusLine")?
+                .get("aiworkspaceDelegate")?
+                .as_str()
+                .map(str::to_owned)
+        })
+        .unwrap_or_default();
+    let script = build_statusline_powershell(&spool_path, &delegate);
+
+    std::fs::write(script_path, script).map_err(|error| error.to_string())?;
     write_atomic_with_backup(&settings_path, &merged)
 }
 
@@ -312,8 +373,52 @@ mod install_tests {
 
         assert!(output.contains("SPOOL='/tmp/사용량 파일.json'"));
         assert!(output.contains("DELEGATE='경로'\"'\"' 이름/hud.sh'"));
-        assert!(output.contains("printf '%s' \"$IN\" > \"$SPOOL\""));
+        assert!(output.contains("printf '%s' \"$IN\" > \"$TEMPORARY\""));
+        assert!(output.contains("mv -f -- \"$TEMPORARY\" \"$SPOOL\""));
         assert!(output.contains("printf '%s' \"$IN\" | bash -lc \"$DELEGATE\""));
+    }
+
+    #[test]
+    fn powershell_스크립트는_원자_스풀과_위임을_지원한다() {
+        let output = build_statusline_powershell(
+            Path::new("C:/Users/사용자 이름/.claude/usage.json"),
+            "& 'C:/도구/상태.ps1' -Mode compact",
+        );
+
+        assert!(output.contains("$spool = 'C:/Users/사용자 이름/.claude/usage.json'"));
+        assert!(output.contains("$delegate = '& ''C:/도구/상태.ps1'' -Mode compact'"));
+        assert!(output.contains("[System.IO.File]::WriteAllText($temporary, $inputJson"));
+        assert!(output.contains("Move-Item -LiteralPath $temporary -Destination $spool -Force"));
+        assert!(output.contains("$inputJson | powershell -NoProfile -Command $delegate"));
+    }
+
+    #[test]
+    fn windows_statusline_command는_셸과_사용자_경로에_독립적이다() {
+        assert_eq!(
+            windows_statusline_command(),
+            "powershell -NoProfile -File ~/.claude/aiworkspace-statusline.ps1"
+        );
+    }
+
+    #[test]
+    fn windows_설치는_powershell_도우미와_위임_설정을_생성한다() {
+        let home = std::env::temp_dir().join(format!("windows-hook-{}", uuid::Uuid::new_v4()));
+        let directory = home.join(".claude");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            directory.join("settings.json"),
+            r#"{"statusLine":{"type":"command","command":"기존 상태 명령 --compact"}}"#,
+        )
+        .unwrap();
+
+        install_statusline_windows_at(&home).unwrap();
+
+        let settings = std::fs::read_to_string(directory.join("settings.json")).unwrap();
+        let script = std::fs::read_to_string(directory.join("aiworkspace-statusline.ps1")).unwrap();
+        assert!(settings.contains(windows_statusline_command()));
+        assert!(settings.contains("기존 상태 명령 --compact"));
+        assert!(script.contains("$delegate = '기존 상태 명령 --compact'"));
+        std::fs::remove_dir_all(home).unwrap();
     }
 
     #[test]
