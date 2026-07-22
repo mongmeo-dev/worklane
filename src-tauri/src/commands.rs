@@ -190,8 +190,9 @@ pub fn delete_project(
     //      재선택하도록 한다 — 여기서는 그 판단을 사용자에게 되돌릴 수 없으므로 로그로 남긴다.)
     if let Some(p) = &target {
         let mut failed_worktrees = Vec::new();
+        let mut removed = std::collections::HashSet::new();
         for a in &p.agents {
-            if a.worktree_managed {
+            if a.worktree_managed && removed.insert(a.worktree_path.clone()) {
                 if let Err(e) = git::remove_worktree(&p.path, &a.worktree_path, true) {
                     failed_worktrees.push((a.worktree_path.clone(), e));
                 }
@@ -227,19 +228,27 @@ pub fn create_agent(
 ) -> Result<Agent, String> {
     use tauri::Manager;
     // worktree 경로 결정: 미지정 시 app_data_dir/worktrees/<project_id>/<branch>
-    let (wt_path, managed) = match worktree_path {
-        Some(p) if !p.trim().is_empty() => (p, false),
+    let wt_path = match worktree_path {
+        Some(p) if !p.trim().is_empty() => p,
         _ => {
             let base = app.path().app_data_dir().map_err(|e| e.to_string())?
                 .join("worktrees").join(&project_id).join(&branch);
-            (base.to_string_lossy().into_owned(), true)
+            base.to_string_lossy().into_owned()
         }
     };
 
-    // 1) worktree 생성
-    let created = git::create_worktree(&project_path, &branch, &start_point, &wt_path)?;
+    // 1) 이미 존재하는 worktree는 재사용하고, 새 경로만 앱 관리 대상으로 생성한다.
+    let (created, managed) = if git::is_existing_worktree(&wt_path) {
+        let canonical = std::fs::canonicalize(&wt_path).map_err(|e| e.to_string())?;
+        (canonical.to_string_lossy().into_owned(), false)
+    } else {
+        (
+            git::create_worktree(&project_path, &branch, &start_point, &wt_path)?,
+            true,
+        )
+    };
 
-    // 2) DB insert (실패 시 worktree 롤백)
+    // 2) DB insert. 새로 만든 worktree만 실패 시 롤백하며, 재사용 경로는 건드리지 않는다.
     let now = now_ms() as i64;
     let agent = Agent {
         id: uuid::Uuid::new_v4().to_string(),
@@ -253,9 +262,19 @@ pub fn create_agent(
         created_at: now,
         updated_at: now,
     };
-    let conn = store.0.lock().map_err(|e| e.to_string())?;
-    if let Err(e) = store::repo::insert_agent(&conn, &agent) {
-        let _ = git::remove_worktree(&project_path, &created, true);
+    let inserted = match store.0.lock() {
+        Ok(conn) => store::repo::insert_agent(&conn, &agent),
+        Err(error) => {
+            if managed {
+                let _ = git::remove_worktree(&project_path, &created, true);
+            }
+            return Err(error.to_string());
+        }
+    };
+    if let Err(e) = inserted {
+        if managed {
+            let _ = git::remove_worktree(&project_path, &created, true);
+        }
         return Err(e.to_string());
     }
     Ok(agent)
@@ -280,22 +299,53 @@ pub fn delete_agent(
     remove_worktree: bool,
     force: bool,
 ) -> Result<(), String> {
-    // 1) 짧게 락을 잡고 조회 후 즉시 락 해제.
-    let agent = {
+    // 1) 짧게 락을 잡고 대상과 현재 참조 수를 함께 조회한 뒤 즉시 락 해제.
+    let target = {
         let conn = store.0.lock().map_err(|e| e.to_string())?;
-        store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?
+        let agent = store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?;
+        match agent {
+            Some(agent) => {
+                let references = store::repo::count_agents_by_worktree(
+                    &conn,
+                    &agent.worktree_path,
+                )
+                .map_err(|e| e.to_string())?;
+                Some((agent, references))
+            }
+            None => None,
+        }
     };
 
-    // 2) 락 밖에서 blocking git 호출 수행. 단일 에이전트 삭제이므로 실패(dirty 등)는
-    //    `?`로 전파해 사용자가 강제삭제를 재선택하도록 한다(기존 동작 유지).
-    if let Some(a) = &agent {
-        if remove_worktree && a.worktree_managed {
+    // 2) 마지막 관리 참조만 락 밖에서 실제 worktree를 제거한다.
+    if let Some((agent, references)) = &target {
+        if should_remove_worktree(remove_worktree, agent.worktree_managed, *references) {
             // repo_path는 worktree 자체 경로로도 git worktree remove가 동작(공통 .git 참조).
-            git::remove_worktree(&a.worktree_path, &a.worktree_path, force)?;
+            git::remove_worktree(&agent.worktree_path, &agent.worktree_path, force)?;
         }
     }
 
-    // 3) 다시 짧게 락을 잡고 삭제(DB).
-    let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::delete_agent(&conn, &id).map_err(|e| e.to_string())
+    // 3) 공유 관리 책임 이전과 DB 삭제를 한 트랜잭션으로 처리한다.
+    let mut conn = store.0.lock().map_err(|e| e.to_string())?;
+    match &target {
+        Some((agent, _)) => store::repo::delete_agent_with_worktree_transfer(&mut conn, agent)
+            .map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
+}
+
+fn should_remove_worktree(remove_requested: bool, managed: bool, references: i64) -> bool {
+    remove_requested && managed && references <= 1
+}
+
+#[cfg(test)]
+mod shared_worktree_tests {
+    use super::*;
+
+    #[test]
+    fn 마지막_관리_참조만_worktree를_제거한다() {
+        assert!(should_remove_worktree(true, true, 1));
+        assert!(!should_remove_worktree(true, true, 2));
+        assert!(!should_remove_worktree(true, false, 1));
+        assert!(!should_remove_worktree(false, true, 1));
+    }
 }

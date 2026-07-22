@@ -116,6 +116,48 @@ pub fn get_agent(conn: &Connection, id: &str) -> rusqlite::Result<Option<Agent>>
     }
 }
 
+/// 주어진 worktree_path를 사용하는 에이전트 수를 반환한다.
+pub fn count_agents_by_worktree(conn: &Connection, worktree_path: &str) -> rusqlite::Result<i64> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM agents WHERE worktree_path = ?1",
+        params![worktree_path],
+        |row| row.get(0),
+    )
+}
+
+/// 삭제될 관리 에이전트를 제외한 다음 참조자에게 worktree 관리 책임을 이전한다.
+pub fn transfer_worktree_management(
+    conn: &Connection,
+    worktree_path: &str,
+    excluding_agent_id: &str,
+) -> rusqlite::Result<bool> {
+    let changed = conn.execute(
+        "UPDATE agents SET worktree_managed = 1
+         WHERE id = (
+             SELECT id FROM agents
+             WHERE worktree_path = ?1 AND id <> ?2
+             ORDER BY created_at, id
+             LIMIT 1
+         )",
+        params![worktree_path, excluding_agent_id],
+    )?;
+    Ok(changed > 0)
+}
+
+/// 에이전트 삭제와 공유 worktree 관리 책임 이전을 한 트랜잭션으로 처리한다.
+pub fn delete_agent_with_worktree_transfer(
+    conn: &mut Connection,
+    agent: &Agent,
+) -> rusqlite::Result<()> {
+    let transaction = conn.transaction()?;
+    let references = count_agents_by_worktree(&transaction, &agent.worktree_path)?;
+    if agent.worktree_managed && references > 1 {
+        transfer_worktree_management(&transaction, &agent.worktree_path, &agent.id)?;
+    }
+    delete_agent(&transaction, &agent.id)?;
+    transaction.commit()
+}
+
 pub fn delete_agent(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM agents WHERE id = ?1", params![id])?;
     Ok(())
@@ -168,5 +210,56 @@ mod tests {
         delete_project(&conn, &p.id).unwrap();
         assert!(get_agent(&conn, &a.id).unwrap().is_none());
         assert_eq!(list_projects(&conn).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn 같은_worktree의_에이전트_참조를_센다() {
+        let conn = mem();
+        let project = insert_project(&conn, "proj", "/tmp/proj", 10).unwrap();
+        let mut first = sample_agent(&project.id);
+        first.worktree_path = "/tmp/shared".into();
+        let mut second = sample_agent(&project.id);
+        second.worktree_path = "/tmp/shared".into();
+        insert_agent(&conn, &first).unwrap();
+        insert_agent(&conn, &second).unwrap();
+
+        assert_eq!(count_agents_by_worktree(&conn, "/tmp/shared").unwrap(), 2);
+        assert_eq!(count_agents_by_worktree(&conn, "/tmp/other").unwrap(), 0);
+    }
+
+    #[test]
+    fn 공유_worktree의_관리_책임을_다음_에이전트로_이전한다() {
+        let conn = mem();
+        let project = insert_project(&conn, "proj", "/tmp/proj", 10).unwrap();
+        let mut owner = sample_agent(&project.id);
+        owner.worktree_path = "/tmp/shared".into();
+        owner.worktree_managed = true;
+        let mut next = sample_agent(&project.id);
+        next.worktree_path = "/tmp/shared".into();
+        next.worktree_managed = false;
+        insert_agent(&conn, &owner).unwrap();
+        insert_agent(&conn, &next).unwrap();
+
+        assert!(transfer_worktree_management(&conn, "/tmp/shared", &owner.id).unwrap());
+        assert!(get_agent(&conn, &next.id).unwrap().unwrap().worktree_managed);
+    }
+
+    #[test]
+    fn 관리_에이전트_삭제와_책임_이전을_한_트랜잭션으로_처리한다() {
+        let mut conn = mem();
+        let project = insert_project(&conn, "proj", "/tmp/proj", 10).unwrap();
+        let mut owner = sample_agent(&project.id);
+        owner.worktree_path = "/tmp/shared".into();
+        owner.worktree_managed = true;
+        let mut next = sample_agent(&project.id);
+        next.worktree_path = "/tmp/shared".into();
+        next.worktree_managed = false;
+        insert_agent(&conn, &owner).unwrap();
+        insert_agent(&conn, &next).unwrap();
+
+        delete_agent_with_worktree_transfer(&mut conn, &owner).unwrap();
+
+        assert!(get_agent(&conn, &owner.id).unwrap().is_none());
+        assert!(get_agent(&conn, &next.id).unwrap().unwrap().worktree_managed);
     }
 }

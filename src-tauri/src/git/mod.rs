@@ -3,6 +3,11 @@ use std::process::Command;
 /// worktree에 uncommitted 변경이 있어 remove가 거부됐음을 나타내는 판별 문자열.
 pub const ERR_WORKTREE_DIRTY: &str = "WORKTREE_DIRTY";
 
+/// 경로가 이미 유효한 git worktree인지 확인한다.
+pub fn is_existing_worktree(path: &str) -> bool {
+    std::path::Path::new(path).join(".git").exists()
+}
+
 /// 새 브랜치로 worktree를 생성한다. branch가 이미 있으면 -b 없이 붙인다.
 /// 생성된 worktree의 절대경로를 반환한다.
 pub fn create_worktree(
@@ -370,6 +375,18 @@ mod worktree_tests {
         assert_eq!(err, ERR_WORKTREE_DIRTY);
         // force로 정리
         remove_worktree(repo.to_str().unwrap(), &created, true).unwrap();
+    }
+
+    #[test]
+    fn dot_git이_있는_경로를_기존_worktree로_판정한다() {
+        let dir = std::env::temp_dir().join(format!("existing-wt-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        assert!(!is_existing_worktree(dir.to_str().unwrap()));
+        std::fs::write(dir.join(".git"), "gitdir: /tmp/example").unwrap();
+        assert!(is_existing_worktree(dir.to_str().unwrap()));
+
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
 
