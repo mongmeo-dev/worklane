@@ -6,9 +6,9 @@ describe("terminalSettings store", () => {
     vi.resetModules();
   });
 
-  it("기본값은 monospace / 13", async () => {
+  it("기본값은 JetBrains Mono / 13", async () => {
     const { terminalSettings } = await import("./terminalSettings.svelte");
-    expect(terminalSettings.fontFamily).toBe("monospace");
+    expect(terminalSettings.fontFamily).toBe("JetBrains Mono");
     expect(terminalSettings.fontSize).toBe(13);
   });
 
@@ -27,11 +27,11 @@ describe("terminalSettings store", () => {
     expect(terminalSettings.fontSize).toBe(20);
   });
 
-  it("빈 fontFamily는 monospace로 폴백한다", async () => {
+  it("빈 fontFamily는 JetBrains Mono로 폴백한다", async () => {
     const { terminalSettings } = await import("./terminalSettings.svelte");
     terminalSettings.setFontFamily("Menlo");
     terminalSettings.setFontFamily("");
-    expect(terminalSettings.fontFamily).toBe("monospace");
+    expect(terminalSettings.fontFamily).toBe("JetBrains Mono");
   });
 
   it("init은 저장된 값을 복원한다", async () => {
@@ -49,7 +49,7 @@ describe("terminalSettings store", () => {
     localStorage.setItem("settings:terminal-font", "{{not json");
     const { terminalSettings } = await import("./terminalSettings.svelte");
     terminalSettings.init();
-    expect(terminalSettings.fontFamily).toBe("monospace");
+    expect(terminalSettings.fontFamily).toBe("JetBrains Mono");
     expect(terminalSettings.fontSize).toBe(13);
   });
 });
