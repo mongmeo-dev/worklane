@@ -1,10 +1,14 @@
 <script lang="ts">
   import type { Agent, Project } from "$lib/types";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import { Button } from "$lib/components/ui/button";
   import { agentKindLabels } from "$lib/data/labels";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
   import StatusDot from "./StatusDot.svelte";
   import Folder from "@lucide/svelte/icons/folder";
+  import Plus from "@lucide/svelte/icons/plus";
+  import ProjectDialog from "./ProjectDialog.svelte";
+  import AgentDialog from "./AgentDialog.svelte";
 
   interface Props {
     projects: Project[];
@@ -13,11 +17,27 @@
   }
 
   let { projects, selectedAgentId, onSelect }: Props = $props();
+
+  let projectDialogOpen = $state(false);
+  let agentDialogFor = $state<Project | null>(null);
+  let agentDialogOpen = $state(false);
+
+  function openAgentDialog(p: Project) {
+    agentDialogFor = p;
+    agentDialogOpen = true;
+  }
+  // 다이얼로그가 닫히면 대상 프로젝트도 정리
+  $effect(() => {
+    if (!agentDialogOpen) agentDialogFor = null;
+  });
 </script>
 
 <aside class="flex h-full w-full flex-col border-r bg-sidebar">
   <div class="flex h-9 items-center px-3">
     <span class="text-xs font-medium text-muted-foreground">프로젝트 & 에이전트</span>
+    <Button variant="ghost" size="icon" class="ml-auto size-6" onclick={() => (projectDialogOpen = true)}>
+      <Plus class="size-3.5" />
+    </Button>
   </div>
 
   <ScrollArea class="flex-1">
@@ -27,9 +47,11 @@
           <div class="flex items-center gap-1.5 px-2 py-1">
             <Folder class="size-3.5 text-muted-foreground" />
             <span class="truncate text-xs font-semibold">{project.name}</span>
-            <span class="ml-auto text-[10px] text-muted-foreground">
-              {project.agents.length}
-            </span>
+            <button type="button" class="ml-auto rounded p-0.5 hover:bg-sidebar-accent"
+              onclick={() => openAgentDialog(project)}>
+              <Plus class="size-3 text-muted-foreground" />
+            </button>
+            <span class="text-[10px] text-muted-foreground">{project.agents.length}</span>
           </div>
 
           {#each project.agents as agent (agent.id)}
@@ -58,3 +80,8 @@
     </div>
   </ScrollArea>
 </aside>
+
+<ProjectDialog bind:open={projectDialogOpen} />
+{#if agentDialogFor}
+  <AgentDialog bind:open={agentDialogOpen} project={agentDialogFor} />
+{/if}
