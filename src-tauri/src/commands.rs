@@ -78,6 +78,73 @@ pub async fn git_diff(cwd: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
+#[tauri::command]
+pub async fn list_worktree_files(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<Vec<crate::git::FileEntry>, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::list_files(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn read_worktree_file(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    rel_path: String,
+) -> Result<crate::files::FileContent, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::files::read_file(&worktree_path, &rel_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_file_diff(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    rel_path: String,
+) -> Result<Vec<crate::git::DiffLine>, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::git::file_diff_lines(&worktree_path, &rel_path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn read_system_resources() -> Result<crate::system::SystemResources, String> {
+    tauri::async_runtime::spawn_blocking(crate::system::read_resources)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn read_codex_usage() -> Result<crate::usage::UsageInfo, String> {
+    tauri::async_runtime::spawn_blocking(crate::usage::codex::read_usage)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn read_claude_usage() -> Result<crate::usage::UsageInfo, String> {
+    tauri::async_runtime::spawn_blocking(crate::usage::claude::read_usage)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn install_claude_statusline() -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(crate::usage::claude::install_statusline)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// 시스템에 설치된 폰트 패밀리 이름을 열거한다. 자동완성 목록으로 사용된다.
 /// 실패 시 에러 문자열을 반환하며, 프론트는 이를 조용히 무시하고 빈 목록으로 폴백한다.
 #[tauri::command]
@@ -129,8 +196,9 @@ pub fn delete_project(
     //      재선택하도록 한다 — 여기서는 그 판단을 사용자에게 되돌릴 수 없으므로 로그로 남긴다.)
     if let Some(p) = &target {
         let mut failed_worktrees = Vec::new();
+        let mut removed = std::collections::HashSet::new();
         for a in &p.agents {
-            if a.worktree_managed {
+            if a.worktree_managed && removed.insert(a.worktree_path.clone()) {
                 if let Err(e) = git::remove_worktree(&p.path, &a.worktree_path, true) {
                     failed_worktrees.push((a.worktree_path.clone(), e));
                 }
@@ -165,20 +233,31 @@ pub fn create_agent(
     worktree_path: Option<String>,
 ) -> Result<Agent, String> {
     use tauri::Manager;
+    let explicit_path = worktree_path
+        .as_deref()
+        .is_some_and(|path| !path.trim().is_empty());
     // worktree 경로 결정: 미지정 시 app_data_dir/worktrees/<project_id>/<branch>
-    let (wt_path, managed) = match worktree_path {
-        Some(p) if !p.trim().is_empty() => (p, false),
+    let wt_path = match worktree_path {
+        Some(p) if !p.trim().is_empty() => p,
         _ => {
             let base = app.path().app_data_dir().map_err(|e| e.to_string())?
                 .join("worktrees").join(&project_id).join(&branch);
-            (base.to_string_lossy().into_owned(), true)
+            base.to_string_lossy().into_owned()
         }
     };
 
-    // 1) worktree 생성
-    let created = git::create_worktree(&project_path, &branch, &start_point, &wt_path)?;
+    // 1) 이미 존재하는 worktree는 재사용하고, 새 경로만 앱 관리 대상으로 생성한다.
+    let reused = git::is_existing_worktree(&wt_path);
+    let created = if reused {
+        let canonical = std::fs::canonicalize(&wt_path).map_err(|e| e.to_string())?;
+        canonical.to_string_lossy().into_owned()
+    } else {
+        git::create_worktree(&project_path, &branch, &start_point, &wt_path)?
+    };
+    let created_new = !reused;
+    let managed = should_manage_worktree(explicit_path, reused);
 
-    // 2) DB insert (실패 시 worktree 롤백)
+    // 2) DB insert. 새로 만든 worktree만 실패 시 롤백하며, 재사용 경로는 건드리지 않는다.
     let now = now_ms() as i64;
     let agent = Agent {
         id: uuid::Uuid::new_v4().to_string(),
@@ -192,9 +271,19 @@ pub fn create_agent(
         created_at: now,
         updated_at: now,
     };
-    let conn = store.0.lock().map_err(|e| e.to_string())?;
-    if let Err(e) = store::repo::insert_agent(&conn, &agent) {
-        let _ = git::remove_worktree(&project_path, &created, true);
+    let inserted = match store.0.lock() {
+        Ok(conn) => store::repo::insert_agent(&conn, &agent),
+        Err(error) => {
+            if created_new {
+                let _ = git::remove_worktree(&project_path, &created, true);
+            }
+            return Err(error.to_string());
+        }
+    };
+    if let Err(e) = inserted {
+        if created_new {
+            let _ = git::remove_worktree(&project_path, &created, true);
+        }
         return Err(e.to_string());
     }
     Ok(agent)
@@ -219,22 +308,117 @@ pub fn delete_agent(
     remove_worktree: bool,
     force: bool,
 ) -> Result<(), String> {
-    // 1) 짧게 락을 잡고 조회 후 즉시 락 해제.
-    let agent = {
+    // 1) 짧게 락을 잡고 대상과 현재 참조 수를 함께 조회한 뒤 즉시 락 해제.
+    let target = {
         let conn = store.0.lock().map_err(|e| e.to_string())?;
-        store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?
+        let agent = store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?;
+        match agent {
+            Some(agent) => {
+                let references = store::repo::count_agents_by_worktree(
+                    &conn,
+                    &agent.worktree_path,
+                )
+                .map_err(|e| e.to_string())?;
+                Some((agent, references))
+            }
+            None => None,
+        }
     };
 
-    // 2) 락 밖에서 blocking git 호출 수행. 단일 에이전트 삭제이므로 실패(dirty 등)는
-    //    `?`로 전파해 사용자가 강제삭제를 재선택하도록 한다(기존 동작 유지).
-    if let Some(a) = &agent {
-        if remove_worktree && a.worktree_managed {
+    // 2) 마지막 관리 참조만 락 밖에서 실제 worktree를 제거한다.
+    if let Some((agent, references)) = &target {
+        if should_remove_worktree(remove_worktree, agent.worktree_managed, *references) {
             // repo_path는 worktree 자체 경로로도 git worktree remove가 동작(공통 .git 참조).
-            git::remove_worktree(&a.worktree_path, &a.worktree_path, force)?;
+            git::remove_worktree(&agent.worktree_path, &agent.worktree_path, force)?;
         }
     }
 
-    // 3) 다시 짧게 락을 잡고 삭제(DB).
-    let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::delete_agent(&conn, &id).map_err(|e| e.to_string())
+    // 3) 공유 관리 책임 이전과 DB 삭제를 한 트랜잭션으로 처리한다.
+    let mut conn = store.0.lock().map_err(|e| e.to_string())?;
+    match &target {
+        Some((agent, _)) => store::repo::delete_agent_with_worktree_transfer(&mut conn, agent)
+            .map_err(|e| e.to_string()),
+        None => Ok(()),
+    }
+}
+
+fn should_remove_worktree(remove_requested: bool, managed: bool, references: i64) -> bool {
+    remove_requested && managed && references <= 1
+}
+
+fn should_manage_worktree(explicit_path: bool, reused: bool) -> bool {
+    !explicit_path && !reused
+}
+
+fn registered_worktree_path(store: &StoreState, worktree_path: &str) -> Result<String, String> {
+    let canonical = std::fs::canonicalize(worktree_path).map_err(|error| error.to_string())?;
+    let canonical = canonical.to_string_lossy().into_owned();
+    let conn = store.0.lock().map_err(|error| error.to_string())?;
+    let references = store::repo::count_agents_by_worktree(&conn, &canonical)
+        .map_err(|error| error.to_string())?;
+    if references == 0 {
+        return Err("등록되지 않은 worktree 경로 접근 거부".into());
+    }
+    Ok(canonical)
+}
+
+#[cfg(test)]
+mod shared_worktree_tests {
+    use super::*;
+
+    fn store_with_agent(worktree_path: &str) -> StoreState {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        store::repo::migrate(&conn).unwrap();
+        let project = store::repo::insert_project(&conn, "테스트", "/tmp/project", 1).unwrap();
+        store::repo::insert_agent(
+            &conn,
+            &Agent {
+                id: uuid::Uuid::new_v4().to_string(),
+                project_id: project.id,
+                title: "테스트".into(),
+                kind: "codex".into(),
+                command: "codex".into(),
+                branch: "main".into(),
+                worktree_path: worktree_path.into(),
+                worktree_managed: false,
+                created_at: 1,
+                updated_at: 1,
+            },
+        )
+        .unwrap();
+        StoreState(std::sync::Mutex::new(conn))
+    }
+
+    #[test]
+    fn 마지막_관리_참조만_worktree를_제거한다() {
+        assert!(should_remove_worktree(true, true, 1));
+        assert!(!should_remove_worktree(true, true, 2));
+        assert!(!should_remove_worktree(true, false, 1));
+        assert!(!should_remove_worktree(false, true, 1));
+    }
+
+    #[test]
+    fn 명시한_worktree_경로는_앱_관리_대상으로_표시하지_않는다() {
+        assert!(!should_manage_worktree(true, false));
+        assert!(!should_manage_worktree(true, true));
+        assert!(should_manage_worktree(false, false));
+        assert!(!should_manage_worktree(false, true));
+    }
+
+    #[test]
+    fn 등록한_worktree만_파일_명령에_허용한다() {
+        let directory = std::env::temp_dir().join(format!("등록경로-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let canonical = std::fs::canonicalize(&directory).unwrap();
+        let canonical_text = canonical.to_string_lossy().into_owned();
+        let store = store_with_agent(&canonical_text);
+
+        assert_eq!(
+            registered_worktree_path(&store, &canonical_text).unwrap(),
+            canonical_text
+        );
+        assert!(registered_worktree_path(&store, "/").is_err());
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

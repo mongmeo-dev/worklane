@@ -21,6 +21,8 @@ export interface CreateAgentOptions {
   command: string;
   branch: string;
   startPoint: string;
+  /** true이면 다른 에이전트의 worktreePath를 그대로 재사용한다. */
+  shareWorktree?: boolean;
   worktreePath?: string;
 }
 

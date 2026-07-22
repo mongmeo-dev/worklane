@@ -1,5 +1,5 @@
 const STORAGE_KEY = "settings:terminal-font";
-const DEFAULT_FAMILY = "monospace";
+const DEFAULT_FAMILY = "JetBrains Mono";
 const DEFAULT_SIZE = 13;
 const MIN_SIZE = 8;
 const MAX_SIZE = 32;

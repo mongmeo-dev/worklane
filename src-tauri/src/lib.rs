@@ -1,4 +1,7 @@
 mod status;
+mod system;
+mod usage;
+mod files;
 mod pty;
 mod git;
 mod commands;
@@ -32,6 +35,13 @@ pub fn run() {
             commands::resize_pty,
             commands::close_session,
             commands::git_diff,
+            commands::list_worktree_files,
+            commands::read_worktree_file,
+            commands::git_file_diff,
+            commands::read_system_resources,
+            commands::read_codex_usage,
+            commands::read_claude_usage,
+            commands::install_claude_statusline,
             commands::list_system_fonts,
             commands::list_projects,
             commands::create_project,
