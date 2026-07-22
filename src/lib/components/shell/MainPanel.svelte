@@ -14,11 +14,6 @@
   }
 
   let { agent }: Props = $props();
-
-  // 플랫폼 기본 셸. Windows는 후속 대응 (현재 개발 대상은 macOS 우선).
-  function defaultShell(): string {
-    return "/bin/zsh";
-  }
 </script>
 
 <section class="flex min-w-0 flex-1 flex-col bg-background">
@@ -55,8 +50,8 @@
           <div class="h-full w-full overflow-hidden rounded-lg border bg-black p-1">
             <Terminal
               sessionId={agent.id}
-              cmd={defaultShell()}
-              cwd="."
+              cmd={agent.command}
+              cwd={agent.worktreePath}
             />
           </div>
         {/key}
