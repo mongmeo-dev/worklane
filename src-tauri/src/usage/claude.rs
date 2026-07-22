@@ -160,8 +160,92 @@ fn build_statusline_powershell(spool_path: &std::path::Path, delegate: &str) -> 
 }
 
 #[cfg(any(windows, test))]
-fn windows_statusline_command() -> &'static str {
-    "powershell -NoProfile -File ~/.claude/aiworkspace-statusline.ps1"
+fn base64_encode(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        output.push(ALPHABET[(first >> 2) as usize] as char);
+        output.push(ALPHABET[(((first & 0b11) << 4) | (second >> 4)) as usize] as char);
+        if chunk.len() > 1 {
+            output.push(ALPHABET[(((second & 0b1111) << 2) | (third >> 6)) as usize] as char);
+        } else {
+            output.push('=');
+        }
+        if chunk.len() > 2 {
+            output.push(ALPHABET[(third & 0b11_1111) as usize] as char);
+        } else {
+            output.push('=');
+        }
+    }
+    output
+}
+
+#[cfg(any(windows, test))]
+fn windows_statusline_command(script_path: &std::path::Path) -> String {
+    let path = script_path.to_string_lossy().replace('\\', "/");
+    let invocation = format!("& {}", powershell_single_quote(&path));
+    let encoded: Vec<u8> = invocation
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect();
+    format!(
+        "powershell -NoProfile -EncodedCommand {}",
+        base64_encode(&encoded)
+    )
+}
+
+#[cfg(any(windows, test))]
+fn replace_file_with_rollback(
+    temporary_path: &std::path::Path,
+    path: &std::path::Path,
+) -> Result<(), String> {
+    let parent = path.parent().ok_or("설정 파일의 상위 디렉터리가 없음")?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("설정 파일 이름이 올바르지 않음")?;
+    let displaced = parent.join(format!(".{file_name}.{}.previous", uuid::Uuid::new_v4()));
+    let had_original = path.exists();
+    if had_original {
+        std::fs::rename(path, &displaced).map_err(|error| error.to_string())?;
+    }
+
+    match std::fs::rename(temporary_path, path) {
+        Ok(()) => {
+            if had_original {
+                let _ = std::fs::remove_file(displaced);
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if had_original {
+                std::fs::rename(&displaced, path).map_err(|restore_error| {
+                    format!("설정 교체 실패: {error}; 기존 설정 복원 실패: {restore_error}")
+                })?;
+            }
+            Err(format!("설정 교체 실패: {error}"))
+        }
+    }
+}
+
+#[cfg(windows)]
+fn replace_temporary_file(
+    temporary_path: &std::path::Path,
+    path: &std::path::Path,
+) -> Result<(), String> {
+    replace_file_with_rollback(temporary_path, path)
+}
+
+#[cfg(not(windows))]
+fn replace_temporary_file(
+    temporary_path: &std::path::Path,
+    path: &std::path::Path,
+) -> Result<(), String> {
+    std::fs::rename(temporary_path, path).map_err(|error| error.to_string())
 }
 
 fn write_atomic_with_backup(path: &std::path::Path, content: &str) -> Result<(), String> {
@@ -192,11 +276,7 @@ fn write_atomic_with_backup(path: &std::path::Path, content: &str) -> Result<(),
                 .map_err(|error| error.to_string())?;
         }
 
-        #[cfg(windows)]
-        if path.exists() {
-            std::fs::remove_file(path).map_err(|error| error.to_string())?;
-        }
-        std::fs::rename(&temporary_path, path).map_err(|error| error.to_string())
+        replace_temporary_file(&temporary_path, path)
     })();
 
     if result.is_err() {
@@ -282,7 +362,8 @@ fn install_statusline_windows_at(home: &std::path::Path) -> Result<(), String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error.to_string()),
     };
-    let merged = merge_statusline(&existing, windows_statusline_command())?;
+    let command = windows_statusline_command(&script_path);
+    let merged = merge_statusline(&existing, &command)?;
     let delegate = serde_json::from_str::<serde_json::Value>(&merged)
         .ok()
         .and_then(|settings| {
@@ -395,10 +476,17 @@ mod install_tests {
 
     #[test]
     fn windows_statusline_command는_셸과_사용자_경로에_독립적이다() {
-        assert_eq!(
-            windows_statusline_command(),
-            "powershell -NoProfile -File ~/.claude/aiworkspace-statusline.ps1"
-        );
+        let first = windows_statusline_command(Path::new(
+            "C:/Users/사용자 이름/.claude/aiworkspace-statusline.ps1",
+        ));
+        let second = windows_statusline_command(Path::new(
+            "D:/다른 사용자/.claude/aiworkspace-statusline.ps1",
+        ));
+
+        assert!(first.starts_with("powershell -NoProfile -EncodedCommand "));
+        assert_ne!(first, second);
+        assert!(!first.contains('~'));
+        assert_eq!(base64_encode(b"Man"), "TWFu");
     }
 
     #[test]
@@ -416,10 +504,27 @@ mod install_tests {
 
         let settings = std::fs::read_to_string(directory.join("settings.json")).unwrap();
         let script = std::fs::read_to_string(directory.join("aiworkspace-statusline.ps1")).unwrap();
-        assert!(settings.contains(windows_statusline_command()));
+        assert!(settings.contains(&windows_statusline_command(
+            &directory.join("aiworkspace-statusline.ps1")
+        )));
         assert!(settings.contains("기존 상태 명령 --compact"));
         assert!(script.contains("$delegate = '기존 상태 명령 --compact'"));
         std::fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn 교체_실패시_기존_설정을_즉시_복원한다() {
+        let directory =
+            std::env::temp_dir().join(format!("replace-rollback-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let settings = directory.join("settings.json");
+        let missing_temporary = directory.join("missing.tmp");
+        std::fs::write(&settings, "기존 설정").unwrap();
+
+        assert!(replace_file_with_rollback(&missing_temporary, &settings).is_err());
+        assert_eq!(std::fs::read_to_string(&settings).unwrap(), "기존 설정");
+
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
