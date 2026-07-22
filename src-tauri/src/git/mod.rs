@@ -518,7 +518,7 @@ mod file_tests {
 
     #[test]
     fn nul_numstat에서_한글_경로와_이름변경을_파싱한다() {
-        let stats = parse_numstat("2\t1\t새 폴더/파일.txt\03\t4\t\0이전.txt\0이후.txt\0");
+        let stats = parse_numstat("2\t1\t새 폴더/파일.txt\x003\t4\t\0이전.txt\0이후.txt\0");
 
         assert_eq!(stats.get("새 폴더/파일.txt"), Some(&(2, 1)));
         assert_eq!(stats.get("이후.txt"), Some(&(3, 4)));
