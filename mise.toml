@@ -3,3 +3,6 @@ node = "24.18.0"
 
 [env]
 _.file = ".env"
+
+[tasks]
+mac-universial-build = "pnpm tauri build --target universal-apple-darwin --bundles app,dmg"

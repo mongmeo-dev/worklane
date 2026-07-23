@@ -21,3 +21,5 @@ dist
 # Tauri (Rust) 빌드 산출물
 src-tauri/target
 src-tauri/gen/schemas
+
+keys/
