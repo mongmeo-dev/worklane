@@ -177,6 +177,39 @@ pub fn create_project(
     store::repo::insert_project(&conn, &name, &path, now_ms() as i64).map_err(|e| e.to_string())
 }
 
+fn validate_default_workspace_input(name: &str, kind: &str, command: &str) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("프로젝트 이름을 입력해 주세요.".into());
+    }
+    if kind.trim().is_empty() || command.trim().is_empty() {
+        return Err("에이전트 종류와 실행 명령을 확인해 주세요.".into());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn create_project_with_default_agent(
+    store: tauri::State<'_, StoreState>,
+    name: String,
+    path: String,
+    kind: String,
+    command: String,
+) -> Result<Project, String> {
+    validate_default_workspace_input(&name, &kind, &command)?;
+    let workspace = git::inspect_existing_workspace(&path)?;
+    let mut conn = store.0.lock().map_err(|error| error.to_string())?;
+    store::repo::insert_project_with_default_agent(
+        &mut conn,
+        name.trim(),
+        &workspace.path,
+        kind.trim(),
+        command.trim(),
+        &workspace.branch,
+        now_ms() as i64,
+    )
+    .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn delete_project(
     store: tauri::State<'_, StoreState>,
@@ -396,6 +429,14 @@ mod shared_worktree_tests {
         assert!(!should_remove_worktree(true, true, 2));
         assert!(!should_remove_worktree(true, false, 1));
         assert!(!should_remove_worktree(false, true, 1));
+    }
+
+    #[test]
+    fn 기본_작업환경_입력은_빈_값을_거부한다() {
+        assert!(validate_default_workspace_input("", "codex", "codex").is_err());
+        assert!(validate_default_workspace_input("프로젝트", "", "codex").is_err());
+        assert!(validate_default_workspace_input("프로젝트", "codex", "").is_err());
+        assert!(validate_default_workspace_input("프로젝트", "codex", "codex").is_ok());
     }
 
     #[test]

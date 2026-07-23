@@ -45,6 +45,7 @@ pub fn run() {
             commands::list_system_fonts,
             commands::list_projects,
             commands::create_project,
+            commands::create_project_with_default_agent,
             commands::delete_project,
             commands::create_agent,
             commands::delete_agent,
