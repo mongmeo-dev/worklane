@@ -6,6 +6,7 @@
   import StatusDot from "./StatusDot.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import Terminal from "./Terminal.svelte";
+  import FileViewer from "./FileViewer.svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
@@ -63,7 +64,7 @@
 
   <div class="min-h-0 flex-1 overflow-hidden rounded-xl border {status === 'blocked' && !shell.showEditor ? 'border-status-blocked/30 shadow-[0_0_20px_color-mix(in_oklch,var(--status-blocked)_8%,transparent)]' : ''}">
     {#if shell.showEditor && shell.openFilePath}
-      <div class="grid h-full place-items-center bg-editor text-xs text-white/50">파일 미리보기를 불러오는 중…</div>
+      <FileViewer {agent} path={shell.openFilePath} sharedCount={sharedAgents.length} />
     {:else}
       {#key agent.id}
         <div class="flex h-full flex-col bg-terminal p-1.5">
