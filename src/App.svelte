@@ -10,6 +10,7 @@
   import MainPanel from "$lib/components/shell/MainPanel.svelte";
   import SettingsDialog from "$lib/components/shell/SettingsDialog.svelte";
   import AgentDialog from "$lib/components/shell/AgentDialog.svelte";
+  import StatusBar from "$lib/components/shell/StatusBar.svelte";
 
   const STORAGE_KEY = "shell:sidebar-size";
 
@@ -62,6 +63,7 @@
       </Resizable.Pane>
     </Resizable.PaneGroup>
   </div>
+  <StatusBar />
 
   <SettingsDialog />
   {#if newAgentProject}
