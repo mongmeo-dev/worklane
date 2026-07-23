@@ -8,6 +8,7 @@
   import { createSession, writeToPty, resizePty, closeSession } from "$lib/ipc/pty";
   import { HangulImeAddon } from "$lib/terminal/HangulImeAddon";
   import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
+  import { sessionStatus } from "$lib/stores/sessions.svelte";
 
   interface Props {
     sessionId: string;
@@ -102,7 +103,11 @@
       cwd,
       rows: term.rows,
       cols: term.cols,
-      onOutput: (o) => term?.write(new Uint8Array(o.bytes)),
+      onOutput: (o) => {
+        const bytes = new Uint8Array(o.bytes);
+        sessionStatus.appendOutput(sessionId, bytes);
+        term?.write(bytes);
+      },
     });
 
     // PTY는 이 크기로 생성됐으므로 기준값으로 기록한다.

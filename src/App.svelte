@@ -58,7 +58,7 @@
         <Resizable.Handle withHandle />
       {/if}
       <Resizable.Pane class="flex">
-        <MainPanel agent={selectedAgent} />
+        <MainPanel agent={selectedAgent} projects={projectStore.projects} />
       </Resizable.Pane>
     </Resizable.PaneGroup>
   </div>
