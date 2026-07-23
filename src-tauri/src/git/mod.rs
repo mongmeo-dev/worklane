@@ -8,6 +8,35 @@ pub fn is_existing_worktree(path: &str) -> bool {
     std::path::Path::new(path).join(".git").exists()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExistingWorkspace {
+    pub path: String,
+    pub branch: String,
+}
+
+pub fn inspect_existing_workspace(path: &str) -> Result<ExistingWorkspace, String> {
+    let root = run_git(path, &["rev-parse", "--show-toplevel"])
+        .map_err(|_| "선택한 경로는 Git 저장소가 아닙니다.".to_string())?;
+    let root = root.trim();
+    if root.is_empty() {
+        return Err("선택한 경로는 Git 저장소가 아닙니다.".into());
+    }
+    let canonical =
+        std::fs::canonicalize(root).map_err(|error| format!("프로젝트 경로 확인 실패: {error}"))?;
+    let branch = run_git(root, &["symbolic-ref", "--quiet", "--short", "HEAD"]).map_err(|_| {
+        "현재 checkout이 브랜치를 가리키지 않습니다. 브랜치를 checkout한 뒤 다시 시도해 주세요."
+            .to_string()
+    })?;
+    let branch = branch.trim();
+    if branch.is_empty() {
+        return Err("현재 checkout 브랜치를 확인할 수 없습니다.".into());
+    }
+    Ok(ExistingWorkspace {
+        path: canonical.to_string_lossy().into_owned(),
+        branch: branch.to_string(),
+    })
+}
+
 /// 새 브랜치로 worktree를 생성한다. branch가 이미 있으면 -b 없이 붙인다.
 /// 생성된 worktree의 절대경로를 반환한다.
 pub fn create_worktree(
@@ -460,6 +489,46 @@ mod worktree_tests {
         Command::new("git").args(["add", "."]).current_dir(p).output().unwrap();
         Command::new("git").args(["commit", "-m", "init"]).current_dir(p).output().unwrap();
         dir
+    }
+
+    #[test]
+    fn 기존_작업환경의_루트와_현재_브랜치를_반환한다() {
+        let repo = temp_repo();
+        let nested = repo.join("src");
+        std::fs::create_dir_all(&nested).unwrap();
+
+        let workspace = inspect_existing_workspace(nested.to_str().unwrap()).unwrap();
+
+        assert_eq!(
+            workspace.path,
+            std::fs::canonicalize(&repo)
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+        );
+        assert_eq!(workspace.branch, "main");
+    }
+
+    #[test]
+    fn git_저장소가_아닌_경로는_거부한다() {
+        let directory = std::env::temp_dir().join(format!("not-git-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let error = inspect_existing_workspace(directory.to_str().unwrap()).unwrap_err();
+        assert!(error.contains("Git 저장소"));
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn detached_head는_거부한다() {
+        let repo = temp_repo();
+        let status = Command::new("git")
+            .args(["checkout", "--detach"])
+            .current_dir(&repo)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let error = inspect_existing_workspace(repo.to_str().unwrap()).unwrap_err();
+        assert!(error.contains("브랜치"));
     }
 
     #[test]
