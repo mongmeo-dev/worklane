@@ -62,6 +62,26 @@
     return /(^|,)\s*monospace\s*$/.test(family) ? family : `${family}, monospace`;
   }
 
+  // 웹폰트(JetBrains Mono 등)는 CSS @font-face로 비동기 로드된다. 폰트가 로드되기
+  // 전에 터미널을 열면 WebGL 글리프 아틀라스와 셀(행·열) 크기가 폴백 폰트 기준으로
+  // 만들어진 채 고정되어 자간이 어긋난다. 개발 머신에는 폰트가 시스템에 설치돼 있어
+  // 문제가 드러나지 않지만, 앱을 설치한 사용자 머신에는 없어 번들 웹폰트에 의존하므로
+  // 렌더가 깨진다. 따라서 open()/fit() 전에 사용 폰트의 로드를 보장한다.
+  async function ensureFontLoaded(family: string, size: number): Promise<void> {
+    if (typeof document === "undefined" || !document.fonts) return;
+    const face = family.split(",")[0].trim().replace(/^["']|["']$/g, "");
+    if (!face) return;
+    try {
+      await Promise.all([
+        document.fonts.load(`${size}px "${face}"`),
+        document.fonts.load(`bold ${size}px "${face}"`),
+      ]);
+      await document.fonts.ready;
+    } catch {
+      // 폰트 로드 실패 시 폴백 폰트로 진행한다.
+    }
+  }
+
   onMount(async () => {
     term = new Terminal({
       cursorBlink: true,
@@ -78,6 +98,8 @@
     term.unicode.activeVersion = "11";
 
     // open()이 textarea/screen DOM을 생성하므로, IME 애드온은 open() 이후 로드한다.
+    // 웹폰트 로드를 보장한 뒤 열어 WebGL 아틀라스/셀 크기가 올바른 폰트로 구성되게 한다.
+    await ensureFontLoaded(terminalSettings.fontFamily, terminalSettings.fontSize);
     term.open(el);
 
     // WebGL 렌더러: 글리프를 GPU 텍스처로 직접 그린다. WebKit(WKWebView)의
@@ -136,12 +158,19 @@
     if (!term) return;
     term.options.fontFamily = family;
     term.options.fontSize = size;
-    const raf = requestAnimationFrame(() => {
-      if (!term) return;
-      fit?.fit();
-      resizePty(sessionId, term.rows, term.cols);
+    let cancelled = false;
+    // 새 폰트의 로드를 보장한 다음 프레임에 fit/resize 해 셀 크기를 다시 계산한다.
+    ensureFontLoaded(terminalSettings.fontFamily, size).then(() => {
+      if (cancelled || !term) return;
+      requestAnimationFrame(() => {
+        if (cancelled || !term || !fit) return;
+        fit.fit();
+        resizePty(sessionId, term.rows, term.cols);
+      });
     });
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelled = true;
+    };
   });
 
   onDestroy(() => {
