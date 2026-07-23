@@ -72,7 +72,7 @@
           {@const status = agent.status ?? "idle"}
           {@const tail = plainTerminalTail(sessionStatus.tail(agent.id))}
           <div
-            class="flex min-h-[210px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-card p-3 transition-[transform,border-color,opacity] hover:-translate-y-0.5 hover:border-ring {tileClass(agent)}"
+            class="flex min-h-[210px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-tile p-3 transition-[transform,border-color,opacity] hover:-translate-y-0.5 hover:border-ring {tileClass(agent)}"
             onclick={() => shell.selectAgent(agent.id)}
             onkeydown={(event) => { if (event.key === "Enter" || event.key === " ") shell.selectAgent(agent.id); }}
             role="button"

@@ -32,6 +32,11 @@ export class ShellStore {
     this.#showEditor = false;
   }
 
+  selectTerminal(id: string): void {
+    this.#selectedAgentId = id;
+    this.#showEditor = false;
+  }
+
   goOverview(): void {
     this.#selectedAgentId = null;
     this.#openFilePath = null;

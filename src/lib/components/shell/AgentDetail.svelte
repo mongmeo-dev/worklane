@@ -51,7 +51,7 @@
       <button
         type="button"
         class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shared.id === agent.id && !shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
-        onclick={() => shell.selectAgent(shared.id)}
+        onclick={() => shell.selectTerminal(shared.id)}
       >터미널{sharedAgents.length > 1 ? ` · ${agentKindLabels[shared.kind]}` : ""}</button>
     {/each}
     {#if shell.openFilePath}

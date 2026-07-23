@@ -29,6 +29,18 @@ describe("ShellStore", () => {
     expect(store.overviewFilter).toBe("blocked");
   });
 
+  it("터미널 탭 전환은 열린 파일 탭을 유지한다", async () => {
+    const { createShellStore } = await import("./shell.svelte");
+    const store = createShellStore();
+    store.openFile("src/App.svelte");
+
+    store.selectTerminal("agent-2");
+
+    expect(store.selectedAgentId).toBe("agent-2");
+    expect(store.openFilePath).toBe("src/App.svelte");
+    expect(store.showEditor).toBe(false);
+  });
+
   it("패널 열림 상태를 localStorage에 저장한다", async () => {
     const { createShellStore } = await import("./shell.svelte");
     const store = createShellStore();
