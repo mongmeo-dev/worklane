@@ -27,6 +27,35 @@ pub struct PtyOutput {
     pub bytes: Vec<u8>,
 }
 
+/// 실행할 셸/명령을 구성한다.
+///
+/// GUI(.app)로 실행하면 프로세스 PATH가 최소값(`/usr/bin:/bin` 등)이라
+/// `claude`·`codex` 같은 사용자 설치 CLI를 찾지 못한다. Unix에서는 사용자의
+/// 로그인(-l)+인터랙티브(-i) 셸로 감싸 프로파일(`.zprofile`/`.zshrc` 등)을 로드해
+/// PATH와 환경변수를 확보한 뒤 명령을 실행한다.
+#[cfg(unix)]
+fn build_command(cmd: &str) -> CommandBuilder {
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "/bin/zsh".to_string());
+    let mut builder = CommandBuilder::new(&shell);
+    // 로그인으로 .zprofile 등을, 인터랙티브로 .zshrc 등을 모두 로드한다.
+    builder.arg("-l");
+    builder.arg("-i");
+    if !cmd.trim().is_empty() {
+        builder.arg("-c");
+        builder.arg(cmd);
+    }
+    builder
+}
+
+/// Windows는 레지스트리 기반 사용자 PATH를 상속하므로 명령을 직접 실행한다.
+#[cfg(windows)]
+fn build_command(cmd: &str) -> CommandBuilder {
+    CommandBuilder::new(cmd)
+}
+
 /// PTY 세션을 생성하고 출력 펌프 스레드를 시작한다.
 #[allow(clippy::too_many_arguments)]
 pub fn create(
@@ -44,7 +73,7 @@ pub fn create(
         .openpty(PtySize { rows, cols, pixel_width: 0, pixel_height: 0 })
         .map_err(|e| e.to_string())?;
 
-    let mut builder = CommandBuilder::new(cmd);
+    let mut builder = build_command(&cmd);
     builder.cwd(cwd);
     builder.env("TERM", "xterm-256color");
 
