@@ -18,6 +18,14 @@ export function deleteProject(id: string): Promise<void> {
   return invoke("delete_project", { id });
 }
 
+export function createDefaultAgent(
+  projectId: string,
+  kind: AgentKind,
+  command: string,
+): Promise<Agent> {
+  return invoke<Agent>("create_default_agent", { projectId, kind, command });
+}
+
 export interface CreateAgentOptions {
   projectId: string;
   projectPath: string;

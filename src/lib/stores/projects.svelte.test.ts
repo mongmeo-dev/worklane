@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("$lib/ipc/projects", () => ({
   listProjects: vi.fn(),
   createProject: vi.fn(),
+  createDefaultAgent: vi.fn(),
   deleteProject: vi.fn(),
   createAgent: vi.fn(),
   deleteAgent: vi.fn(),
@@ -52,4 +53,22 @@ describe("projectStore", () => {
     expect(store.projects[0].agents).toHaveLength(0);
     expect(ipc.deleteAgent).toHaveBeenCalledWith("a1", true, false);
   });
+  it("addDefaultWorkspace()가 기본 작업환경을 만들어 프로젝트에 붙인다", async () => {
+    const defaultAgent = {
+      id: "d1", projectId: "p1", title: "기본 작업환경", kind: "codex" as const,
+      command: "codex", branch: "main", worktreePath: "/tmp/p", worktreeManaged: false,
+    };
+    (ipc.listProjects as any).mockResolvedValue([{ ...sampleProject, agents: [] }]);
+    (ipc.createDefaultAgent as any).mockResolvedValue(defaultAgent);
+    const store = createProjectStore();
+    await store.load();
+
+    const created = await store.addDefaultWorkspace("p1", "codex", "codex");
+
+    expect(ipc.createDefaultAgent).toHaveBeenCalledWith("p1", "codex", "codex");
+    expect(created).toEqual(defaultAgent);
+    expect(store.projects[0].agents).toHaveLength(1);
+    expect(store.projects[0].agents[0].title).toBe("기본 작업환경");
+  });
+
 });

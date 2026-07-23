@@ -1,4 +1,4 @@
-import type { AgentKind, Project } from "$lib/types";
+import type { Agent, AgentKind, Project } from "$lib/types";
 import * as ipc from "$lib/ipc/projects";
 import type { CreateAgentOptions } from "$lib/ipc/projects";
 import { sessionStatus } from "$lib/stores/sessions.svelte";
@@ -42,6 +42,17 @@ export function createProjectStore() {
       projects = projects.map((p) =>
         p.id === opts.projectId ? { ...p, agents: [...p.agents, agent] } : p,
       );
+    },
+    async addDefaultWorkspace(
+      projectId: string,
+      kind: AgentKind,
+      command: string,
+    ): Promise<Agent> {
+      const agent = await ipc.createDefaultAgent(projectId, kind, command);
+      projects = projects.map((p) =>
+        p.id === projectId ? { ...p, agents: [...p.agents, agent] } : p,
+      );
+      return agent;
     },
     async removeAgent(id: string, removeWorktree: boolean, force: boolean): Promise<void> {
       await ipc.deleteAgent(id, removeWorktree, force);

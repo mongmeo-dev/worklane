@@ -14,6 +14,11 @@ export function allAgents(projects: Project[]): Agent[] {
   return projects.flatMap((project) => project.agents);
 }
 
+/** 프로젝트 저장소 본체(메인 워킹트리)에서 동작하는 기본 작업환경 에이전트가 있는지 확인한다. */
+export function hasDefaultWorkspace(project: Project): boolean {
+  return project.agents.some((agent) => agent.worktreePath === project.path);
+}
+
 export function statusCounts(projects: Project[]): StatusCounts {
   const counts: StatusCounts = { running: 0, blocked: 0, idle: 0, done: 0 };
   for (const agent of allAgents(projects)) counts[agent.status ?? "idle"] += 1;

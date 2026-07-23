@@ -3,7 +3,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Button } from "$lib/components/ui/button";
   import { agentKindLabels } from "$lib/data/labels";
-  import { worktreeGroups } from "$lib/shell/derived";
+  import { hasDefaultWorkspace, worktreeGroups } from "$lib/shell/derived";
   import { shell } from "$lib/stores/shell.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { uiSettings } from "$lib/stores/uiSettings.svelte";
@@ -15,8 +15,10 @@
   import Trash from "@lucide/svelte/icons/trash-2";
   import LayoutGrid from "@lucide/svelte/icons/layout-grid";
   import GitBranch from "@lucide/svelte/icons/git-branch";
+  import House from "@lucide/svelte/icons/house";
   import ProjectDialog from "./ProjectDialog.svelte";
   import AgentDialog from "./AgentDialog.svelte";
+  import DefaultWorkspaceDialog from "./DefaultWorkspaceDialog.svelte";
   import DeleteAgentDialog from "./DeleteAgentDialog.svelte";
   import DeleteProjectDialog from "./DeleteProjectDialog.svelte";
 
@@ -25,6 +27,8 @@
   let projectDialogOpen = $state(false);
   let agentDialogFor = $state<Project | null>(null);
   let agentDialogOpen = $state(false);
+  let defaultWorkspaceFor = $state<Project | null>(null);
+  let defaultWorkspaceDialogOpen = $state(false);
   let deleteAgentTarget = $state<Agent | null>(null);
   let deleteDialogOpen = $state(false);
   let deleteProjectTarget = $state<Project | null>(null);
@@ -49,6 +53,7 @@
   }
 
   $effect(() => { if (!agentDialogOpen) agentDialogFor = null; });
+  $effect(() => { if (!defaultWorkspaceDialogOpen) defaultWorkspaceFor = null; });
   $effect(() => { if (!deleteDialogOpen) deleteAgentTarget = null; });
   $effect(() => { if (!deleteProjectDialogOpen) deleteProjectTarget = null; });
 </script>
@@ -88,6 +93,16 @@
             </button>
           </div>
 
+          {#if !hasDefaultWorkspace(project)}
+            <button
+              type="button"
+              class="mt-1 flex w-full items-center gap-1.5 rounded-[10px] border border-dashed border-sidebar-border px-2.5 py-1.5 text-left text-[11px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70"
+              onclick={() => { defaultWorkspaceFor = project; defaultWorkspaceDialogOpen = true; }}
+            >
+              <House class="size-3 shrink-0" />
+              기본 작업환경 다시 만들기
+            </button>
+          {/if}
           <div class="mt-1 flex flex-col gap-1">
             {#each worktreeGroups(project) as group (group.key)}
               <div class={group.shared ? "rounded-[10px] bg-background/45 p-1" : ""}>
@@ -136,5 +151,6 @@
 
 <ProjectDialog bind:open={projectDialogOpen} />
 {#if agentDialogFor}<AgentDialog bind:open={agentDialogOpen} project={agentDialogFor} />{/if}
+{#if defaultWorkspaceFor}<DefaultWorkspaceDialog bind:open={defaultWorkspaceDialogOpen} project={defaultWorkspaceFor} />{/if}
 {#if deleteAgentTarget}<DeleteAgentDialog bind:open={deleteDialogOpen} agent={deleteAgentTarget} />{/if}
 {#if deleteProjectTarget}<DeleteProjectDialog bind:open={deleteProjectDialogOpen} project={deleteProjectTarget} />{/if}

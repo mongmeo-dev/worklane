@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Project } from "$lib/types";
-import { statusCounts, worktreeGroups } from "./derived";
+import { hasDefaultWorkspace, statusCounts, worktreeGroups } from "./derived";
 
 const project: Project = {
   id: "project-1",
@@ -27,4 +27,16 @@ describe("shell 파생 데이터", () => {
     expect(groups[0].agents.map((agent) => agent.id)).toEqual(["a1", "a2"]);
     expect(groups[1].shared).toBe(false);
   });
+  it("저장소 본체 경로를 쓰는 에이전트가 있으면 기본 작업환경이 있다고 본다", () => {
+    expect(hasDefaultWorkspace(project)).toBe(false);
+    const withDefault: Project = {
+      ...project,
+      agents: [
+        ...project.agents,
+        { id: "root", projectId: "project-1", title: "기본 작업환경", kind: "codex", command: "codex", branch: "main", worktreePath: "/repo", worktreeManaged: false, createdAt: 1, updatedAt: 1 },
+      ],
+    };
+    expect(hasDefaultWorkspace(withDefault)).toBe(true);
+  });
+
 });

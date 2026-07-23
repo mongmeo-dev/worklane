@@ -88,6 +88,33 @@ pub fn insert_project(conn: &Connection, name: &str, path: &str, now: i64) -> ru
     Ok(Project { id, name: name.into(), path: path.into(), created_at: now, updated_at: now, agents: Vec::new() })
 }
 
+/// 기본 작업환경 에이전트의 제목. 프로젝트 저장소 본체(메인 워킹트리)에서 동작하는 특수 에이전트다.
+pub const DEFAULT_AGENT_TITLE: &str = "기본 작업환경";
+
+/// 프로젝트의 메인 워킹트리(경로 자체)에서 동작하는 기본 작업환경 에이전트를 만든다.
+/// 앱이 생성/삭제하는 worktree가 아니라 저장소 본체이므로 worktree_managed는 false다.
+fn build_default_agent(
+    project_id: &str,
+    kind: &str,
+    command: &str,
+    branch: &str,
+    path: &str,
+    now: i64,
+) -> Agent {
+    Agent {
+        id: uuid::Uuid::new_v4().to_string(),
+        project_id: project_id.into(),
+        title: DEFAULT_AGENT_TITLE.into(),
+        kind: kind.into(),
+        command: command.into(),
+        branch: branch.into(),
+        worktree_path: path.into(),
+        worktree_managed: false,
+        created_at: now,
+        updated_at: now,
+    }
+}
+
 pub fn insert_project_with_default_agent(
     conn: &mut Connection,
     name: &str,
@@ -99,22 +126,40 @@ pub fn insert_project_with_default_agent(
 ) -> rusqlite::Result<Project> {
     let transaction = conn.transaction()?;
     let mut project = insert_project(&transaction, name, path, now)?;
-    let agent = Agent {
-        id: uuid::Uuid::new_v4().to_string(),
-        project_id: project.id.clone(),
-        title: "기본 작업환경".into(),
-        kind: kind.into(),
-        command: command.into(),
-        branch: branch.into(),
-        worktree_path: path.into(),
-        worktree_managed: false,
-        created_at: now,
-        updated_at: now,
-    };
+    let agent = build_default_agent(&project.id, kind, command, branch, path, now);
     insert_agent(&transaction, &agent)?;
     transaction.commit()?;
     project.agents.push(agent);
     Ok(project)
+}
+
+/// 기존 프로젝트에 기본 작업환경 에이전트를 다시 추가한다. (기본 작업환경 삭제 후 복구용)
+pub fn insert_default_agent(
+    conn: &Connection,
+    project_id: &str,
+    kind: &str,
+    command: &str,
+    branch: &str,
+    path: &str,
+    now: i64,
+) -> rusqlite::Result<Agent> {
+    let agent = build_default_agent(project_id, kind, command, branch, path, now);
+    insert_agent(conn, &agent)?;
+    Ok(agent)
+}
+
+/// 프로젝트 내에 해당 worktree 경로를 사용하는 에이전트가 있는지 확인한다.
+pub fn project_has_worktree_agent(
+    conn: &Connection,
+    project_id: &str,
+    worktree_path: &str,
+) -> rusqlite::Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM agents WHERE project_id = ?1 AND worktree_path = ?2",
+        params![project_id, worktree_path],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
 }
 
 pub fn delete_project(conn: &Connection, id: &str) -> rusqlite::Result<()> {
@@ -335,4 +380,33 @@ mod tests {
         assert!(get_agent(&conn, &owner.id).unwrap().is_none());
         assert!(get_agent(&conn, &next.id).unwrap().unwrap().worktree_managed);
     }
+    #[test]
+    fn 기존_프로젝트에_기본_작업환경을_다시_추가한다() {
+        let conn = mem();
+        let project = insert_project(&conn, "proj", "/tmp/proj", 10).unwrap();
+
+        assert!(!project_has_worktree_agent(&conn, &project.id, "/tmp/proj").unwrap());
+
+        let agent =
+            insert_default_agent(&conn, &project.id, "codex", "codex", "main", "/tmp/proj", 20)
+                .unwrap();
+
+        assert_eq!(agent.title, "기본 작업환경");
+        assert_eq!(agent.branch, "main");
+        assert_eq!(agent.worktree_path, "/tmp/proj");
+        assert!(!agent.worktree_managed);
+        assert!(project_has_worktree_agent(&conn, &project.id, "/tmp/proj").unwrap());
+    }
+
+    #[test]
+    fn 다른_프로젝트의_같은_경로_에이전트는_중복으로_보지_않는다() {
+        let conn = mem();
+        let first = insert_project(&conn, "first", "/tmp/proj", 10).unwrap();
+        let second = insert_project(&conn, "second", "/tmp/other", 10).unwrap();
+        insert_default_agent(&conn, &first.id, "codex", "codex", "main", "/tmp/proj", 20).unwrap();
+
+        assert!(project_has_worktree_agent(&conn, &first.id, "/tmp/proj").unwrap());
+        assert!(!project_has_worktree_agent(&conn, &second.id, "/tmp/proj").unwrap());
+    }
+
 }

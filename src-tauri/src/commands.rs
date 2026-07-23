@@ -210,6 +210,52 @@ pub fn create_project_with_default_agent(
     .map_err(|error| error.to_string())
 }
 
+/// 기존 프로젝트에 기본 작업환경(저장소 본체에서 동작하는 에이전트)을 다시 만든다.
+/// 기본 작업환경을 삭제한 뒤 복구할 때 사용하며, 현재 checkout된 브랜치를 기준으로 만든다.
+#[tauri::command]
+pub fn create_default_agent(
+    store: tauri::State<'_, StoreState>,
+    project_id: String,
+    kind: String,
+    command: String,
+) -> Result<Agent, String> {
+    if kind.trim().is_empty() || command.trim().is_empty() {
+        return Err("에이전트 종류와 실행 명령을 확인해 주세요.".into());
+    }
+
+    // 1) 짧게 락을 잡고 프로젝트 경로만 조회한 뒤 즉시 해제한다.
+    let project_path = {
+        let conn = store.0.lock().map_err(|e| e.to_string())?;
+        store::repo::list_projects(&conn)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .find(|p| p.id == project_id)
+            .map(|p| p.path)
+            .ok_or_else(|| "프로젝트를 찾을 수 없습니다.".to_string())?
+    };
+
+    // 2) 락 밖에서 현재 checkout 브랜치와 정규화 경로를 확인한다(blocking git).
+    let workspace = git::inspect_existing_workspace(&project_path)?;
+
+    // 3) 다시 락을 잡고 중복 여부 확인 후 삽입한다.
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    if store::repo::project_has_worktree_agent(&conn, &project_id, &workspace.path)
+        .map_err(|e| e.to_string())?
+    {
+        return Err("이미 기본 작업환경이 있습니다.".into());
+    }
+    store::repo::insert_default_agent(
+        &conn,
+        &project_id,
+        kind.trim(),
+        command.trim(),
+        &workspace.branch,
+        &workspace.path,
+        now_ms() as i64,
+    )
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn delete_project(
     store: tauri::State<'_, StoreState>,
