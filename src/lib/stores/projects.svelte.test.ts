@@ -15,7 +15,7 @@ import { createProjectStore } from "./projects.svelte";
 const sampleProject = {
   id: "p1", name: "proj", path: "/tmp/p", createdAt: 1, updatedAt: 1,
   agents: [{ id: "a1", projectId: "p1", title: "t", kind: "codex" as const,
-    command: "codex", branch: "b", worktreePath: "/tmp/w", worktreeManaged: true }],
+    command: "codex", branch: "b", worktreePath: "/tmp/w", worktreeManaged: false }],
 };
 
 describe("projectStore", () => {
@@ -40,6 +40,7 @@ describe("projectStore", () => {
     expect(ipc.createProject).toHaveBeenCalledWith("proj", "/tmp/p", "codex", "codex");
     expect(created).toEqual(sampleProject);
     expect(store.projects[0].agents).toHaveLength(1);
+    expect(store.projects[0].agents[0].worktreeManaged).toBe(false);
   });
 
   it("removeAgent()가 해당 에이전트를 목록에서 제거한다", async () => {

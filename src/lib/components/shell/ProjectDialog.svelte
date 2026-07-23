@@ -7,6 +7,7 @@
   import { Label } from "$lib/components/ui/label";
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { projectStore } from "$lib/stores/projects.svelte";
+  import { agentKindDefaults } from "$lib/data/labels";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
 
@@ -25,7 +26,12 @@
   async function submit() {
     error = "";
     try {
-      await projectStore.addProject(name.trim(), path.trim());
+      await projectStore.addProject(
+        name.trim(),
+        path.trim(),
+        "claude-code",
+        agentKindDefaults["claude-code"],
+      );
       open = false;
       name = "";
       path = "";
