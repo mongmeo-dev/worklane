@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import type { UsageInfo } from "$lib/ipc/usage";
   import type { SystemResources } from "$lib/ipc/system";
-  import { disconnectedUsage, readClaudeUsage, readCodexUsage } from "$lib/ipc/usage";
+  import { disconnectedUsage, installClaudeStatusline, readClaudeUsage, readCodexUsage } from "$lib/ipc/usage";
   import { readSystemResources } from "$lib/ipc/system";
   import { shell } from "$lib/stores/shell.svelte";
   import { clampPercent, gaugeColorClass, gaugeTextClass, resourceLabel } from "$lib/usage/display";
@@ -33,6 +33,15 @@
     usage = next;
   }
 
+  async function initializeUsage() {
+    try {
+      await installClaudeStatusline();
+    } catch {
+      // 권한이나 설정 형식 문제는 Claude 항목의 미연동 상태로 표현한다.
+    }
+    await refreshUsage();
+  }
+
   async function refreshResources() {
     try {
       resources = await readSystemResources();
@@ -46,7 +55,7 @@
   }
 
   onMount(() => {
-    void refreshUsage();
+    void initializeUsage();
     void refreshResources();
     const usageTimer = window.setInterval(refreshUsage, 30_000);
     const resourceTimer = window.setInterval(refreshResources, 5_000);

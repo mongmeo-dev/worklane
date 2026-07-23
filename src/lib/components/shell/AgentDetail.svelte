@@ -55,10 +55,10 @@
       >터미널{sharedAgents.length > 1 ? ` · ${agentKindLabels[shared.kind]}` : ""}</button>
     {/each}
     {#if shell.openFilePath}
-      <button type="button" class="flex items-center gap-1.5 border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}" onclick={() => shell.openFile(shell.openFilePath!)}>
-        <span class="max-w-40 truncate">{shell.openFilePath.split("/").at(-1)}</span>
-        <span role="button" tabindex="0" aria-label="파일 탭 닫기" class="rounded p-0.5 hover:bg-muted" onclick={(event) => { event.stopPropagation(); shell.closeFile(); }} onkeydown={(event) => { if (event.key === "Enter") shell.closeFile(); }}><X class="size-3" /></span>
-      </button>
+      <div class="flex items-center border-b-2 {shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}">
+        <button type="button" class="max-w-44 truncate py-1 pl-3 text-[11.5px] font-medium" onclick={() => shell.openFile(shell.openFilePath!)}>{shell.openFilePath.split("/").at(-1)}</button>
+        <button type="button" aria-label="파일 탭 닫기" class="mx-1 rounded p-1 hover:bg-muted" onclick={() => shell.closeFile()}><X class="size-3" /></button>
+      </div>
     {/if}
   </div>
 
