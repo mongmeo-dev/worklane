@@ -28,6 +28,7 @@ pub struct PtyOutput {
 }
 
 /// PTY 세션을 생성하고 출력 펌프 스레드를 시작한다.
+#[allow(clippy::too_many_arguments)]
 pub fn create(
     state: &PtyState,
     session_id: String,

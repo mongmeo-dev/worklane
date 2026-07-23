@@ -21,6 +21,7 @@ fn hook_dir_for(app: &tauri::AppHandle, session_id: &str) -> Result<PathBuf, Str
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn create_session(
     app: tauri::AppHandle,
     state: tauri::State<'_, PtyState>,

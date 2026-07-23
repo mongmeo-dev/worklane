@@ -49,7 +49,6 @@ mod tests {
             hook_status: Some(HookStatus::Working), // 훅이 Working이라 해도
             hook_fresh: true,
             ms_since_last_output: 0, // 출력이 최근이어도
-            ..base()
         };
         assert_eq!(reduce(&inputs), AgentStatus::Done);
     }
