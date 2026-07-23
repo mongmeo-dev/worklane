@@ -29,13 +29,17 @@ describe("projectStore", () => {
     expect(store.projects[0].agents[0].command).toBe("codex");
   });
 
-  it("addProject()가 생성된 프로젝트를 목록에 추가한다", async () => {
+  it("addProject()가 기본 작업환경 설정을 전달하고 생성 결과를 반환한다", async () => {
     (ipc.listProjects as any).mockResolvedValue([]);
-    (ipc.createProject as any).mockResolvedValue({ ...sampleProject, agents: [] });
+    (ipc.createProject as any).mockResolvedValue(sampleProject);
     const store = createProjectStore();
     await store.load();
-    await store.addProject("proj", "/tmp/p");
-    expect(store.projects).toHaveLength(1);
+
+    const created = await store.addProject("proj", "/tmp/p", "codex", "codex");
+
+    expect(ipc.createProject).toHaveBeenCalledWith("proj", "/tmp/p", "codex", "codex");
+    expect(created).toEqual(sampleProject);
+    expect(store.projects[0].agents).toHaveLength(1);
   });
 
   it("removeAgent()가 해당 에이전트를 목록에서 제거한다", async () => {

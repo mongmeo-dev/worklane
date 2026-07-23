@@ -5,8 +5,13 @@ export function listProjects(): Promise<Project[]> {
   return invoke<Project[]>("list_projects");
 }
 
-export function createProject(name: string, path: string): Promise<Project> {
-  return invoke<Project>("create_project", { name, path });
+export function createProject(
+  name: string,
+  path: string,
+  kind: AgentKind,
+  command: string,
+): Promise<Project> {
+  return invoke<Project>("create_project_with_default_agent", { name, path, kind, command });
 }
 
 export function deleteProject(id: string): Promise<void> {

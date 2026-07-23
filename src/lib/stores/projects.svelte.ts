@@ -1,4 +1,4 @@
-import type { Project } from "$lib/types";
+import type { AgentKind, Project } from "$lib/types";
 import * as ipc from "$lib/ipc/projects";
 import type { CreateAgentOptions } from "$lib/ipc/projects";
 import { sessionStatus } from "$lib/stores/sessions.svelte";
@@ -23,9 +23,15 @@ export function createProjectStore() {
     async load(): Promise<void> {
       projects = await ipc.listProjects();
     },
-    async addProject(name: string, path: string): Promise<void> {
-      const p = await ipc.createProject(name, path);
-      projects = [...projects, p];
+    async addProject(
+      name: string,
+      path: string,
+      kind: AgentKind,
+      command: string,
+    ): Promise<Project> {
+      const project = await ipc.createProject(name, path, kind, command);
+      projects = [...projects, project];
+      return project;
     },
     async removeProject(id: string): Promise<void> {
       await ipc.deleteProject(id);
