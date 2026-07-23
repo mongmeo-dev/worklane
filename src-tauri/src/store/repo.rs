@@ -88,6 +88,35 @@ pub fn insert_project(conn: &Connection, name: &str, path: &str, now: i64) -> ru
     Ok(Project { id, name: name.into(), path: path.into(), created_at: now, updated_at: now, agents: Vec::new() })
 }
 
+pub fn insert_project_with_default_agent(
+    conn: &mut Connection,
+    name: &str,
+    path: &str,
+    kind: &str,
+    command: &str,
+    branch: &str,
+    now: i64,
+) -> rusqlite::Result<Project> {
+    let transaction = conn.transaction()?;
+    let mut project = insert_project(&transaction, name, path, now)?;
+    let agent = Agent {
+        id: uuid::Uuid::new_v4().to_string(),
+        project_id: project.id.clone(),
+        title: "기본 작업환경".into(),
+        kind: kind.into(),
+        command: command.into(),
+        branch: branch.into(),
+        worktree_path: path.into(),
+        worktree_managed: false,
+        created_at: now,
+        updated_at: now,
+    };
+    insert_agent(&transaction, &agent)?;
+    transaction.commit()?;
+    project.agents.push(agent);
+    Ok(project)
+}
+
 pub fn delete_project(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
     Ok(())
@@ -199,6 +228,50 @@ mod tests {
         assert_eq!(projects[0].agents.len(), 1);
         assert_eq!(projects[0].agents[0].command, "codex");
         assert!(projects[0].agents[0].worktree_managed);
+    }
+
+    #[test]
+    fn 프로젝트와_기본_작업환경을_함께_저장한다() {
+        let mut conn = mem();
+        let project = insert_project_with_default_agent(
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            10,
+        )
+        .unwrap();
+
+        assert_eq!(project.agents.len(), 1);
+        let agent = &project.agents[0];
+        assert_eq!(agent.title, "기본 작업환경");
+        assert_eq!(agent.branch, "main");
+        assert_eq!(agent.worktree_path, "/tmp/proj");
+        assert!(!agent.worktree_managed);
+    }
+
+    #[test]
+    fn 에이전트_저장_실패시_프로젝트도_롤백한다() {
+        let mut conn = mem();
+        conn.execute_batch(
+            "CREATE TRIGGER reject_default_agent
+             BEFORE INSERT ON agents BEGIN SELECT RAISE(ABORT, 'reject'); END;",
+        )
+        .unwrap();
+
+        assert!(insert_project_with_default_agent(
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            10,
+        )
+        .is_err());
+        assert!(list_projects(&conn).unwrap().is_empty());
     }
 
     #[test]
