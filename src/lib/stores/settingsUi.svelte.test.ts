@@ -16,4 +16,10 @@ describe("settingsUi store", () => {
     const { settingsUi } = await import("./settingsUi.svelte");
     expect(settingsUi.activeTab).toBe("screen");
   });
+
+  it("에이전트 탭으로 전환할 수 있다", async () => {
+    const { settingsUi } = await import("./settingsUi.svelte");
+    settingsUi.setTab("agents");
+    expect(settingsUi.activeTab).toBe("agents");
+  });
 });

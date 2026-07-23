@@ -1,8 +1,8 @@
 const STORAGE_KEY = "settings:terminal-font";
 const DEFAULT_FAMILY = "JetBrains Mono";
 const DEFAULT_SIZE = 13;
-const MIN_SIZE = 8;
-const MAX_SIZE = 32;
+const MIN_SIZE = 10;
+const MAX_SIZE = 20;
 
 /** 터미널 폰트(패밀리/크기) 설정 store. Terminal.svelte가 구독해 xterm에 반영한다. */
 class TerminalSettingsStore {

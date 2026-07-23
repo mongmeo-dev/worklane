@@ -1,4 +1,4 @@
-export type SettingsTab = "screen";
+export type SettingsTab = "screen" | "agents";
 
 /** 설정 모달의 열림 상태와 활성 탭만 관리하는 UI store (영속 불필요). */
 class SettingsUiStore {

@@ -12,12 +12,12 @@ describe("terminalSettings store", () => {
     expect(terminalSettings.fontSize).toBe(13);
   });
 
-  it("setFontSize는 8~32로 clamp한다", async () => {
+  it("setFontSize는 10~20으로 clamp한다", async () => {
     const { terminalSettings } = await import("./terminalSettings.svelte");
     terminalSettings.setFontSize(100);
-    expect(terminalSettings.fontSize).toBe(32);
+    expect(terminalSettings.fontSize).toBe(20);
     terminalSettings.setFontSize(2);
-    expect(terminalSettings.fontSize).toBe(8);
+    expect(terminalSettings.fontSize).toBe(10);
   });
 
   it("setFontSize(NaN)은 이전값을 유지한다", async () => {

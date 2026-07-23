@@ -18,6 +18,6 @@ export const statusLabels: Record<AgentStatus, string> = {
 export const agentKindDefaults: Record<AgentKind, string> = {
   "claude-code": "claude",
   codex: "codex",
-  cursor: "cursor",
+  cursor: "cursor-agent",
   gemini: "gemini",
 };
