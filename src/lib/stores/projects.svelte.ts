@@ -2,6 +2,7 @@ import type { Agent, AgentKind, Project } from "$lib/types";
 import * as ipc from "$lib/ipc/projects";
 import type { CreateAgentOptions } from "$lib/ipc/projects";
 import { sessionStatus } from "$lib/stores/sessions.svelte";
+import { releaseSession } from "$lib/terminal/session-lifecycle";
 
 export function createProjectStore() {
   let projects = $state<Project[]>([]);
@@ -57,6 +58,8 @@ export function createProjectStore() {
     },
     async removeAgent(id: string, removeWorktree: boolean, force: boolean): Promise<void> {
       await ipc.deleteAgent(id, removeWorktree, force);
+      // 실행 중인 PTY 세션과 xterm 인스턴스를 정리한다(에이전트 삭제 시).
+      releaseSession(id);
       projects = projects.map((p) => ({
         ...p,
         agents: p.agents.filter((a) => a.id !== id),
