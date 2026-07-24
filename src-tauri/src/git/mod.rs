@@ -281,7 +281,7 @@ fn parse_numstat(output: &str) -> std::collections::HashMap<String, (u32, u32)> 
 fn split_path(path: &str) -> (String, String) {
     match path.rfind('/') {
         Some(index) => (path[..index].to_string(), path[index + 1..].to_string()),
-        None => ("/".into(), path.to_string()),
+        None => (String::new(), path.to_string()),
     }
 }
 
@@ -1232,7 +1232,7 @@ mod file_tests {
     #[test]
     fn 경로를_디렉터리와_이름으로_나눈다() {
         assert_eq!(split_path("src/a.rs"), ("src".into(), "a.rs".into()));
-        assert_eq!(split_path("README.md"), ("/".into(), "README.md".into()));
+        assert_eq!(split_path("README.md"), (String::new(), "README.md".into()));
     }
 
     #[test]
