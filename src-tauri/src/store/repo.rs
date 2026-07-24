@@ -168,8 +168,7 @@ pub fn insert_project(conn: &Connection, name: &str, path: &str, now: i64) -> ru
     Ok(Project { id, name: name.into(), path: path.into(), created_at: now, updated_at: now, agents: Vec::new() })
 }
 
-/// 기본 작업환경 에이전트의 제목. 프로젝트 저장소 본체(메인 워킹트리)에서 동작하는 특수 에이전트다.
-pub const DEFAULT_AGENT_TITLE: &str = "기본 작업환경";
+/// 기본 작업환경 에이전트는 프로젝트 저장소 본체(메인 워킹트리)에서 동작하는 특수 에이전트다.
 
 /// 프로젝트의 메인 워킹트리(경로 자체)에서 동작하는 기본 작업환경 에이전트를 만든다.
 /// 앱이 생성/삭제하는 worktree가 아니라 저장소 본체이므로 worktree_managed는 false다.
@@ -184,7 +183,7 @@ fn build_default_agent(
     Agent {
         id: uuid::Uuid::new_v4().to_string(),
         project_id: project_id.into(),
-        title: DEFAULT_AGENT_TITLE.into(),
+        title: branch.into(),
         kind: kind.into(),
         command: command.into(),
         branch: branch.into(),
@@ -720,15 +719,15 @@ mod tests {
             "/tmp/proj",
             "codex",
             "codex",
-            "main",
+            "feature/default-workspace",
             10,
         )
         .unwrap();
 
         assert_eq!(project.agents.len(), 1);
         let agent = &project.agents[0];
-        assert_eq!(agent.title, "기본 작업환경");
-        assert_eq!(agent.branch, "main");
+        assert_eq!(agent.title, "feature/default-workspace");
+        assert_eq!(agent.branch, "feature/default-workspace");
         assert_eq!(agent.worktree_path, "/tmp/proj");
         assert!(!agent.worktree_managed);
     }
@@ -824,11 +823,11 @@ mod tests {
         assert!(!project_has_worktree_agent(&conn, &project.id, "/tmp/proj").unwrap());
 
         let agent =
-            insert_default_agent(&conn, &project.id, "codex", "codex", "main", "/tmp/proj", 20)
+            insert_default_agent(&conn, &project.id, "codex", "codex", "fix/root", "/tmp/proj", 20)
                 .unwrap();
 
-        assert_eq!(agent.title, "기본 작업환경");
-        assert_eq!(agent.branch, "main");
+        assert_eq!(agent.title, "fix/root");
+        assert_eq!(agent.branch, "fix/root");
         assert_eq!(agent.worktree_path, "/tmp/proj");
         assert!(!agent.worktree_managed);
         assert!(project_has_worktree_agent(&conn, &project.id, "/tmp/proj").unwrap());
