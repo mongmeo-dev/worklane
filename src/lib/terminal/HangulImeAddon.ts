@@ -17,6 +17,8 @@ import { computePreeditUpdate, isKorean } from "./ime-core";
  */
 export class HangulImeAddon implements ITerminalAddon {
   private textarea: HTMLTextAreaElement | null = null;
+  /** xterm 코어의 조합 오버레이(.composition-view). PTY 에코와 겹쳐 중복 표시되므로 숨긴다. */
+  private compositionView: HTMLElement | null = null;
 
   private imeActive = false;
   /** textarea에서 이미 "처리 시작한" 접두사 길이(이 뒤가 현재 조합 대상). */
@@ -45,6 +47,13 @@ export class HangulImeAddon implements ITerminalAddon {
     this.textarea.addEventListener("compositionstart", this.onCompositionStart);
     this.textarea.addEventListener("compositionend", this.onCompositionEnd);
     this.textarea.addEventListener("input", this.onInput);
+
+    // xterm 코어의 CompositionHelper는 조합 중 글자를 커서 위치의 .composition-view
+    // 오버레이로 그린다. 이 애드온은 같은 글자를 PTY 에코로 이미 그리므로, 오버레이가
+    // 겹쳐 "마지막 글자가 두 번" 보인다. 인라인 display:none은 .composition-view.active의
+    // display:block(스타일시트 규칙)보다 우선하므로 조합 내내 오버레이가 숨겨진다.
+    this.compositionView = el?.querySelector<HTMLElement>(".composition-view") ?? null;
+    if (this.compositionView) this.compositionView.style.display = "none";
   }
 
   dispose(): void {
@@ -56,6 +65,10 @@ export class HangulImeAddon implements ITerminalAddon {
       ta.removeEventListener("input", this.onInput);
     }
     this.textarea = null;
+    if (this.compositionView) {
+      this.compositionView.style.removeProperty("display");
+      this.compositionView = null;
+    }
     this.imeActive = false;
     this.baseLen = 0;
     this.preedit = "";
