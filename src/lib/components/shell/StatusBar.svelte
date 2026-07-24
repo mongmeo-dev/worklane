@@ -5,7 +5,7 @@
   import { disconnectedUsage, installClaudeStatusline, readClaudeUsage, readCodexUsage } from "$lib/ipc/usage";
   import { readSystemResources } from "$lib/ipc/system";
   import { shell } from "$lib/stores/shell.svelte";
-  import { clampPercent, gaugeColorClass, gaugeTextClass, remainingLabel, remainingPercent, resourceLabel } from "$lib/usage/display";
+  import { clampPercent, gaugeColorClass, gaugeTextClass, resourceLabel } from "$lib/usage/display";
   import { overBudget } from "$lib/usage/budget";
   import { budget } from "$lib/stores/budget.svelte";
   import { sendAttentionNotification } from "$lib/ipc/notify";
@@ -105,9 +105,9 @@
           <span class="font-mono text-[9px] font-semibold text-muted-foreground">{shortLabels[info.provider]}</span>
           {#if info.connected && info.primaryPercent !== null}
             <span class="h-1 w-14 overflow-hidden rounded-full bg-muted">
-              <span class="block h-full rounded-full {gaugeColorClass(info.primaryPercent)}" style:width={`${remainingPercent(info.primaryPercent)}%`}></span>
+              <span class="block h-full rounded-full {gaugeColorClass(info.primaryPercent)}" style:width={`${clampPercent(info.primaryPercent)}%`}></span>
             </span>
-            <span class="font-mono font-semibold {gaugeTextClass(info.primaryPercent)}">{remainingLabel(info.primaryPercent)}</span>
+            <span class="font-mono font-semibold {gaugeTextClass(info.primaryPercent)}">{Math.round(info.primaryPercent)}%</span>
             {#if overBudget(info.primaryPercent, budget.threshold)}
               <TriangleAlert class="size-3 text-status-blocked-fg" aria-label={`예산 ${budget.threshold}% 초과`} />
             {/if}

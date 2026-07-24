@@ -20,7 +20,45 @@ struct RateLimits {
 struct Window {
     used_percentage: f32,
     #[serde(default)]
-    resets_at: Option<String>,
+    resets_at: Option<ResetAt>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ResetAt {
+    Epoch(i64),
+    Text(String),
+}
+
+impl ResetAt {
+    fn display(&self) -> String {
+        match self {
+            Self::Epoch(epoch) => format_reset(*epoch),
+            Self::Text(text) => text.clone(),
+        }
+    }
+}
+
+fn format_reset(epoch: i64) -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as i64)
+        .unwrap_or(0);
+    let seconds = epoch - now;
+    if seconds <= 0 {
+        return "곧 초기화".into();
+    }
+
+    let hours = seconds / 3600;
+    if hours >= 24 {
+        format!("{}일 후 초기화", hours / 24)
+    } else if hours >= 1 {
+        format!("{hours}시간 후 초기화")
+    } else {
+        format!("{}분 후 초기화", seconds / 60)
+    }
 }
 
 /// Claude Code statusLine 입력 스풀을 공통 사용량 모델로 변환한다.
@@ -38,13 +76,14 @@ pub fn parse_spool(json: &str) -> UsageInfo {
     let mut primary_reset = None;
 
     if let Some(window) = &rate_limits.five_hour {
+        let reset = window.resets_at.as_ref().map(ResetAt::display);
         primary_percent = Some(window.used_percentage);
-        primary_reset = window.resets_at.clone();
+        primary_reset = reset.clone();
         metrics.push(UsageMetric {
             label: "세션 한도 (5시간)".into(),
             percent: window.used_percentage,
             value_text: format!("{:.0}%", window.used_percentage),
-            reset_note: window.resets_at.clone().unwrap_or_default(),
+            reset_note: reset.unwrap_or_default(),
         });
     }
     if let Some(window) = &rate_limits.seven_day {
@@ -52,7 +91,11 @@ pub fn parse_spool(json: &str) -> UsageInfo {
             label: "주간 한도".into(),
             percent: window.used_percentage,
             value_text: format!("{:.0}%", window.used_percentage),
-            reset_note: window.resets_at.clone().unwrap_or_default(),
+            reset_note: window
+                .resets_at
+                .as_ref()
+                .map(ResetAt::display)
+                .unwrap_or_default(),
         });
     }
     if metrics.is_empty() {
@@ -396,6 +439,19 @@ mod tests {
         assert_eq!(info.metrics.len(), 2);
         assert_eq!(info.metrics[0].percent, 62.0);
         assert_eq!(info.metrics[1].percent, 41.0);
+    }
+
+    #[test]
+    fn 숫자형_초기화_시각이_포함된_실제_스풀을_읽는다() {
+        let info = parse_spool(
+            r#"{"rate_limits":{"five_hour":{"used_percentage":14.0,"resets_at":1784878800},"seven_day":{"used_percentage":65,"resets_at":1785060000}}}"#,
+        );
+
+        assert!(info.connected);
+        assert_eq!(info.primary_percent, Some(14.0));
+        assert_eq!(info.metrics.len(), 2);
+        assert!(!info.metrics[0].reset_note.is_empty());
+        assert!(!info.metrics[1].reset_note.is_empty());
     }
 
     #[test]

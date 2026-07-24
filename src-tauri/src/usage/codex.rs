@@ -27,6 +27,8 @@ pub struct RateLimits {
 #[derive(Deserialize)]
 struct Line {
     #[serde(default)]
+    timestamp: Option<String>,
+    #[serde(default)]
     payload: Option<Payload>,
 }
 
@@ -38,8 +40,12 @@ struct Payload {
     rate_limits: Option<RateLimits>,
 }
 
-/// JSONL 문자열에서 마지막 token_count의 non-null rate_limits를 반환한다.
-pub fn last_rate_limits(jsonl: &str) -> Option<RateLimits> {
+struct RateLimitSnapshot {
+    timestamp: Option<String>,
+    rate_limits: RateLimits,
+}
+
+fn last_rate_limit_snapshot(jsonl: &str) -> Option<RateLimitSnapshot> {
     let mut found = None;
 
     for line in jsonl.lines().map(str::trim).filter(|line| !line.is_empty()) {
@@ -53,11 +59,34 @@ pub fn last_rate_limits(jsonl: &str) -> Option<RateLimits> {
             continue;
         }
         if let Some(rate_limits) = payload.rate_limits {
-            found = Some(rate_limits);
+            found = Some(RateLimitSnapshot {
+                timestamp: parsed.timestamp,
+                rate_limits,
+            });
         }
     }
 
     found
+}
+
+fn update_latest_snapshot(latest: &mut Option<RateLimitSnapshot>, candidate: RateLimitSnapshot) {
+    let is_newer = match (candidate.timestamp.as_deref(), latest.as_ref()) {
+        (_, None) => true,
+        (Some(candidate_time), Some(current)) => current
+            .timestamp
+            .as_deref()
+            .is_none_or(|current_time| candidate_time > current_time),
+        (None, Some(_)) => false,
+    };
+    if is_newer {
+        *latest = Some(candidate);
+    }
+}
+
+/// JSONL 문자열에서 마지막 token_count의 non-null rate_limits를 반환한다.
+#[cfg(test)]
+pub fn last_rate_limits(jsonl: &str) -> Option<RateLimits> {
+    last_rate_limit_snapshot(jsonl).map(|snapshot| snapshot.rate_limits)
 }
 
 /// Codex rate_limits를 화면 표시용 공통 사용량 모델로 변환한다.
@@ -139,7 +168,7 @@ fn format_reset(epoch: i64) -> String {
     }
 }
 
-/// 최신 Codex 세션부터 사용량 한도가 있는 파일을 찾아 읽는다.
+/// 최근 Codex 세션들의 사용량 이벤트 중 실제 발생 시각이 가장 최신인 값을 읽는다.
 pub fn read_usage() -> UsageInfo {
     let disconnected = UsageInfo::disconnected("codex", "Codex CLI");
     let Some(home) = home_dir() else {
@@ -154,12 +183,16 @@ pub fn read_usage() -> UsageInfo {
     collect_rollouts(&root, &mut files);
     files.sort_by(|left, right| right.0.cmp(&left.0));
 
+    let mut latest = None;
     for (_, path) in files.iter().take(50) {
         if let Ok(content) = std::fs::read_to_string(path) {
-            if let Some(rate_limits) = last_rate_limits(&content) {
-                return to_usage_info(rate_limits);
+            if let Some(snapshot) = last_rate_limit_snapshot(&content) {
+                update_latest_snapshot(&mut latest, snapshot);
             }
         }
+    }
+    if let Some(snapshot) = latest {
+        return to_usage_info(snapshot.rate_limits);
     }
 
     disconnected
@@ -209,6 +242,27 @@ mod tests {
 
         assert_eq!(limits.primary.as_ref().unwrap().used_percent, 42.0);
         assert_eq!(limits.plan_type.as_deref(), Some("pro"));
+    }
+
+    #[test]
+    fn 여러_세션에서는_파일순서가_아닌_이벤트시각으로_최신값을_고른다() {
+        let newer = last_rate_limit_snapshot(
+            r#"{"timestamp":"2026-07-23T09:30:00Z","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":26.0}}}}"#,
+        )
+        .unwrap();
+        let older = last_rate_limit_snapshot(
+            r#"{"timestamp":"2026-07-23T09:20:00Z","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":21.0}}}}"#,
+        )
+        .unwrap();
+        let mut latest = None;
+
+        update_latest_snapshot(&mut latest, newer);
+        update_latest_snapshot(&mut latest, older);
+
+        assert_eq!(
+            latest.unwrap().rate_limits.primary.unwrap().used_percent,
+            26.0
+        );
     }
 
     #[test]
