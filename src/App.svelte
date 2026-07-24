@@ -76,7 +76,7 @@
       return undefined;
     });
     eventRecorder.start();
-    void updater.check();
+    updater.start();
 
     const onKeydown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -85,7 +85,10 @@
       }
     };
     window.addEventListener("keydown", onKeydown);
-    return () => window.removeEventListener("keydown", onKeydown);
+    return () => {
+      window.removeEventListener("keydown", onKeydown);
+      updater.stop();
+    };
   });
 </script>
 

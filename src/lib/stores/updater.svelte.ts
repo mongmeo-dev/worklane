@@ -2,14 +2,17 @@ import type { Update } from "$lib/ipc/updater";
 import { checkUpdate, installUpdate } from "$lib/ipc/updater";
 import { t } from "$lib/i18n";
 
+export const AUTO_UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+
 type Status = "idle" | "checking" | "downloading" | "error";
 
-/** 자동 업데이트 상태 store. 시작 시 무음 확인, 설정에서 수동 확인/설치. */
+/** 자동 업데이트 상태 store. 시작 시와 이후 하루마다 무음 확인하며, 설정에서 수동 확인/설치한다. */
 class UpdaterStore {
   #version = $state<string | null>(null);
   #status = $state<Status>("idle");
   #message = $state<string | null>(null);
   #update: Update | null = null;
+  #checkTimer: ReturnType<typeof setInterval> | null = null;
 
   get version(): string | null {
     return this.#version;
@@ -24,8 +27,22 @@ class UpdaterStore {
     return this.#version !== null;
   }
 
+  /** 앱 생명주기에 맞춰 즉시 확인하고 주기적인 자동 확인을 시작한다. */
+  start(): void {
+    if (this.#checkTimer !== null) return;
+    void this.check();
+    this.#checkTimer = setInterval(() => void this.check(), AUTO_UPDATE_CHECK_INTERVAL_MS);
+  }
+
+  stop(): void {
+    if (this.#checkTimer === null) return;
+    clearInterval(this.#checkTimer);
+    this.#checkTimer = null;
+  }
+
   /** manual=true면 결과(최신/오류)를 message로 노출한다. */
   async check(manual = false): Promise<void> {
+    if (this.#status === "checking" || this.#status === "downloading") return;
     this.#status = "checking";
     this.#message = null;
     try {
