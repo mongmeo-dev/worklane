@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Checkpoint, Project, Prompt, Task};
+use crate::store::models::{Agent, Checkpoint, Event, Project, Prompt, Task};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -75,6 +75,20 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                 updated_at INTEGER NOT NULL
             );
             PRAGMA user_version = 5;",
+        )?;
+    }
+    if version < 6 {
+        // 세션 감사 타임라인(에이전트 활동 이벤트 로그).
+        conn.execute_batch(
+            "CREATE TABLE events (
+                id TEXT PRIMARY KEY,
+                agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            CREATE INDEX idx_events_agent ON events(agent_id, created_at);
+            PRAGMA user_version = 6;",
         )?;
     }
     Ok(())
@@ -457,6 +471,48 @@ pub fn delete_task(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// 감사 이벤트를 기록한다.
+pub fn insert_event(
+    conn: &Connection,
+    agent_id: &str,
+    kind: &str,
+    detail: &str,
+    now: i64,
+) -> rusqlite::Result<Event> {
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO events (id, agent_id, kind, detail, created_at) VALUES (?1,?2,?3,?4,?5)",
+        params![id, agent_id, kind, detail, now],
+    )?;
+    Ok(Event {
+        id,
+        agent_id: agent_id.into(),
+        kind: kind.into(),
+        detail: detail.into(),
+        created_at: now,
+    })
+}
+
+/// 에이전트의 이벤트를 최신순으로 나열한다(최근 100건).
+pub fn list_events(conn: &Connection, agent_id: &str) -> rusqlite::Result<Vec<Event>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, agent_id, kind, detail, created_at FROM events
+         WHERE agent_id = ?1 ORDER BY created_at DESC LIMIT 100",
+    )?;
+    let rows = stmt
+        .query_map(params![agent_id], |row| {
+            Ok(Event {
+                id: row.get("id")?,
+                agent_id: row.get("agent_id")?,
+                kind: row.get("kind")?,
+                detail: row.get("detail")?,
+                created_at: row.get("created_at")?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -517,6 +573,23 @@ mod tests {
 
         delete_task(&conn, &task.id).unwrap();
         assert!(list_tasks(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn 이벤트_기록과_최신순_조회() {
+        let mut conn = mem();
+        let project = insert_project_with_default_agent(
+            &mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 1,
+        )
+        .unwrap();
+        let agent_id = &project.agents[0].id;
+
+        insert_event(&conn, agent_id, "commit", "첫 커밋", 10).unwrap();
+        insert_event(&conn, agent_id, "push", "feat/x", 20).unwrap();
+        let events = list_events(&conn, agent_id).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].kind, "push");
+        assert_eq!(events[1].detail, "첫 커밋");
     }
 
     fn sample_agent(project_id: &str) -> Agent {

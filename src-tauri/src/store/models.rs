@@ -68,3 +68,15 @@ pub struct Task {
     pub created_at: i64,
     pub updated_at: i64,
 }
+
+/// 세션 감사 타임라인 이벤트 한 건.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Event {
+    pub id: String,
+    pub agent_id: String,
+    /// commit/push/pr/verify/checkpoint/rollback/status/adopt/fanout 등
+    pub kind: String,
+    pub detail: String,
+    pub created_at: i64,
+}

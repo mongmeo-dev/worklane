@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Checkpoint, Project, Prompt, Task}, StoreState};
+use crate::store::{self, models::{Agent, Checkpoint, Event, Project, Prompt, Task}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -369,6 +369,29 @@ pub fn set_task_status(
 pub fn delete_task(store: tauri::State<'_, StoreState>, id: String) -> Result<(), String> {
     let conn = store.0.lock().map_err(|e| e.to_string())?;
     store::repo::delete_task(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 감사 타임라인 이벤트를 기록한다.
+#[tauri::command]
+pub fn record_event(
+    store: tauri::State<'_, StoreState>,
+    agent_id: String,
+    kind: String,
+    detail: String,
+) -> Result<Event, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_event(&conn, &agent_id, &kind, &detail, now_ms() as i64)
+        .map_err(|e| e.to_string())
+}
+
+/// 에이전트의 감사 타임라인을 반환한다.
+#[tauri::command]
+pub fn list_events(
+    store: tauri::State<'_, StoreState>,
+    agent_id: String,
+) -> Result<Vec<Event>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_events(&conn, &agent_id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

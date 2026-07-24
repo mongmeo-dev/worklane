@@ -60,6 +60,8 @@ pub fn run() {
             commands::update_task,
             commands::set_task_status,
             commands::delete_task,
+            commands::record_event,
+            commands::list_events,
             commands::list_worktree_files,
             commands::read_worktree_file,
             commands::git_file_diff,
