@@ -177,6 +177,15 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body,
+  #app {
+    height: 100%;
+    /* 문서 레벨 고무줄 바운스 및 안쪽 스크롤의 체이닝 전파 차단 */
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
