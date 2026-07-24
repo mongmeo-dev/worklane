@@ -10,6 +10,7 @@
   import StatusDot from "./StatusDot.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import { agentRowClasses, projectPathLabel } from "./sidebarModel";
+  import { t } from "$lib/i18n";
   import Folder from "@lucide/svelte/icons/folder";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash from "@lucide/svelte/icons/trash-2";
@@ -60,8 +61,8 @@
 
 <aside class="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
   <div class="flex h-9 shrink-0 items-center px-3">
-    <span class="text-[11px] font-semibold text-muted-foreground">프로젝트 & 에이전트</span>
-    <Button variant="ghost" size="icon" class="ml-auto size-6" aria-label="프로젝트 추가" onclick={() => (projectDialogOpen = true)}>
+    <span class="text-[11px] font-semibold text-muted-foreground">{t("sidebar.heading")}</span>
+    <Button variant="ghost" size="icon" class="ml-auto size-6" aria-label={t("sidebar.addProject")} onclick={() => (projectDialogOpen = true)}>
       <Plus class="size-3.5" />
     </Button>
   </div>
@@ -74,7 +75,7 @@
         onclick={() => shell.goOverview()}
       >
         <LayoutGrid class="size-3.5 text-muted-foreground" />
-        전체 오버뷰
+        {t("sidebar.overview")}
       </button>
 
       {#each projects as project (project.id)}
@@ -85,10 +86,10 @@
               <h2 class="truncate text-[12.5px] font-semibold">{project.name}</h2>
               <p class="truncate font-mono text-[9.5px] text-muted-foreground/70">{projectPathLabel(project.path)}</p>
             </div>
-            <button type="button" class="rounded-md p-1 hover:bg-sidebar-accent" aria-label={`${project.name}에 에이전트 추가`} onclick={() => openAgentDialog(project)}>
+            <button type="button" class="rounded-md p-1 hover:bg-sidebar-accent" aria-label={t("sidebar.addAgentTo", { project: project.name })} onclick={() => openAgentDialog(project)}>
               <Plus class="size-3.5 text-muted-foreground" />
             </button>
-            <button type="button" class="rounded-md p-1 hover:bg-destructive/10" aria-label={`${project.name} 삭제`} onclick={() => { deleteProjectTarget = project; deleteProjectDialogOpen = true; }}>
+            <button type="button" class="rounded-md p-1 hover:bg-destructive/10" aria-label={t("sidebar.deleteProject", { project: project.name })} onclick={() => { deleteProjectTarget = project; deleteProjectDialogOpen = true; }}>
               <Trash class="size-3 text-muted-foreground" />
             </button>
           </div>
@@ -100,7 +101,7 @@
               onclick={() => { defaultWorkspaceFor = project; defaultWorkspaceDialogOpen = true; }}
             >
               <House class="size-3 shrink-0" />
-              기본 작업환경 다시 만들기
+              {t("sidebar.recreateDefault")}
             </button>
           {/if}
           <div class="mt-1 flex flex-col gap-1">
@@ -110,7 +111,7 @@
                   <div class="flex items-center gap-1.5 px-2 py-1 font-mono text-[9.5px] text-muted-foreground">
                     <GitBranch class="size-3" />
                     <span class="min-w-0 flex-1 truncate">{group.branch}</span>
-                    <span class="rounded-full bg-accent-share/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent-share">공유 · {group.agents.length} 에이전트</span>
+                    <span class="rounded-full bg-accent-share/10 px-1.5 py-0.5 text-[9px] font-semibold text-accent-share">{t("sidebar.shared", { count: group.agents.length })}</span>
                   </div>
                 {/if}
                 <div class="flex flex-col gap-1">
@@ -126,10 +127,10 @@
                         <span class="mt-1 flex w-full items-center gap-1.5 pl-4 text-[10.5px] text-muted-foreground">
                           <span>{agentKindStore.labelOf(agent.kind)}</span>
                           {#if !group.shared}<span>·</span><span class="min-w-0 truncate font-mono">{agent.branch}</span>{/if}
-                          <span class="ml-auto shrink-0 pr-1">{agent.lastActivity ?? "대기 중"}</span>
+                          <span class="ml-auto shrink-0 pr-1">{agent.lastActivity ?? t("common.waitingActivity")}</span>
                         </span>
                       </button>
-                      <button type="button" class="absolute right-1 top-7 hidden rounded p-1 group-hover:block hover:bg-destructive/10" aria-label={`${agent.title} 삭제`} onclick={() => requestDeleteAgent(agent)}>
+                      <button type="button" class="absolute right-1 top-7 hidden rounded p-1 group-hover:block hover:bg-destructive/10" aria-label={t("sidebar.deleteAgent", { agent: agent.title })} onclick={() => requestDeleteAgent(agent)}>
                         <Trash class="size-3 text-muted-foreground" />
                       </button>
                     </div>
@@ -141,8 +142,8 @@
         </section>
       {:else}
         <div class="rounded-xl border border-dashed border-sidebar-border p-5 text-center">
-          <p class="text-xs text-muted-foreground">아직 프로젝트가 없습니다.</p>
-          <button type="button" class="mt-2 text-xs font-medium text-accent-share" onclick={() => (projectDialogOpen = true)}>프로젝트 추가</button>
+          <p class="text-xs text-muted-foreground">{t("sidebar.empty")}</p>
+          <button type="button" class="mt-2 text-xs font-medium text-accent-share" onclick={() => (projectDialogOpen = true)}>{t("sidebar.addProject")}</button>
         </div>
       {/each}
     </div>

@@ -2,6 +2,7 @@ import { mount } from "svelte";
 import "./app.css";
 import App from "./App.svelte";
 import { theme } from "$lib/stores/theme.svelte";
+import { locale } from "$lib/i18n";
 import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
 import { budget } from "$lib/stores/budget.svelte";
 import { previewStore } from "$lib/stores/preview.svelte";
@@ -11,6 +12,7 @@ import { agentKindStore } from "$lib/stores/agentKinds.svelte";
 
 // 첫 렌더 전에 저장된 설정을 적용한다(테마 FOUC 방지).
 theme.init();
+locale.init();
 terminalSettings.init();
 budget.init();
 previewStore.init();

@@ -3,7 +3,8 @@
   import { onMount } from "svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import { attentionCounts, attentionItems } from "$lib/attention/model";
-  import { statusLabels } from "$lib/data/labels";
+  import { statusLabel } from "$lib/data/labels";
+  import { t } from "$lib/i18n";
   import Bell from "@lucide/svelte/icons/bell";
   import GitBranch from "@lucide/svelte/icons/git-branch";
 
@@ -31,7 +32,7 @@
   <button
     type="button"
     class="relative flex size-[30px] items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground {shell.attentionOpen ? 'bg-accent text-foreground' : ''}"
-    aria-label={counts.total > 0 ? `주의 필요 ${counts.total}건 열기` : "주의 필요 알림"}
+    aria-label={counts.total > 0 ? t("attention.openCount", { count: counts.total }) : t("attention.bell")}
     aria-expanded={shell.attentionOpen}
     onclick={() => shell.toggleAttention()}
   >
@@ -47,15 +48,15 @@
     <div
       class="absolute right-0 top-[calc(100%+8px)] z-40 w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl"
       role="dialog"
-      aria-label="주의 필요 인박스"
+      aria-label={t("attention.inboxAria")}
     >
       <header class="flex items-center gap-2 border-b px-3.5 py-2.5">
-        <h2 class="text-[12.5px] font-semibold">주의 필요</h2>
-        <span class="text-[10px] text-muted-foreground">전체 프로젝트</span>
+        <h2 class="text-[12.5px] font-semibold">{t("attention.heading")}</h2>
+        <span class="text-[10px] text-muted-foreground">{t("attention.allProjects")}</span>
         {#if counts.total > 0}
           <span class="ml-auto flex items-center gap-2 font-mono text-[10px]">
-            {#if counts.blocked > 0}<span class="text-status-blocked-fg">입력 {counts.blocked}</span>{/if}
-            {#if counts.done > 0}<span class="text-status-done-fg">완료 {counts.done}</span>{/if}
+            {#if counts.blocked > 0}<span class="text-status-blocked-fg">{t("attention.blockedCount", { count: counts.blocked })}</span>{/if}
+            {#if counts.done > 0}<span class="text-status-done-fg">{t("attention.doneCount", { count: counts.done })}</span>{/if}
           </span>
         {/if}
       </header>
@@ -81,7 +82,7 @@
                       class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold {item.status === 'blocked'
                         ? 'bg-status-blocked text-status-blocked-on'
                         : 'bg-status-done/10 text-status-done-fg'}"
-                    >{statusLabels[item.status]}</span>
+                    >{statusLabel(item.status)}</span>
                   </span>
                   <span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span class="truncate">{item.projectName}</span>
@@ -96,7 +97,7 @@
         </ul>
       {:else}
         <p class="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
-          지금 주의가 필요한 에이전트가 없습니다.
+          {t("attention.empty")}
         </p>
       {/if}
     </div>

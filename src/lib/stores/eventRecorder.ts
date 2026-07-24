@@ -1,7 +1,7 @@
 import type { AgentStatus } from "$lib/types";
 import { listenStatus } from "$lib/ipc/status";
 import { logEvent } from "$lib/ipc/events";
-import { statusLabels } from "$lib/data/labels";
+import { statusLabel } from "$lib/data/labels";
 
 /**
  * 상태 전이(입력 대기/완료) 밀리스톤을 감사 타임라인에 기록한다.
@@ -18,7 +18,7 @@ class EventRecorder {
       this.prev.set(e.sessionId, e.status);
       if (before === undefined || before === e.status) return;
       if (e.status === "done" || e.status === "blocked") {
-        logEvent(e.sessionId, "status", statusLabels[e.status]);
+        logEvent(e.sessionId, "status", statusLabel(e.status));
       }
     }).then(() => {});
     return this.started;

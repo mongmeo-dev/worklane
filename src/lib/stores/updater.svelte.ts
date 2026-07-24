@@ -1,5 +1,6 @@
 import type { Update } from "$lib/ipc/updater";
 import { checkUpdate, installUpdate } from "$lib/ipc/updater";
+import { t } from "$lib/i18n";
 
 type Status = "idle" | "checking" | "downloading" | "error";
 
@@ -32,7 +33,7 @@ class UpdaterStore {
       this.#update = update;
       this.#version = update?.version ?? null;
       this.#status = "idle";
-      if (manual && !update) this.#message = "이미 최신 버전입니다.";
+      if (manual && !update) this.#message = t("update.upToDate");
     } catch (e) {
       this.#status = "idle";
       if (manual) this.#message = e instanceof Error ? e.message : String(e);

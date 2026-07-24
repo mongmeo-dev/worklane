@@ -11,6 +11,7 @@
   } from "$lib/ipc/checkpoints";
   import { shell } from "$lib/stores/shell.svelte";
   import { logEvent } from "$lib/ipc/events";
+  import { t, localeTag } from "$lib/i18n";
   import History from "@lucide/svelte/icons/history";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -32,7 +33,7 @@
   }
 
   function formatTime(ms: number): string {
-    return new Date(ms).toLocaleString("ko-KR", {
+    return new Date(ms).toLocaleString(localeTag(), {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -112,24 +113,24 @@
   <button
     type="button"
     class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
-    aria-label="체크포인트"
+    aria-label={t("checkpoints.button")}
     aria-expanded={open}
     onclick={toggle}
   >
-    <History class="size-3" />체크포인트
+    <History class="size-3" />{t("checkpoints.button")}
   </button>
 
   {#if open}
     <div
       class="absolute right-0 top-[calc(100%+6px)] z-40 w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl"
       role="dialog"
-      aria-label="체크포인트"
+      aria-label={t("checkpoints.button")}
     >
       <div class="flex items-center gap-1.5 border-b p-2.5">
         <input
           class="min-w-0 flex-1 rounded-md border bg-input/40 px-2 py-1 text-[11px] outline-none focus:ring-1 focus:ring-ring"
           bind:value={label}
-          placeholder="라벨 (선택)"
+          placeholder={t("checkpoints.labelPlaceholder")}
           onkeydown={(e) => e.key === "Enter" && create()}
         />
         <button
@@ -138,7 +139,7 @@
           disabled={busy}
           onclick={create}
         >
-          <Save class="size-3" />지금 저장
+          <Save class="size-3" />{t("checkpoints.saveNow")}
         </button>
       </div>
 
@@ -147,9 +148,9 @@
       {/if}
 
       {#if loading}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">불러오는 중…</p>
+        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("common.loading")}</p>
       {:else if list.length === 0}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">저장된 체크포인트가 없습니다.</p>
+        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("checkpoints.empty")}</p>
       {:else}
         <ul class="max-h-[300px] overflow-auto py-1">
           {#each list as cp (cp.id)}
@@ -159,20 +160,20 @@
                 <span class="block font-mono text-[9.5px] text-muted-foreground">{formatTime(cp.createdAt)} · {cp.sha.slice(0, 7)}</span>
               </span>
               {#if pendingRollback === cp.id}
-                <button type="button" class="shrink-0 rounded-md bg-status-blocked px-2 py-1 text-[10px] font-bold text-status-blocked-on disabled:opacity-50" disabled={busy} onclick={() => rollback(cp)}>되돌리기 확인</button>
-                <button type="button" class="shrink-0 rounded-md border px-1.5 py-1 text-[10px] hover:bg-accent" onclick={() => (pendingRollback = null)}>취소</button>
+                <button type="button" class="shrink-0 rounded-md bg-status-blocked px-2 py-1 text-[10px] font-bold text-status-blocked-on disabled:opacity-50" disabled={busy} onclick={() => rollback(cp)}>{t("checkpoints.confirmRollback")}</button>
+                <button type="button" class="shrink-0 rounded-md border px-1.5 py-1 text-[10px] hover:bg-accent" onclick={() => (pendingRollback = null)}>{t("common.cancel")}</button>
               {:else}
-                <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="이 체크포인트로 되돌리기" onclick={() => (pendingRollback = cp.id)}>
+                <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t("checkpoints.rollbackTo")} onclick={() => (pendingRollback = cp.id)}>
                   <Undo2 class="size-3.5" />
                 </button>
-                <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="체크포인트 삭제" onclick={() => remove(cp)}>
+                <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={t("checkpoints.deleteAria")} onclick={() => remove(cp)}>
                   <Trash2 class="size-3.5" />
                 </button>
               {/if}
             </li>
           {/each}
         </ul>
-        <p class="border-t px-3 py-1.5 text-[9.5px] text-muted-foreground">되돌리기는 추적 파일의 변경만 스냅샷 시점으로 복원합니다.</p>
+        <p class="border-t px-3 py-1.5 text-[9.5px] text-muted-foreground">{t("checkpoints.note")}</p>
       {/if}
     </div>
   {/if}

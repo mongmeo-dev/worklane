@@ -8,6 +8,7 @@
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Radar from "@lucide/svelte/icons/radar";
   import { detectPreviewPorts } from "$lib/ipc/ports";
+  import { t } from "$lib/i18n";
 
   // AgentDetail이 {#key agent.id}로 감싸 에이전트별로 재마운트한다.
   let { agent }: { agent: Agent } = $props();
@@ -67,14 +68,14 @@
       onkeydown={onKey}
       onblur={persist}
       placeholder={DEFAULT_PREVIEW_URL}
-      aria-label="프리뷰 URL"
+      aria-label={t("preview.urlAria")}
       spellcheck="false"
     />
     <div class="relative shrink-0">
       <button
         type="button"
         class="grid size-7 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-40 {portsOpen ? 'bg-white/10 text-white' : ''}"
-        aria-label="dev 서버 포트 감지"
+        aria-label={t("preview.detectPorts")}
         aria-expanded={portsOpen}
         disabled={detecting}
         onclick={detect}
@@ -88,7 +89,7 @@
               <button type="button" class="block w-full px-3 py-1.5 text-left font-mono text-[11px] hover:bg-accent" onclick={() => pickPort(port)}>localhost:{port}</button>
             {/each}
           {:else}
-            <p class="px-3 py-2 text-[10.5px] text-muted-foreground">감지된 포트가 없습니다.</p>
+            <p class="px-3 py-2 text-[10.5px] text-muted-foreground">{t("preview.noPorts")}</p>
           {/if}
         </div>
       {/if}
@@ -96,7 +97,7 @@
     <button
       type="button"
       class="grid size-7 shrink-0 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
-      aria-label="새로고침"
+      aria-label={t("preview.refresh")}
       onclick={reload}
     >
       <RefreshCw class="size-3.5" />
@@ -104,7 +105,7 @@
     <button
       type="button"
       class="grid size-7 shrink-0 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-40"
-      aria-label="브라우저에서 열기"
+      aria-label={t("preview.openBrowser")}
       disabled={!trimmed}
       onclick={openExternal}
     >
@@ -115,13 +116,13 @@
   <div class="min-h-0 flex-1 bg-white">
     {#if trimmed}
       {#key `${frameKey}-${trimmed}`}
-        <iframe src={trimmed} title="라이브 프리뷰 · {agent.title}" class="size-full border-0"></iframe>
+        <iframe src={trimmed} title={t("preview.frameTitle", { title: agent.title })} class="size-full border-0"></iframe>
       {/key}
     {:else}
       <div class="grid h-full place-items-center bg-editor px-6 text-center text-[11px] text-white/45">
         <div>
-          <p>dev 서버 주소를 입력하면 프리뷰가 표시됩니다.</p>
-          <p class="mt-1 font-mono text-white/30">예: {DEFAULT_PREVIEW_URL}</p>
+          <p>{t("preview.emptyMain")}</p>
+          <p class="mt-1 font-mono text-white/30">{t("preview.emptyExample", { url: DEFAULT_PREVIEW_URL })}</p>
         </div>
       </div>
     {/if}

@@ -11,6 +11,7 @@
   import { canCreateWorkspace, requiresCommand, resolveWorkspaceTitle } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
+  import { t } from "$lib/i18n";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -57,15 +58,15 @@
 <Dialog.Root bind:open>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>에이전트 추가 — {project.name}</Dialog.Title>
+      <Dialog.Title>{t("agentDialog.title", { project: project.name })}</Dialog.Title>
     </Dialog.Header>
     <div class="flex flex-col gap-3 py-2">
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-title">작업 이름 (선택)</Label>
-        <Input id="ag-title" bind:value={title} placeholder="비우면 브랜치 이름으로 만듭니다" />
+        <Label for="ag-title">{t("agentDialog.taskName")}</Label>
+        <Input id="ag-title" bind:value={title} placeholder={t("agentDialog.taskNamePlaceholder")} />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label>종류</Label>
+        <Label>{t("agentDialog.kind")}</Label>
         <Select.Root type="single" value={kind} onValueChange={onKindChange}>
           <Select.Trigger>{agentKindStore.labelOf(kind)}</Select.Trigger>
           <Select.Content>
@@ -76,33 +77,33 @@
         </Select.Root>
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-cmd">실행 커맨드{requiresCommand(kind) ? "" : " (선택)"}</Label>
-        <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : "비우면 기본 셸이 열립니다"} />
+        <Label for="ag-cmd">{requiresCommand(kind) ? t("agentDialog.command") : t("agentDialog.commandOptional")}</Label>
+        <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : t("agentDialog.commandPlaceholderShell")} />
       </div>
       <div class="flex flex-col gap-1.5">
         <Label>worktree</Label>
         <Select.Root type="single" value={worktreeMode} onValueChange={(value) => (worktreeMode = value)}>
-          <Select.Trigger>{worktreeMode === "new" ? "새 worktree 만들기" : `${project.agents.find((agent) => agent.id === worktreeMode)?.branch ?? "기존 worktree"} 공유`}</Select.Trigger>
+          <Select.Trigger>{worktreeMode === "new" ? t("agentDialog.worktreeNew") : t("agentDialog.worktreeShare", { branch: project.agents.find((agent) => agent.id === worktreeMode)?.branch ?? t("agentDialog.worktreeExisting") })}</Select.Trigger>
           <Select.Content>
-            <Select.Item value="new">새 worktree 만들기</Select.Item>
+            <Select.Item value="new">{t("agentDialog.worktreeNew")}</Select.Item>
             {#each project.agents as existing (existing.id)}
               <Select.Item value={existing.id}>{existing.branch} · {existing.title}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
-        {#if worktreeMode !== "new"}<p class="text-[10px] text-accent-share">선택한 에이전트와 동일한 물리적 worktree를 사용합니다.</p>{/if}
+        {#if worktreeMode !== "new"}<p class="text-[10px] text-accent-share">{t("agentDialog.sharedNote")}</p>{/if}
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-branch">브랜치</Label>
-        <Input id="ag-branch" bind:value={branch} placeholder="예: feat/login" disabled={worktreeMode !== "new"} />
+        <Label for="ag-branch">{t("agentDialog.branch")}</Label>
+        <Input id="ag-branch" bind:value={branch} placeholder={t("agentDialog.branchPlaceholder")} disabled={worktreeMode !== "new"} />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-start">분기 기준(start-point)</Label>
-        <Input id="ag-start" bind:value={startPoint} placeholder="예: main" disabled={worktreeMode !== "new"} />
+        <Label for="ag-start">{t("agentDialog.startPoint")}</Label>
+        <Input id="ag-start" bind:value={startPoint} placeholder={t("agentDialog.startPlaceholder")} disabled={worktreeMode !== "new"} />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-wt">worktree 경로 (비우면 자동 생성)</Label>
-        <Input id="ag-wt" bind:value={worktreePath} placeholder="선택 사항" disabled={worktreeMode !== "new"} />
+        <Label for="ag-wt">{t("agentDialog.worktreePath")}</Label>
+        <Input id="ag-wt" bind:value={worktreePath} placeholder={t("agentDialog.worktreePathPlaceholder")} disabled={worktreeMode !== "new"} />
       </div>
       {#if error}
         <p class="text-xs text-destructive">{error}</p>
@@ -110,7 +111,7 @@
     </div>
     <Dialog.Footer>
       <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint, worktreeMode })}>
-        추가
+        {t("common.add")}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

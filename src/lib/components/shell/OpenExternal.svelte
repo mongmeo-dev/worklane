@@ -4,6 +4,7 @@
   import type { ExternalApp } from "$lib/ipc/external";
   import { openInApp } from "$lib/ipc/external";
   import SquareArrowOutUpRight from "@lucide/svelte/icons/square-arrow-out-up-right";
+  import { t } from "$lib/i18n";
 
   let { worktreePath }: { worktreePath: string } = $props();
 
@@ -11,12 +12,12 @@
   let error = $state<string | null>(null);
   let root = $state<HTMLElement>();
 
-  const items: { app: ExternalApp; label: string }[] = [
+  const items = $derived<{ app: ExternalApp; label: string }[]>([
     { app: "vscode", label: "VS Code" },
     { app: "cursor", label: "Cursor" },
     { app: "zed", label: "Zed" },
-    { app: "finder", label: "파일 매니저" },
-  ];
+    { app: "finder", label: t("openExternal.finder") },
+  ]);
 
   async function choose(app: ExternalApp) {
     error = null;
@@ -42,11 +43,11 @@
   <button
     type="button"
     class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
-    aria-label="외부 앱으로 열기"
+    aria-label={t("openExternal.aria")}
     aria-expanded={open}
     onclick={() => (open = !open)}
   >
-    <SquareArrowOutUpRight class="size-3" />열기
+    <SquareArrowOutUpRight class="size-3" />{t("common.open")}
   </button>
 
   {#if open}

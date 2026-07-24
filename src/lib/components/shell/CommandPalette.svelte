@@ -4,10 +4,11 @@
   import { shell } from "$lib/stores/shell.svelte";
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
   import { composer } from "$lib/stores/composer.svelte";
-  import { agentItems, filterPalette, PALETTE_ACTIONS, type PaletteItem } from "$lib/palette/model";
+  import { agentItems, filterPalette, paletteActions, type PaletteItem } from "$lib/palette/model";
   import StatusDot from "./StatusDot.svelte";
   import Search from "@lucide/svelte/icons/search";
   import CornerDownLeft from "@lucide/svelte/icons/corner-down-left";
+  import { t } from "$lib/i18n";
 
   let { projects, onNewAgent, onTasks }: {
     projects: Project[];
@@ -19,7 +20,7 @@
   let index = $state(0);
   let inputEl = $state<HTMLInputElement>();
 
-  const items = $derived([...PALETTE_ACTIONS, ...agentItems(projects)]);
+  const items = $derived([...paletteActions(), ...agentItems(projects)]);
   const filtered = $derived(filterPalette(items, query));
 
   // 열릴 때마다 상태 초기화 + 포커스.
@@ -98,8 +99,8 @@
           bind:value={query}
           onkeydown={onKey}
           class="h-11 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
-          placeholder="에이전트 이동 또는 명령 검색…"
-          aria-label="명령 팔레트"
+          placeholder={t("palette.placeholder")}
+          aria-label={t("palette.aria")}
           spellcheck="false"
         />
         <kbd class="rounded border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">Esc</kbd>
@@ -130,7 +131,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="px-3.5 py-6 text-center text-[12px] text-muted-foreground">결과가 없습니다.</p>
+        <p class="px-3.5 py-6 text-center text-[12px] text-muted-foreground">{t("palette.empty")}</p>
       {/if}
     </div>
   </div>

@@ -3,6 +3,7 @@ import { listenStatus } from "$lib/ipc/status";
 import { ensureNotificationPermission, sendAttentionNotification } from "$lib/ipc/notify";
 import { notifyWebhook } from "$lib/ipc/webhook";
 import { integrations } from "$lib/stores/integrations.svelte";
+import { t } from "$lib/i18n";
 
 /**
  * 이전 상태에서 현재 상태로의 전이가 OS 알림을 발생시켜야 하는지 판정한다.
@@ -25,11 +26,11 @@ export function attentionNotification(
   status: "blocked" | "done",
   meta: AttentionMeta,
 ): { title: string; body: string } {
-  const label = status === "blocked" ? "입력 대기" : "완료";
+  const label = status === "blocked" ? t("notify.blocked") : t("notify.done");
   const body =
     status === "blocked"
-      ? `${meta.projectName} 에이전트가 입력을 기다립니다.`
-      : `${meta.projectName} 에이전트가 작업을 마쳤습니다.`;
+      ? t("notify.blockedBody", { project: meta.projectName })
+      : t("notify.doneBody", { project: meta.projectName });
   return { title: `${meta.agentTitle} · ${label}`, body };
 }
 

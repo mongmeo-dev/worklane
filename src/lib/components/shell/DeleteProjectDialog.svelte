@@ -3,6 +3,7 @@
   import { Button } from "$lib/components/ui/button";
   import type { Project } from "$lib/types";
   import { projectStore } from "$lib/stores/projects.svelte";
+  import { t } from "$lib/i18n";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -26,18 +27,17 @@
 <Dialog.Root bind:open>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>프로젝트 삭제</Dialog.Title>
+      <Dialog.Title>{t("deleteProject.title")}</Dialog.Title>
       <Dialog.Description>
-        "{project.name}" 프로젝트를 삭제합니다. 하위 에이전트 {project.agents.length}개와 앱이 생성한
-        worktree도 함께 제거됩니다.
+        {t("deleteProject.desc", { name: project.name, count: project.agents.length })}
       </Dialog.Description>
     </Dialog.Header>
     {#if error}
       <p class="text-xs text-destructive">{error}</p>
     {/if}
     <Dialog.Footer>
-      <Button variant="ghost" onclick={() => (open = false)}>취소</Button>
-      <Button variant="destructive" disabled={loading} onclick={confirm}>삭제</Button>
+      <Button variant="ghost" onclick={() => (open = false)}>{t("common.cancel")}</Button>
+      <Button variant="destructive" disabled={loading} onclick={confirm}>{t("common.delete")}</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

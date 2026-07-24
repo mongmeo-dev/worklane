@@ -4,6 +4,7 @@
   import type { Agent } from "$lib/types";
   import type { AgentEvent } from "$lib/ipc/events";
   import { listEvents } from "$lib/ipc/events";
+  import { t, localeTag, type MessageKey } from "$lib/i18n";
   import ScrollText from "@lucide/svelte/icons/scroll-text";
 
   let { agent }: { agent: Agent } = $props();
@@ -13,24 +14,25 @@
   let loading = $state(false);
   let root = $state<HTMLElement>();
 
-  const KIND: Record<string, { label: string; cls: string }> = {
-    commit: { label: "커밋", cls: "text-status-running-fg" },
-    push: { label: "푸시", cls: "text-status-running-fg" },
-    pr: { label: "PR", cls: "text-accent-share" },
-    verify: { label: "검증", cls: "text-status-done-fg" },
-    checkpoint: { label: "체크포인트", cls: "text-muted-foreground" },
-    rollback: { label: "롤백", cls: "text-status-blocked-fg" },
-    status: { label: "상태", cls: "text-muted-foreground" },
-    adopt: { label: "채택", cls: "text-status-done-fg" },
-    fanout: { label: "팬아웃", cls: "text-accent-share" },
+  const KIND: Record<string, { key: MessageKey; cls: string }> = {
+    commit: { key: "timeline.kind.commit", cls: "text-status-running-fg" },
+    push: { key: "timeline.kind.push", cls: "text-status-running-fg" },
+    pr: { key: "timeline.kind.pr", cls: "text-accent-share" },
+    verify: { key: "timeline.kind.verify", cls: "text-status-done-fg" },
+    checkpoint: { key: "timeline.kind.checkpoint", cls: "text-muted-foreground" },
+    rollback: { key: "timeline.kind.rollback", cls: "text-status-blocked-fg" },
+    status: { key: "timeline.kind.status", cls: "text-muted-foreground" },
+    adopt: { key: "timeline.kind.adopt", cls: "text-status-done-fg" },
+    fanout: { key: "timeline.kind.fanout", cls: "text-accent-share" },
   };
 
-  function meta(kind: string) {
-    return KIND[kind] ?? { label: kind, cls: "text-muted-foreground" };
+  function meta(kind: string): { label: string; cls: string } {
+    const entry = KIND[kind];
+    return entry ? { label: t(entry.key), cls: entry.cls } : { label: kind, cls: "text-muted-foreground" };
   }
 
   function formatTime(ms: number): string {
-    return new Date(ms).toLocaleString("ko-KR", {
+    return new Date(ms).toLocaleString(localeTag(), {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -68,24 +70,24 @@
   <button
     type="button"
     class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
-    aria-label="타임라인"
+    aria-label={t("timeline.button")}
     aria-expanded={open}
     onclick={toggle}
   >
-    <ScrollText class="size-3" />타임라인
+    <ScrollText class="size-3" />{t("timeline.button")}
   </button>
 
   {#if open}
     <div
       class="absolute right-0 top-[calc(100%+6px)] z-40 w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl"
       role="dialog"
-      aria-label="세션 타임라인"
+      aria-label={t("timeline.sessionAria")}
     >
-      <header class="border-b px-3.5 py-2.5 text-[12px] font-semibold">활동 타임라인</header>
+      <header class="border-b px-3.5 py-2.5 text-[12px] font-semibold">{t("timeline.heading")}</header>
       {#if loading}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">불러오는 중…</p>
+        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("common.loading")}</p>
       {:else if events.length === 0}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">기록된 활동이 없습니다.</p>
+        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("timeline.empty")}</p>
       {:else}
         <ul class="max-h-[340px] overflow-auto py-1">
           {#each events as event (event.id)}

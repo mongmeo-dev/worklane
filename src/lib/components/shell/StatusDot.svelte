@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { AgentStatus } from "$lib/types";
-  import { statusLabels } from "$lib/data/labels";
+  import { statusLabel } from "$lib/data/labels";
   import { dotClasses } from "./statusDot";
 
   interface Props {
@@ -18,6 +18,6 @@
     style="width:{size}px;height:{size}px"
   ></span>
   {#if showLabel}
-    <span class="text-xs text-muted-foreground">{statusLabels[status]}</span>
+    <span class="text-xs text-muted-foreground">{statusLabel(status)}</span>
   {/if}
 </span>

@@ -1,10 +1,11 @@
 import type { ReviewStatus } from "$lib/ipc/review";
+import { t } from "$lib/i18n";
 
 /** 푸시 버튼 라벨. upstream 미설정이면 게시, 앞선 커밋 수가 있으면 개수 표기. */
 export function pushLabel(status: ReviewStatus): string {
-  if (!status.hasUpstream) return "브랜치 게시";
-  if (status.ahead > 0) return `푸시 ${status.ahead}`;
-  return "푸시됨";
+  if (!status.hasUpstream) return t("review.publishBranch");
+  if (status.ahead > 0) return t("review.pushAhead", { count: status.ahead });
+  return t("review.pushed");
 }
 
 /** 푸시 가능 여부. 원격이 있어야 하고, 게시 전이거나 앞선 커밋이 있어야 한다. */

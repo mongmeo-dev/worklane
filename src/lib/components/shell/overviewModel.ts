@@ -1,5 +1,6 @@
 import type { Agent, AgentStatus } from "$lib/types";
 import type { OverviewFilter } from "$lib/stores/shell.svelte";
+import { t } from "$lib/i18n";
 
 export function filterAgents(agents: Agent[], filter: OverviewFilter): Agent[] {
   return filter === "all" ? agents : agents.filter((agent) => (agent.status ?? "idle") === filter);
@@ -41,10 +42,5 @@ export function sortAgents(agents: Agent[], sort: OverviewSort): Agent[] {
 }
 
 export function tileAction(status: AgentStatus): string {
-  return {
-    running: "열기 →",
-    blocked: "응답하기 →",
-    idle: "재개 →",
-    done: "변경 검토 →",
-  }[status];
+  return t(`overview.action.${status}`);
 }

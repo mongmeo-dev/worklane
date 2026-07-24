@@ -4,6 +4,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { promptStore } from "$lib/stores/prompts.svelte";
+  import { t } from "$lib/i18n";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Trash2 from "@lucide/svelte/icons/trash-2";
 
@@ -62,19 +63,19 @@
 
 <div class="flex flex-col gap-4">
   <div class="rounded-[10px] border bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
-    반복 작업의 지시문을 저장해 두면 팬아웃·에이전트 생성 시 불러와 재사용할 수 있습니다.
+    {t("settings.prompts.intro")}
   </div>
 
   <section class="flex flex-col gap-2 rounded-[10px] border p-3">
-    <h2 class="text-[11px] font-semibold text-muted-foreground">새 프롬프트</h2>
-    <Input bind:value={draftTitle} placeholder="제목 (예: 릴리스 준비)" />
+    <h2 class="text-[11px] font-semibold text-muted-foreground">{t("settings.prompts.newHeading")}</h2>
+    <Input bind:value={draftTitle} placeholder={t("settings.prompts.titlePlaceholder")} />
     <textarea
       class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
       bind:value={draftBody}
-      placeholder="프롬프트 본문"
+      placeholder={t("settings.prompts.bodyPlaceholder")}
     ></textarea>
     <div class="flex justify-end">
-      <Button size="sm" onclick={add} disabled={!draftTitle.trim()}>저장</Button>
+      <Button size="sm" onclick={add} disabled={!draftTitle.trim()}>{t("common.save")}</Button>
     </div>
   </section>
 
@@ -83,9 +84,9 @@
   {/if}
 
   <section class="flex flex-col gap-2">
-    <h2 class="text-[11px] font-semibold text-muted-foreground">저장된 프롬프트 · {prompts.length}</h2>
+    <h2 class="text-[11px] font-semibold text-muted-foreground">{t("settings.prompts.savedHeading", { count: prompts.length })}</h2>
     {#if prompts.length === 0}
-      <p class="rounded-[10px] border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">저장된 프롬프트가 없습니다.</p>
+      <p class="rounded-[10px] border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">{t("settings.prompts.empty")}</p>
     {:else}
       <div class="flex flex-col gap-2">
         {#each prompts as prompt (prompt.id)}
@@ -97,8 +98,8 @@
                 bind:value={editBody}
               ></textarea>
               <div class="flex justify-end gap-1.5">
-                <Button size="sm" variant="ghost" onclick={() => (editingId = null)}>취소</Button>
-                <Button size="sm" onclick={saveEdit} disabled={!editTitle.trim()}>수정</Button>
+                <Button size="sm" variant="ghost" onclick={() => (editingId = null)}>{t("common.cancel")}</Button>
+                <Button size="sm" onclick={saveEdit} disabled={!editTitle.trim()}>{t("common.update")}</Button>
               </div>
             {:else}
               <div class="flex items-start gap-2">
@@ -108,10 +109,10 @@
                     <p class="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{prompt.body}</p>
                   {/if}
                 </div>
-                <button type="button" class="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="수정" onclick={() => startEdit(prompt.id, prompt.title, prompt.body)}>
+                <button type="button" class="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t("common.edit")} onclick={() => startEdit(prompt.id, prompt.title, prompt.body)}>
                   <Pencil class="size-3.5" />
                 </button>
-                <button type="button" class="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="삭제" onclick={() => remove(prompt.id)}>
+                <button type="button" class="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={t("common.delete")} onclick={() => remove(prompt.id)}>
                   <Trash2 class="size-3.5" />
                 </button>
               </div>

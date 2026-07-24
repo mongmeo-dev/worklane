@@ -11,6 +11,7 @@
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
+  import { t } from "$lib/i18n";
   import StatusChips from "./StatusChips.svelte";
   import AttentionInbox from "./AttentionInbox.svelte";
 
@@ -34,7 +35,7 @@
       variant="ghost"
       size="icon"
       class="size-[30px]"
-      aria-label={shell.leftPanelOpen ? "왼쪽 패널 닫기" : "왼쪽 패널 열기"}
+      aria-label={shell.leftPanelOpen ? t("titleBar.leftPanel.close") : t("titleBar.leftPanel.open")}
       onclick={() => shell.toggleLeftPanel()}
     >
       <PanelLeft class="size-4" />
@@ -55,7 +56,7 @@
     <button
       type="button"
       class="flex h-[30px] items-center gap-1.5 rounded-full border bg-card px-2.5 text-[11px] text-muted-foreground hover:text-foreground"
-      aria-label="명령 팔레트 열기"
+      aria-label={t("titleBar.palette")}
       onclick={() => shell.togglePalette()}
     >
       <Search class="size-3.5" />
@@ -64,20 +65,20 @@
     <AttentionInbox {projects} />
     <Button variant="ghost" size="sm" class="h-[30px] gap-1.5 rounded-full px-3 text-xs" onclick={onTasks}>
       <ListTodo class="size-4" />
-      태스크
+      {t("titleBar.tasks")}
     </Button>
     <Button variant="outline" size="sm" class="h-[30px] gap-1.5 rounded-full bg-card px-3 text-xs" onclick={onNewAgent} disabled={projects.length === 0}>
       <Plus class="size-4" />
-      새 에이전트
+      {t("titleBar.newAgent")}
     </Button>
     <Button variant="outline" size="sm" class="h-[30px] gap-1.5 rounded-full bg-card px-3 text-xs" onclick={onFanout} disabled={projects.length === 0}>
       <GitFork class="size-4" />
-      팬아웃
+      {t("titleBar.fanout")}
     </Button>
     <Button
       variant="ghost"
       size="icon"
-      aria-label="설정"
+      aria-label={t("titleBar.settings")}
       onclick={() => settingsUi.open()}
     >
       <Settings class="size-4" />
@@ -87,7 +88,7 @@
         variant="ghost"
         size="icon"
         class="size-[30px]"
-        aria-label={shell.rightPanelOpen ? "파일 패널 닫기" : "파일 패널 열기"}
+        aria-label={shell.rightPanelOpen ? t("titleBar.rightPanel.close") : t("titleBar.rightPanel.open")}
         onclick={() => shell.toggleRightPanel()}
       >
         <PanelRight class="size-4" />

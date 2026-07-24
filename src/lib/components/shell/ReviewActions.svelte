@@ -5,6 +5,7 @@
   import { canCommit, canPush, pushLabel } from "$lib/review/model";
   import { shell } from "$lib/stores/shell.svelte";
   import { logEvent } from "$lib/ipc/events";
+  import { t } from "$lib/i18n";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import Upload from "@lucide/svelte/icons/upload";
@@ -42,7 +43,7 @@
       await gitCommitAll(agent.worktreePath, message);
       logEvent(agent.id, "commit", committed);
       message = "";
-      note = "커밋했습니다.";
+      note = t("review.committed");
       await refresh();
       onChanged?.();
     } catch (e) {
@@ -60,7 +61,7 @@
     try {
       const branch = await gitPush(agent.worktreePath);
       logEvent(agent.id, "push", branch);
-      note = `푸시 완료 · ${branch}`;
+      note = t("review.pushDone", { branch });
       await refresh();
     } catch (e) {
       error = reason(e);
@@ -77,7 +78,7 @@
       const pr = await gitOpenPullRequest(agent.worktreePath);
       logEvent(agent.id, "pr", `${pr.mode}: ${pr.url}`);
       await openUrl(pr.url);
-      note = pr.mode === "gh" ? "PR을 열었습니다." : "GitHub compare 페이지를 열었습니다.";
+      note = pr.mode === "gh" ? t("review.prOpened") : t("review.compareOpened");
     } catch (e) {
       error = reason(e);
     } finally {
@@ -98,7 +99,7 @@
     try {
       const preview = await gitMergePreview(agent.worktreePath);
       if (preview.alreadyMerged) {
-        note = `이미 ${preview.base}에 병합된 상태입니다.`;
+        note = t("review.alreadyMerged", { base: preview.base });
       } else if (preview.conflicts.length > 0) {
         mergeConflicts = preview.conflicts;
       } else {
@@ -139,10 +140,10 @@
 <div class="shrink-0 border-t bg-sidebar px-3 py-2.5">
   <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
     <GitCommitHorizontal class="size-3.5" />
-    <span class="font-semibold text-foreground">검토 · 커밋</span>
+    <span class="font-semibold text-foreground">{t("review.heading")}</span>
     {#if status}
       <span class="ml-auto flex items-center gap-1.5 font-mono">
-        {#if status.changedCount > 0}<span class="text-accent-share">{status.changedCount} 변경</span>{/if}
+        {#if status.changedCount > 0}<span class="text-accent-share">{t("review.changed", { count: status.changedCount })}</span>{/if}
         {#if status.ahead > 0}<span class="text-diff-add">↑{status.ahead}</span>{/if}
         {#if status.behind > 0}<span class="text-diff-remove">↓{status.behind}</span>{/if}
       </span>
@@ -151,7 +152,7 @@
 
   <textarea
     class="mt-2 h-14 w-full resize-none rounded-md border bg-input/40 px-2 py-1.5 text-[11px] outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-    placeholder={status && status.changedCount > 0 ? "커밋 메시지" : "커밋할 변경이 없습니다"}
+    placeholder={status && status.changedCount > 0 ? t("review.commitPlaceholder") : t("review.noChanges")}
     disabled={!status || status.changedCount === 0 || busy !== null}
     bind:value={message}
   ></textarea>
@@ -164,7 +165,7 @@
       onclick={commit}
     >
       <GitCommitHorizontal class="size-3.5" />
-      {busy === "commit" ? "커밋 중" : "커밋"}
+      {busy === "commit" ? t("review.committing") : t("review.commit")}
     </button>
     <button
       type="button"
@@ -173,7 +174,7 @@
       onclick={push}
     >
       <Upload class="size-3.5" />
-      {busy === "push" ? "푸시 중" : status ? pushLabel(status) : "푸시"}
+      {busy === "push" ? t("review.pushing") : status ? pushLabel(status) : t("review.push")}
     </button>
     <button
       type="button"
@@ -182,7 +183,7 @@
       onclick={pullRequest}
     >
       <GitPullRequestArrow class="size-3.5" />
-      {busy === "pr" ? "여는 중" : "PR"}
+      {busy === "pr" ? t("review.opening") : "PR"}
     </button>
   </div>
 
@@ -194,9 +195,9 @@
         disabled={merging}
         onclick={confirmMerge}
       >
-        <GitMerge class="size-3.5" />{pendingMerge.base}로 병합
+        <GitMerge class="size-3.5" />{t("review.mergeInto", { base: pendingMerge.base })}
       </button>
-      <button type="button" class="h-7 rounded-md border px-2.5 text-[10.5px] hover:bg-accent" onclick={() => (pendingMerge = null)}>취소</button>
+      <button type="button" class="h-7 rounded-md border px-2.5 text-[10.5px] hover:bg-accent" onclick={() => (pendingMerge = null)}>{t("common.cancel")}</button>
     </div>
   {:else}
     <button
@@ -205,13 +206,13 @@
       disabled={!status || busy !== null || merging}
       onclick={previewMerge}
     >
-      <GitMerge class="size-3.5" />{merging ? "확인 중…" : "기준 브랜치로 병합"}
+      <GitMerge class="size-3.5" />{merging ? t("review.merging") : t("review.mergeToBase")}
     </button>
   {/if}
 
   {#if mergeConflicts.length > 0}
     <p class="mt-1.5 rounded-md border border-status-blocked/30 bg-status-blocked/10 px-2 py-1 text-[10px] text-status-blocked-fg">
-      충돌 {mergeConflicts.length}개 · {mergeConflicts.slice(0, 4).join(", ")}{mergeConflicts.length > 4 ? " …" : ""}
+      {t("review.conflictSummary", { count: mergeConflicts.length, list: mergeConflicts.slice(0, 4).join(", ") })}{mergeConflicts.length > 4 ? " …" : ""}
     </p>
   {/if}
 
@@ -220,6 +221,6 @@
   {:else if note}
     <p class="mt-2 text-[10px] text-status-done-fg">{note}</p>
   {:else if status && !status.hasRemote}
-    <p class="mt-2 text-[10px] text-muted-foreground">origin 원격이 없어 푸시·PR을 사용할 수 없습니다.</p>
+    <p class="mt-2 text-[10px] text-muted-foreground">{t("review.noRemote")}</p>
   {/if}
 </div>

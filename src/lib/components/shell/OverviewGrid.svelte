@@ -7,6 +7,7 @@
   import { terminalPool } from "$lib/terminal/pool";
   import { listWorktreeFiles } from "$lib/ipc/files";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
+  import { t, type MessageKey } from "$lib/i18n";
   import StatusDot from "./StatusDot.svelte";
   import { filterAgents, searchAgents, sortAgents, tileAction, type OverviewSort } from "./overviewModel";
   import Search from "@lucide/svelte/icons/search";
@@ -23,10 +24,10 @@
     sort = value;
     if (typeof localStorage !== "undefined") localStorage.setItem(SORT_KEY, value);
   }
-  const sorts: { value: OverviewSort; label: string }[] = [
-    { value: "activity", label: "최근" },
-    { value: "status", label: "상태" },
-    { value: "name", label: "이름" },
+  const sorts: { value: OverviewSort; labelKey: MessageKey }[] = [
+    { value: "activity", labelKey: "overview.sort.activity" },
+    { value: "status", labelKey: "overview.sort.status" },
+    { value: "name", labelKey: "overview.sort.name" },
   ];
 
   const agents = $derived(allAgents(projects));
@@ -37,11 +38,11 @@
   const shownAgents = $derived(
     sortAgents(searchAgents(filterAgents(agents, shell.overviewFilter), query, nameOf), sort),
   );
-  const filters: { value: OverviewFilter; label: string }[] = [
-    { value: "all", label: "전체" },
-    { value: "running", label: "실행 중" },
-    { value: "blocked", label: "입력 대기" },
-    { value: "done", label: "완료" },
+  const filters: { value: OverviewFilter; labelKey: MessageKey }[] = [
+    { value: "all", labelKey: "overview.filter.all" },
+    { value: "running", labelKey: "overview.filter.running" },
+    { value: "blocked", labelKey: "overview.filter.blocked" },
+    { value: "done", labelKey: "overview.filter.done" },
   ];
 
   function filterCount(filter: OverviewFilter): number {
@@ -79,8 +80,8 @@
 <section class="flex min-h-0 flex-1 flex-col gap-3.5 overflow-hidden px-[22px] pb-[22px] pt-[18px]">
   <header class="flex shrink-0 items-center gap-2">
     <div>
-      <h1 class="text-[15px] font-bold">전체 오버뷰</h1>
-      <p class="mt-0.5 text-[10.5px] text-muted-foreground">{agents.length}개 에이전트 · {projects.length}개 프로젝트</p>
+      <h1 class="text-[15px] font-bold">{t("overview.title")}</h1>
+      <p class="mt-0.5 text-[10.5px] text-muted-foreground">{t("overview.summary", { agents: agents.length, projects: projects.length })}</p>
     </div>
     <div class="ml-auto flex items-center gap-2">
       <label class="flex h-8 items-center gap-1.5 rounded-full border bg-card/70 px-2.5">
@@ -88,8 +89,8 @@
         <input
           bind:value={query}
           class="w-28 bg-transparent text-[11.5px] outline-none placeholder:text-muted-foreground focus:w-40"
-          placeholder="검색"
-          aria-label="에이전트 검색"
+          placeholder={t("overview.searchPlaceholder")}
+          aria-label={t("overview.searchAria")}
           spellcheck="false"
         />
       </label>
@@ -99,7 +100,7 @@
             type="button"
             class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors {sort === option.value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}"
             onclick={() => setSort(option.value)}
-          >{option.label}</button>
+          >{t(option.labelKey)}</button>
         {/each}
       </div>
     </div>
@@ -110,7 +111,7 @@
           class="rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors {shell.overviewFilter === filter.value ? 'bg-accent text-foreground' : filter.value === 'blocked' ? 'text-status-blocked-fg' : 'text-muted-foreground hover:text-foreground'}"
           onclick={() => shell.setFilter(filter.value)}
         >
-          {filter.label}{filter.value === "blocked" && filterCount(filter.value) > 0 ? ` ${filterCount(filter.value)}` : ""}
+          {t(filter.labelKey)}{filter.value === "blocked" && filterCount(filter.value) > 0 ? ` ${filterCount(filter.value)}` : ""}
         </button>
       {/each}
     </div>
@@ -139,13 +140,13 @@
               <span class="truncate">{agent.branch}</span>
             </div>
             <div class="mt-3 flex min-h-0 flex-1 items-end overflow-hidden rounded-lg border border-white/5 bg-terminal p-3 font-mono text-[10.5px] leading-[1.65] text-white/70">
-              <pre class="max-h-full w-full whitespace-pre-wrap">{tail || `$ ${agent.command}\n세션을 열면 최근 출력이 표시됩니다.`}</pre>
+              <pre class="max-h-full w-full whitespace-pre-wrap">{tail || `$ ${agent.command}\n${t("overview.previewPlaceholder")}`}</pre>
             </div>
             <footer class="mt-2.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
               {#if status === "blocked"}
-                <span class="rounded-full bg-status-blocked px-2 py-0.5 font-semibold text-status-blocked-on">입력 대기</span>
+                <span class="rounded-full bg-status-blocked px-2 py-0.5 font-semibold text-status-blocked-on">{t("status.blocked")}</span>
               {:else}
-                <span>{agent.lastActivity ?? "대기 중"}</span>
+                <span>{agent.lastActivity ?? t("common.waitingActivity")}</span>
               {/if}
               <button
                 type="button"
@@ -159,8 +160,8 @@
     {:else}
       <div class="flex h-full min-h-64 items-center justify-center rounded-xl border border-dashed">
         <div class="text-center">
-          <p class="text-sm font-medium">표시할 에이전트가 없습니다.</p>
-          <button type="button" class="mt-2 text-xs text-accent-share" onclick={() => shell.setFilter("all")}>전체 에이전트 보기</button>
+          <p class="text-sm font-medium">{t("overview.empty")}</p>
+          <button type="button" class="mt-2 text-xs text-accent-share" onclick={() => shell.setFilter("all")}>{t("overview.showAll")}</button>
         </div>
       </div>
     {/if}

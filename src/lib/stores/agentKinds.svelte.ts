@@ -1,4 +1,5 @@
 import { BLANK_TERMINAL_KIND } from "$lib/data/labels";
+import { t } from "$lib/i18n";
 
 /** 사용자가 추가·수정·삭제할 수 있는 CLI 에이전트 종류 정의. */
 export interface AgentKindDef {
@@ -13,9 +14,6 @@ export interface AgentKindDef {
 }
 
 const STORAGE_KEY = "settings:agent-kinds";
-
-/** 빈 터미널 표시명. 빈 터미널은 구조적 종류라 관리 목록에는 노출하지 않는다. */
-const TERMINAL_LABEL = "빈 터미널";
 
 /** 앱이 기본 제공하는 CLI 에이전트 종류. 사용자가 삭제·수정할 수 있다. */
 const BUILTIN_KINDS: readonly AgentKindDef[] = [
@@ -71,7 +69,7 @@ class AgentKindStore {
   }
 
   labelOf(id: string): string {
-    if (id === BLANK_TERMINAL_KIND) return TERMINAL_LABEL;
+    if (id === BLANK_TERMINAL_KIND) return t("agentKind.terminal");
     return this.#kinds.find((k) => k.id === id)?.label ?? id;
   }
 
@@ -83,7 +81,7 @@ class AgentKindStore {
   /** 새 종류 추가. id는 label에서 파생하며 중복 시 접미사를 붙인다. */
   add(label: string, defaultCommand: string): AgentKindDef {
     const trimmed = label.trim();
-    if (!trimmed) throw new Error("종류 이름을 입력해 주세요.");
+    if (!trimmed) throw new Error(t("agentKind.nameRequired"));
     const def: AgentKindDef = {
       id: this.#uniqueId(slugifyKindId(trimmed)),
       label: trimmed,

@@ -7,6 +7,7 @@
   import { logEvent } from "$lib/ipc/events";
   import { shell } from "$lib/stores/shell.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
+  import { t } from "$lib/i18n";
   import GitPullRequest from "@lucide/svelte/icons/git-pull-request";
   import ExternalLink from "@lucide/svelte/icons/external-link";
   import Check from "@lucide/svelte/icons/check";
@@ -83,7 +84,7 @@
   <button
     type="button"
     class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
-    aria-label="PR 상태"
+    aria-label={t("prPanel.aria")}
     aria-expanded={open}
     onclick={toggle}
   >
@@ -94,14 +95,14 @@
     <div
       class="absolute right-0 top-[calc(100%+6px)] z-40 w-80 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-2xl"
       role="dialog"
-      aria-label="PR 상태"
+      aria-label={t("prPanel.aria")}
     >
       {#if loading && status === undefined}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">불러오는 중…</p>
+        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("common.loading")}</p>
       {:else if error}
         <p class="px-3.5 py-3 text-[10.5px] text-destructive">{error}</p>
       {:else if status === null}
-        <p class="px-3.5 py-4 text-center text-[11px] text-muted-foreground">이 브랜치의 PR이 없습니다.</p>
+        <p class="px-3.5 py-4 text-center text-[11px] text-muted-foreground">{t("prPanel.none")}</p>
       {:else if status}
         <header class="flex items-start gap-2 border-b px-3.5 py-2.5">
           <span class="min-w-0 flex-1">
@@ -109,10 +110,10 @@
             <span class="mt-0.5 flex items-center gap-1.5 text-[9.5px]">
               <span class="rounded-full bg-muted px-1.5 py-0.5 font-semibold text-muted-foreground">{status.state}</span>
               {#if status.reviewDecision}<span class="text-muted-foreground">{status.reviewDecision}</span>{/if}
-              {#if status.mergeable === "CONFLICTING"}<span class="text-diff-remove">충돌</span>{/if}
+              {#if status.mergeable === "CONFLICTING"}<span class="text-diff-remove">{t("prPanel.conflicting")}</span>{/if}
             </span>
           </span>
-          <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="브라우저에서 열기" onclick={() => openUrl(status!.url)}>
+          <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t("prPanel.openInBrowser")} onclick={() => openUrl(status!.url)}>
             <ExternalLink class="size-3.5" />
           </button>
         </header>
@@ -145,7 +146,7 @@
             <button type="button" class="h-7 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={busy} onclick={() => merge("rebase")}>Rebase</button>
           </div>
         {:else}
-          <p class="px-3.5 py-2 text-[10.5px] text-muted-foreground">{status.state} 상태입니다.</p>
+          <p class="px-3.5 py-2 text-[10.5px] text-muted-foreground">{t("prPanel.stateStatus", { state: status.state })}</p>
         {/if}
       {/if}
     </div>

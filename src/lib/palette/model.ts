@@ -1,17 +1,20 @@
 import type { AgentStatus, Project } from "$lib/types";
+import { t } from "$lib/i18n";
 
 export type PaletteItem =
   | { type: "action"; id: string; label: string; hint: string }
   | { type: "agent"; id: string; label: string; project: string; status: AgentStatus };
 
-/** 기본 액션 항목(에이전트 외 전역 명령). */
-export const PALETTE_ACTIONS: PaletteItem[] = [
-  { type: "action", id: "overview", label: "전체 오버뷰", hint: "이동" },
-  { type: "action", id: "newAgent", label: "새 에이전트", hint: "생성" },
-  { type: "action", id: "fanout", label: "팬아웃", hint: "생성" },
-  { type: "action", id: "tasks", label: "태스크 보드", hint: "열기" },
-  { type: "action", id: "settings", label: "설정", hint: "열기" },
-];
+/** 기본 액션 항목(에이전트 외 전역 명령). 현재 로케일로 라벨을 만든다. */
+export function paletteActions(): PaletteItem[] {
+  return [
+    { type: "action", id: "overview", label: t("palette.action.overview.label"), hint: t("palette.action.overview.hint") },
+    { type: "action", id: "newAgent", label: t("palette.action.newAgent.label"), hint: t("palette.action.newAgent.hint") },
+    { type: "action", id: "fanout", label: t("palette.action.fanout.label"), hint: t("palette.action.fanout.hint") },
+    { type: "action", id: "tasks", label: t("palette.action.tasks.label"), hint: t("palette.action.tasks.hint") },
+    { type: "action", id: "settings", label: t("palette.action.settings.label"), hint: t("palette.action.settings.hint") },
+  ];
+}
 
 /** 프로젝트의 에이전트를 팔레트 항목으로 변환한다. */
 export function agentItems(projects: Project[]): PaletteItem[] {

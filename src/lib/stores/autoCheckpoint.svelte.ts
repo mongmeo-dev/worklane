@@ -1,6 +1,7 @@
 import type { AgentStatus } from "$lib/types";
 import { listenStatus } from "$lib/ipc/status";
 import { createCheckpoint } from "$lib/ipc/checkpoints";
+import { t } from "$lib/i18n";
 
 const STORAGE_KEY = "settings:auto-checkpoint";
 
@@ -45,7 +46,7 @@ class AutoCheckpointStore {
       if (before === undefined || before === "done" || e.status !== "done") return;
       const ref = resolve(e.sessionId);
       if (!ref) return;
-      void createCheckpoint(ref.agentId, ref.worktreePath, "완료 자동").catch(() => {});
+      void createCheckpoint(ref.agentId, ref.worktreePath, t("checkpoints.autoLabel")).catch(() => {});
     }).then(() => {});
     return this.#started;
   }

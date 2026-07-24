@@ -2,6 +2,7 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import type { SettingsTab } from "$lib/stores/settingsUi.svelte";
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
+  import { t, type MessageKey } from "$lib/i18n";
   import ScreenSettings from "$lib/components/settings/ScreenSettings.svelte";
   import AgentSettings from "$lib/components/settings/AgentSettings.svelte";
   import PromptSettings from "$lib/components/settings/PromptSettings.svelte";
@@ -13,30 +14,30 @@
   import Gauge from "@lucide/svelte/icons/gauge";
   import Plug from "@lucide/svelte/icons/plug";
 
-  const tabs: { id: SettingsTab; label: string; icon: typeof Monitor }[] = [
-    { id: "screen", label: "화면", icon: Monitor },
-    { id: "agents", label: "에이전트", icon: Bot },
-    { id: "prompts", label: "프롬프트", icon: Library },
-    { id: "usage", label: "사용량", icon: Gauge },
-    { id: "integrations", label: "연동", icon: Plug },
+  const tabs: { id: SettingsTab; labelKey: MessageKey; icon: typeof Monitor }[] = [
+    { id: "screen", labelKey: "settings.tab.screen", icon: Monitor },
+    { id: "agents", labelKey: "settings.tab.agents", icon: Bot },
+    { id: "prompts", labelKey: "settings.tab.prompts", icon: Library },
+    { id: "usage", labelKey: "settings.tab.usage", icon: Gauge },
+    { id: "integrations", labelKey: "settings.tab.integrations", icon: Plug },
   ];
 </script>
 
 <Dialog.Root open={settingsUi.isOpen} onOpenChange={(open) => (open ? settingsUi.open() : settingsUi.close())}>
   <Dialog.Content class="flex h-[460px] w-[640px] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[14px] border p-0 sm:max-w-[640px]">
     <Dialog.Header class="flex h-12 shrink-0 justify-center border-b px-4">
-      <Dialog.Title class="text-[14px] font-semibold">설정</Dialog.Title>
+      <Dialog.Title class="text-[14px] font-semibold">{t("settings.title")}</Dialog.Title>
     </Dialog.Header>
 
     <div class="flex min-h-0 flex-1">
-      <nav class="flex w-[150px] shrink-0 flex-col gap-1 border-r bg-sidebar p-2" aria-label="설정 분류">
+      <nav class="flex w-[150px] shrink-0 flex-col gap-1 border-r bg-sidebar p-2" aria-label={t("settings.nav")}>
         {#each tabs as tab (tab.id)}
           <button
             type="button"
             class="flex h-8 items-center gap-2 rounded-lg px-3 text-left text-[12.5px] font-medium {settingsUi.activeTab === tab.id ? 'bg-sidebar-accent text-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground'}"
             onclick={() => settingsUi.setTab(tab.id)}
           >
-            <tab.icon class="size-3.5" />{tab.label}
+            <tab.icon class="size-3.5" />{t(tab.labelKey)}
           </button>
         {/each}
       </nav>

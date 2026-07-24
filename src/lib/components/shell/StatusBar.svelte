@@ -13,13 +13,14 @@
   import { integrations } from "$lib/stores/integrations.svelte";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import UsagePopover from "./UsagePopover.svelte";
+  import { t } from "$lib/i18n";
 
   let root: HTMLElement;
   let usage = $state<UsageInfo[]>([
-    disconnectedUsage("claude-code", "Claude Code", "Anthropic 계정"),
-    disconnectedUsage("codex", "Codex CLI", "OpenAI 계정"),
-    disconnectedUsage("cursor", "Cursor CLI", "Cursor 계정"),
-    disconnectedUsage("gemini", "Gemini CLI", "Google 계정"),
+    disconnectedUsage("claude-code", "Claude Code", t("usage.tier.anthropic")),
+    disconnectedUsage("codex", "Codex CLI", t("usage.tier.openai")),
+    disconnectedUsage("cursor", "Cursor CLI", t("usage.tier.cursor")),
+    disconnectedUsage("gemini", "Gemini CLI", t("usage.tier.google")),
   ]);
   let resources = $state<SystemResources>({ cpuPercent: 0, ramUsedGb: 0, ramTotalGb: 0 });
   const ramPercent = $derived(resources.ramTotalGb > 0 ? (resources.ramUsedGb / resources.ramTotalGb) * 100 : 0);
@@ -47,8 +48,8 @@
     for (const info of list) {
       const over = info.connected && overBudget(info.primaryPercent, budget.threshold);
       if (over && !prevOver[info.provider] && info.primaryPercent !== null) {
-        const title = `${info.fullName} 사용량 ${Math.round(info.primaryPercent)}%`;
-        const body = `예산 임계값 ${budget.threshold}%를 넘었습니다.`;
+        const title = t("usage.budgetCrossTitle", { name: info.fullName, percent: Math.round(info.primaryPercent) });
+        const body = t("usage.budgetCrossBody", { threshold: budget.threshold });
         void sendAttentionNotification(title, body);
         notifyWebhook(integrations.webhookUrl, `${title} — ${body}`);
       }
@@ -92,7 +93,7 @@
 </script>
 
 <footer bind:this={root} class="flex h-[30px] shrink-0 items-center border-t bg-sidebar px-2 text-[9.5px] text-sidebar-foreground">
-  <span class="px-1.5 font-semibold text-muted-foreground">사용량</span>
+  <span class="px-1.5 font-semibold text-muted-foreground">{t("usage.label")}</span>
   <div class="flex min-w-0 items-center gap-0.5">
     {#each usage as info (info.provider)}
       <div class="relative">
@@ -109,11 +110,11 @@
             </span>
             <span class="font-mono font-semibold {gaugeTextClass(info.primaryPercent)}">{Math.round(info.primaryPercent)}%</span>
             {#if overBudget(info.primaryPercent, budget.threshold)}
-              <TriangleAlert class="size-3 text-status-blocked-fg" aria-label={`예산 ${budget.threshold}% 초과`} />
+              <TriangleAlert class="size-3 text-status-blocked-fg" aria-label={t("usage.overBudgetAria", { threshold: budget.threshold })} />
             {/if}
-            <span class="hidden max-w-28 truncate text-muted-foreground/70 2xl:inline">{info.primaryReset ?? "초기화 시점 미확인"}</span>
+            <span class="hidden max-w-28 truncate text-muted-foreground/70 2xl:inline">{info.primaryReset ?? t("usage.resetUnknown")}</span>
           {:else}
-            <span class="rounded-full bg-muted px-1.5 py-0.5 text-[8.5px] text-muted-foreground">연동 안 됨</span>
+            <span class="rounded-full bg-muted px-1.5 py-0.5 text-[8.5px] text-muted-foreground">{t("usage.notConnected")}</span>
           {/if}
         </button>
         {#if shell.usagePopover === info.provider}<UsagePopover {info} />{/if}

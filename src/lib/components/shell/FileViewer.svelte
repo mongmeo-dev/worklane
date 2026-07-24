@@ -4,6 +4,7 @@
   import { gitFileDiff, listWorktreeFiles, readWorktreeFile } from "$lib/ipc/files";
   import { sourceLines } from "$lib/files/viewModel";
   import { shell } from "$lib/stores/shell.svelte";
+  import { t } from "$lib/i18n";
 
   let { agent, path, sharedCount = 1 }: { agent: Agent; path: string; sharedCount?: number } = $props();
 
@@ -29,7 +30,7 @@
     diff = diffResult.status === "fulfilled" ? diffResult.value : [];
     entry = listResult.status === "fulfilled" ? listResult.value.find((file) => file.path === path) : undefined;
     if (!content && diff.length === 0) {
-      const reason = fileResult.status === "rejected" ? fileResult.reason : diffResult.status === "rejected" ? diffResult.reason : "파일을 읽을 수 없습니다.";
+      const reason = fileResult.status === "rejected" ? fileResult.reason : diffResult.status === "rejected" ? diffResult.reason : t("fileViewer.readError");
       error = reason instanceof Error ? reason.message : String(reason);
     }
     loading = false;
@@ -53,19 +54,19 @@
   <header class="flex h-10 shrink-0 items-center gap-2 border-b border-white/8 bg-editor-chrome px-3 font-mono text-[10px]">
     <span class="min-w-0 flex-1 truncate">{path}</span>
     {#if entry?.change && entry.change !== "none"}
-      <span class="rounded-full bg-white/8 px-1.5 py-0.5 text-[9px]">{entry.change === "new" ? "신규" : entry.change === "deleted" ? "삭제" : "수정"}</span>
-      {#if sharedCount > 1}<span class="text-accent-share">마지막 수정 · {agent.title}</span>{/if}
+      <span class="rounded-full bg-white/8 px-1.5 py-0.5 text-[9px]">{entry.change === "new" ? t("fileViewer.new") : entry.change === "deleted" ? t("fileViewer.deleted") : t("fileViewer.modified")}</span>
+      {#if sharedCount > 1}<span class="text-accent-share">{t("fileViewer.lastEdited", { title: agent.title })}</span>{/if}
       <span class="text-diff-add">+{entry.add}</span><span class="text-diff-remove">−{entry.del}</span>
     {/if}
   </header>
 
   <div class="min-h-0 flex-1 overflow-auto font-mono text-[11px] leading-[1.75]">
     {#if loading}
-      <p class="p-4 text-white/45">파일을 불러오는 중…</p>
+      <p class="p-4 text-white/45">{t("fileViewer.loading")}</p>
     {:else if error}
       <div class="m-3 rounded-lg border border-diff-remove/30 bg-diff-remove/10 p-3 text-diff-remove">{error}</div>
     {:else if content?.isBinary}
-      <div class="grid h-full place-items-center text-white/45">바이너리 파일은 미리 볼 수 없습니다.</div>
+      <div class="grid h-full place-items-center text-white/45">{t("fileViewer.binary")}</div>
     {:else if diff.length > 0}
       <table class="w-full border-collapse">
         <tbody>
@@ -93,6 +94,6 @@
   </div>
 
   <footer class="flex h-7 shrink-0 items-center border-t border-white/8 bg-editor-chrome px-3 font-mono text-[9px] text-white/35">
-    읽기 전용 미리보기 · worktree 파일 <span class="ml-auto">{agent.branch}</span>
+    {t("fileViewer.readonly")} <span class="ml-auto">{agent.branch}</span>
   </footer>
 </div>

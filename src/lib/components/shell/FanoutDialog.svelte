@@ -16,6 +16,7 @@
   import { logEvent } from "$lib/ipc/events";
   import { playbookStore } from "$lib/stores/playbooks.svelte";
   import type { Playbook } from "$lib/ipc/playbooks";
+  import { t } from "$lib/i18n";
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Library from "@lucide/svelte/icons/library";
@@ -94,7 +95,7 @@
   async function saveToLibrary() {
     if (!prompt.trim()) return;
     try {
-      await promptStore.add(title.trim() || "제목 없는 프롬프트", prompt.trim());
+      await promptStore.add(title.trim() || t("fanout.untitledPrompt"), prompt.trim());
       saved = true;
       setTimeout(() => (saved = false), 1500);
     } catch {
@@ -227,7 +228,7 @@
           groupId,
           prompt: prompt.trim() || undefined,
         });
-        logEvent(agent.id, "fanout", `팬아웃 생성 · ${title.trim()}`);
+        logEvent(agent.id, "fanout", t("fanout.logCreated", { title: title.trim() }));
       }
       onOpenChange(false);
       reset();
@@ -243,47 +244,47 @@
 <Dialog.Root {open} {onOpenChange}>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>팬아웃 — {project.name}</Dialog.Title>
-      <Dialog.Description>한 작업을 여러 에이전트에 병렬 분기해 결과를 비교합니다.</Dialog.Description>
+      <Dialog.Title>{t("fanout.title", { project: project.name })}</Dialog.Title>
+      <Dialog.Description>{t("fanout.desc")}</Dialog.Description>
     </Dialog.Header>
     <div class="flex flex-col gap-3 py-2">
       <div class="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1.5">
         <BookMarked class="size-3.5 text-muted-foreground" />
-        <span class="text-[11px] font-semibold text-muted-foreground">플레이북</span>
+        <span class="text-[11px] font-semibold text-muted-foreground">{t("fanout.playbook")}</span>
         <div class="relative">
           <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent {pbOpen ? 'bg-accent' : ''}" disabled={playbookStore.playbooks.length === 0} onclick={() => (pbOpen = !pbOpen)}>
-            불러오기{playbookStore.playbooks.length > 0 ? ` (${playbookStore.playbooks.length})` : ""}
+            {t("fanout.load")}{playbookStore.playbooks.length > 0 ? ` (${playbookStore.playbooks.length})` : ""}
           </button>
           {#if pbOpen}
             <div class="absolute left-0 top-[calc(100%+4px)] z-50 max-h-52 w-64 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
               {#each playbookStore.playbooks as pb (pb.id)}
                 <div class="flex items-center gap-1 px-1 py-0.5">
-                  <button type="button" class="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-[11px] hover:bg-accent" onclick={() => applyPlaybook(pb)}>{pb.name} · {pb.members.length}개</button>
-                  <button type="button" class="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="플레이북 삭제" onclick={() => playbookStore.remove(pb.id)}><Trash2 class="size-3" /></button>
+                  <button type="button" class="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-[11px] hover:bg-accent" onclick={() => applyPlaybook(pb)}>{t("fanout.playbookItem", { name: pb.name, count: pb.members.length })}</button>
+                  <button type="button" class="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={t("fanout.deletePlaybook")} onclick={() => playbookStore.remove(pb.id)}><Trash2 class="size-3" /></button>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
         <button type="button" class="ml-auto flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!title.trim() || selected.length === 0} onclick={savePlaybook}>
-          <Save class="size-3" />{pbSaved ? "저장됨" : "현재 설정 저장"}
+          <Save class="size-3" />{pbSaved ? t("common.saved") : t("fanout.saveCurrent")}
         </button>
       </div>
       <div class="flex flex-col gap-1.5">
         <div class="flex items-center gap-2">
-          <Label for="fo-title" class="flex-1">작업 이름</Label>
+          <Label for="fo-title" class="flex-1">{t("fanout.taskName")}</Label>
           <div class="relative">
             <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {issuesOpen ? 'bg-accent' : ''}" onclick={toggleIssues}>
-              <CircleDot class="size-3" />GitHub 이슈
+              <CircleDot class="size-3" />{t("fanout.githubIssue")}
             </button>
             {#if issuesOpen}
               <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
                 {#if issuesLoading}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">이슈를 불러오는 중…</p>
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.loadingIssues")}</p>
                 {:else if issuesError}
                   <p class="px-3 py-3 text-[10.5px] text-destructive">{issuesError}</p>
                 {:else if issues.length === 0}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">열린 이슈가 없습니다.</p>
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.noOpenIssues")}</p>
                 {:else}
                   {#each issues as issue (issue.number)}
                     <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickIssue(issue)}>
@@ -302,11 +303,11 @@
             {#if linearOpen}
               <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
                 {#if linearLoading}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">이슈를 불러오는 중…</p>
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.loadingIssues")}</p>
                 {:else if linearError}
                   <p class="px-3 py-3 text-[10.5px] text-destructive">{linearError}</p>
                 {:else if linearList.length === 0}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">할당된 이슈가 없습니다.</p>
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.noAssignedIssues")}</p>
                 {:else}
                   {#each linearList as issue (issue.identifier)}
                     <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickLinear(issue)}>
@@ -319,15 +320,15 @@
             {/if}
           </div>
         </div>
-        <Input id="fo-title" bind:value={title} placeholder="예: 로그인 리팩터링" />
+        <Input id="fo-title" bind:value={title} placeholder={t("fanout.titlePlaceholder")} />
       </div>
       <div class="flex flex-col gap-1.5">
         <div class="flex items-center gap-2">
-          <Label for="fo-prompt" class="flex-1">프롬프트 (선택)</Label>
+          <Label for="fo-prompt" class="flex-1">{t("fanout.promptOptional")}</Label>
           {#if promptStore.prompts.length > 0}
             <div class="relative">
               <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {libOpen ? 'bg-accent' : ''}" onclick={() => (libOpen = !libOpen)}>
-                <Library class="size-3" />라이브러리
+                <Library class="size-3" />{t("fanout.library")}
               </button>
               {#if libOpen}
                 <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-52 w-56 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
@@ -339,22 +340,22 @@
             </div>
           {/if}
           <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!prompt.trim()} onclick={saveToLibrary}>
-            <Save class="size-3" />{saved ? "저장됨" : "저장"}
+            <Save class="size-3" />{saved ? t("common.saved") : t("common.save")}
           </button>
         </div>
         <textarea
           id="fo-prompt"
           class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
           bind:value={prompt}
-          placeholder="각 에이전트에 전달할 작업 지시. 비교 화면에서 복사할 수 있습니다."
+          placeholder={t("fanout.promptPlaceholder")}
         ></textarea>
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="fo-start">분기 기준(start-point)</Label>
-        <Input id="fo-start" bind:value={startPoint} placeholder="예: main" />
+        <Label for="fo-start">{t("fanout.startPoint")}</Label>
+        <Input id="fo-start" bind:value={startPoint} placeholder={t("fanout.startPlaceholder")} />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label>에이전트 (2개 이상 선택)</Label>
+        <Label>{t("fanout.agentsSelect")}</Label>
         <div class="flex flex-col gap-1.5">
           {#each rows as row (row.kind)}
             <div class="flex items-center gap-2">
@@ -362,7 +363,7 @@
                 type="button"
                 class="flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors {row.selected ? 'border-primary bg-primary text-primary-foreground' : 'bg-card'}"
                 aria-pressed={row.selected}
-                aria-label={`${agentKindStore.labelOf(row.kind)} 선택`}
+                aria-label={t("fanout.selectKind", { kind: agentKindStore.labelOf(row.kind) })}
                 onclick={() => (row.selected = !row.selected)}
               >
                 {#if row.selected}<Check class="size-3.5" />{/if}
@@ -372,7 +373,7 @@
                 class="h-8 flex-1 font-mono text-[11px]"
                 bind:value={row.command}
                 disabled={!row.selected}
-                aria-label={`${agentKindStore.labelOf(row.kind)} 실행 커맨드`}
+                aria-label={t("fanout.kindCommand", { kind: agentKindStore.labelOf(row.kind) })}
               />
             </div>
           {/each}
@@ -384,7 +385,7 @@
     </div>
     <Dialog.Footer>
       <Button onclick={submit} disabled={!canSubmit || busy}>
-        {busy ? "생성 중…" : `${selected.length}개 에이전트 생성`}
+        {busy ? t("fanout.creating") : t("fanout.createAgents", { count: selected.length })}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

@@ -4,7 +4,7 @@
   import { listWorktreeFiles } from "$lib/ipc/files";
   import { fileTotals } from "$lib/files/viewModel";
   import { groupOf } from "$lib/fanout/model";
-  import { statusLabels } from "$lib/data/labels";
+  import { statusLabel } from "$lib/data/labels";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
@@ -17,6 +17,7 @@
   import { runVerification, type VerifyResult } from "$lib/ipc/verify";
   import { recommendWinner } from "$lib/fanout/ranking";
   import { logEvent } from "$lib/ipc/events";
+  import { t } from "$lib/i18n";
 
   type Totals = { changed: number; add: number; del: number };
 
@@ -58,7 +59,7 @@
         try {
           const result = await runVerification(member.worktreePath, verifyCommand.trim());
           next[member.id] = result;
-          logEvent(member.id, "verify", `${result.success ? "통과" : "실패"} · ${verifyCommand.trim()}`);
+          logEvent(member.id, "verify", t("compare.verifyLog", { result: result.success ? t("compare.pass") : t("compare.fail"), command: verifyCommand.trim() }));
         } catch {
           next[member.id] = null;
         }
@@ -104,7 +105,7 @@
         if (member.id === agentId) continue;
         await projectStore.removeAgent(member.id, true, true);
       }
-      logEvent(agentId, "adopt", "결과 채택(나머지 정리)");
+      logEvent(agentId, "adopt", t("compare.adoptLog"));
       shell.selectAgent(agentId);
     } catch {
       // 실패 시 다이얼로그를 유지해 다시 시도할 수 있게 한다.
@@ -127,8 +128,8 @@
   <Dialog.Content class="w-[720px] max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[14px] p-0 sm:max-w-[720px]">
     {#if group}
       <Dialog.Header class="border-b px-5 py-3.5">
-        <Dialog.Title class="text-[14px] font-semibold">결과 비교 · {group.title}</Dialog.Title>
-        <Dialog.Description class="text-[11px]">{group.projectName} · {group.members.length}개 에이전트 병렬 실행</Dialog.Description>
+        <Dialog.Title class="text-[14px] font-semibold">{t("compare.title", { title: group.title })}</Dialog.Title>
+        <Dialog.Description class="text-[11px]">{t("compare.desc", { project: group.projectName, count: group.members.length })}</Dialog.Description>
       </Dialog.Header>
 
       {#if group.prompt}
@@ -139,7 +140,7 @@
             class="flex shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent"
             onclick={copyPrompt}
           >
-            {#if copied}<Check class="size-3" />복사됨{:else}<Copy class="size-3" />프롬프트 복사{/if}
+            {#if copied}<Check class="size-3" />{t("compare.copied")}{:else}<Copy class="size-3" />{t("compare.copyPrompt")}{/if}
           </button>
         </div>
       {/if}
@@ -149,16 +150,16 @@
         <input
           class="min-w-0 flex-1 rounded-md border bg-input/40 px-2.5 py-1 font-mono text-[11px] outline-none focus:ring-1 focus:ring-ring"
           bind:value={verifyCommand}
-          placeholder="검증 명령 (예: pnpm test)"
+          placeholder={t("compare.verifyPlaceholder")}
           onkeydown={(e) => e.key === "Enter" && runVerify()}
-          aria-label="검증 명령"
+          aria-label={t("compare.verifyAria")}
         />
         <button
           type="button"
           class="flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
           disabled={verifying || !verifyCommand.trim()}
           onclick={runVerify}
-        >{verifying ? "검증 중…" : "검증 실행"}</button>
+        >{verifying ? t("compare.verifying") : t("compare.runVerify")}</button>
       </div>
 
       <div class="grid max-h-[440px] grid-cols-2 gap-3 overflow-auto p-5">
@@ -170,9 +171,9 @@
               <StatusDot {status} size={8} />
               <span class="text-[12px] font-semibold">{agentKindStore.labelOf(member.kind)}</span>
               {#if recommended === member.id}
-                <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-[9px] font-bold text-status-done-fg"><Trophy class="size-3" />추천</span>
+                <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-[9px] font-bold text-status-done-fg"><Trophy class="size-3" />{t("compare.recommended")}</span>
               {:else}
-                <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabels[status]}</span>
+                <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabel(status)}</span>
               {/if}
             </div>
             <div class="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
@@ -180,25 +181,25 @@
             </div>
             <div class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-mono text-[11px]">
               {#if loading && stat === undefined}
-                <span class="text-muted-foreground">불러오는 중…</span>
+                <span class="text-muted-foreground">{t("compare.loading")}</span>
               {:else if stat}
-                <span><span class="text-muted-foreground">파일</span> {stat.changed}</span>
+                <span><span class="text-muted-foreground">{t("compare.files")}</span> {stat.changed}</span>
                 <span class="text-diff-add">+{stat.add}</span>
                 <span class="text-diff-remove">−{stat.del}</span>
               {:else}
-                <span class="text-muted-foreground">변경 정보를 읽을 수 없음</span>
+                <span class="text-muted-foreground">{t("compare.noChangeInfo")}</span>
               {/if}
             </div>
             {#if results[member.id] !== undefined}
               {@const r = results[member.id]}
               {#if r === null}
-                <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[10.5px] text-destructive">검증 실행 실패</div>
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[10.5px] text-destructive">{t("compare.verifyFailed")}</div>
               {:else}
                 <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 font-mono text-[10.5px]">
-                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold {r.success ? 'bg-status-done/15 text-status-done-fg' : 'bg-status-blocked text-status-blocked-on'}">{r.success ? "통과" : `실패${r.exitCode !== null ? ` ·${r.exitCode}` : ""}`}</span>
+                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold {r.success ? 'bg-status-done/15 text-status-done-fg' : 'bg-status-blocked text-status-blocked-on'}">{r.success ? t("compare.pass") : `${t("compare.fail")}${r.exitCode !== null ? ` ·${r.exitCode}` : ""}`}</span>
                   <span class="text-muted-foreground">{(r.durationMs / 1000).toFixed(1)}s</span>
                   {#if r.outputTail}
-                    <button type="button" class="ml-auto text-[10px] text-muted-foreground hover:text-foreground" onclick={() => (showOutput = showOutput === member.id ? null : member.id)}>출력</button>
+                    <button type="button" class="ml-auto text-[10px] text-muted-foreground hover:text-foreground" onclick={() => (showOutput = showOutput === member.id ? null : member.id)}>{t("compare.output")}</button>
                   {/if}
                 </div>
                 {#if showOutput === member.id && r.outputTail}
@@ -211,26 +212,26 @@
                 type="button"
                 class="flex h-7 flex-1 items-center justify-center rounded-md border bg-card text-[11px] font-semibold hover:bg-accent"
                 onclick={() => shell.selectAgent(member.id)}
-              >열기</button>
+              >{t("common.open")}</button>
               {#if pendingAdopt === member.id}
                 <button
                   type="button"
                   class="flex h-7 flex-1 items-center justify-center rounded-md bg-status-blocked text-[11px] font-bold text-status-blocked-on disabled:opacity-50"
                   disabled={busy}
                   onclick={() => adopt(member.id)}
-                >나머지 정리 후 채택</button>
+                >{t("compare.adoptClean")}</button>
                 <button
                   type="button"
                   class="flex h-7 items-center justify-center rounded-md border px-2 text-[11px] hover:bg-accent"
                   onclick={() => (pendingAdopt = null)}
-                >취소</button>
+                >{t("common.cancel")}</button>
               {:else}
                 <button
                   type="button"
                   class="flex h-7 flex-1 items-center justify-center rounded-md bg-primary text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
                   disabled={busy || group.members.length < 2}
                   onclick={() => (pendingAdopt = member.id)}
-                >채택</button>
+                >{t("compare.adopt")}</button>
               {/if}
             </div>
           </div>

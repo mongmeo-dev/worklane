@@ -7,6 +7,7 @@
   import { projectStore } from "$lib/stores/projects.svelte";
   import { agentWorktreeHasChanges } from "$lib/ipc/projects";
   import { uiSettings } from "$lib/stores/uiSettings.svelte";
+  import { t } from "$lib/i18n";
 
   let { open = $bindable(false), agent }: { open?: boolean; agent: Agent } = $props();
 
@@ -42,30 +43,30 @@
 <Dialog.Root bind:open>
   <Dialog.Content>
     <Dialog.Header>
-      <Dialog.Title>에이전트 삭제</Dialog.Title>
+      <Dialog.Title>{t("deleteAgent.title")}</Dialog.Title>
       <Dialog.Description>
-        "{agent.title}"을(를) 삭제합니다.
+        {t("deleteAgent.desc", { title: agent.title })}
         {#if agent.worktreeManaged}
-          앱이 생성한 worktree({agent.branch})도 함께 제거됩니다.
+          {t("deleteAgent.worktreeNote", { branch: agent.branch })}
         {/if}
       </Dialog.Description>
     </Dialog.Header>
     {#if hasChanges}
-      <p class="text-xs text-amber-600">이 worktree에 커밋되지 않은 변경사항이 있습니다.</p>
+      <p class="text-xs text-amber-600">{t("deleteAgent.hasChanges")}</p>
     {/if}
     {#if error}
       <p class="text-xs text-destructive">{error}</p>
     {/if}
     <div class="flex items-center gap-2 py-1">
       <Checkbox id="dont-ask" bind:checked={dontAskAgain} />
-      <Label for="dont-ask" class="text-xs">다음부터 묻지 않고 자동으로 안전 제거</Label>
+      <Label for="dont-ask" class="text-xs">{t("deleteAgent.dontAsk")}</Label>
     </div>
     <Dialog.Footer>
-      <Button variant="ghost" onclick={() => (open = false)}>취소</Button>
+      <Button variant="ghost" onclick={() => (open = false)}>{t("common.cancel")}</Button>
       {#if hasChanges}
-        <Button variant="destructive" disabled={loading} onclick={() => confirm(true)}>강제 삭제</Button>
+        <Button variant="destructive" disabled={loading} onclick={() => confirm(true)}>{t("deleteAgent.force")}</Button>
       {:else}
-        <Button variant="destructive" disabled={loading} onclick={() => confirm(false)}>삭제</Button>
+        <Button variant="destructive" disabled={loading} onclick={() => confirm(false)}>{t("common.delete")}</Button>
       {/if}
     </Dialog.Footer>
   </Dialog.Content>
