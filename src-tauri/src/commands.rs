@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Checkpoint, Project, Prompt}, StoreState};
+use crate::store::{self, models::{Agent, Checkpoint, Project, Prompt, Task}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -256,6 +256,68 @@ pub fn delete_checkpoint(
     crate::git::drop_checkpoint_ref(&worktree_path, &id);
     let conn = store.0.lock().map_err(|e| e.to_string())?;
     store::repo::delete_checkpoint(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 태스크 보드의 모든 태스크를 반환한다.
+#[tauri::command]
+pub fn list_tasks(store: tauri::State<'_, StoreState>) -> Result<Vec<Task>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_tasks(&conn).map_err(|e| e.to_string())
+}
+
+/// 태스크를 새로 만든다.
+#[tauri::command]
+pub fn create_task(
+    store: tauri::State<'_, StoreState>,
+    project_id: Option<String>,
+    title: String,
+    notes: String,
+) -> Result<Task, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("태스크 제목을 입력하세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_task(&conn, project_id.as_deref(), title, notes.trim(), now_ms() as i64)
+        .map_err(|e| e.to_string())
+}
+
+/// 태스크의 제목/메모를 수정한다.
+#[tauri::command]
+pub fn update_task(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+    title: String,
+    notes: String,
+) -> Result<(), String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("태스크 제목을 입력하세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::update_task(&conn, &id, title, notes.trim(), now_ms() as i64)
+        .map_err(|e| e.to_string())
+}
+
+/// 태스크 상태를 변경한다(todo/doing/done).
+#[tauri::command]
+pub fn set_task_status(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+    status: String,
+) -> Result<(), String> {
+    if !matches!(status.as_str(), "todo" | "doing" | "done") {
+        return Err("알 수 없는 태스크 상태입니다.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::set_task_status(&conn, &id, &status, now_ms() as i64).map_err(|e| e.to_string())
+}
+
+/// 태스크를 삭제한다.
+#[tauri::command]
+pub fn delete_task(store: tauri::State<'_, StoreState>, id: String) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_task(&conn, &id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

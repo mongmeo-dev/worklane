@@ -55,3 +55,16 @@ pub struct Checkpoint {
     pub sha: String,
     pub created_at: i64,
 }
+
+/// 크로스 프로젝트 태스크 한 건. status는 "todo" | "doing" | "done".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Task {
+    pub id: String,
+    pub project_id: Option<String>,
+    pub title: String,
+    pub notes: String,
+    pub status: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}

@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Checkpoint, Project, Prompt};
+use crate::store::models::{Agent, Checkpoint, Project, Prompt, Task};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -60,6 +60,21 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                 created_at INTEGER NOT NULL
             );
             PRAGMA user_version = 4;",
+        )?;
+    }
+    if version < 5 {
+        // 크로스 프로젝트 태스크 보드(계획 → 실행 연결).
+        conn.execute_batch(
+            "CREATE TABLE tasks (
+                id TEXT PRIMARY KEY,
+                project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+                title TEXT NOT NULL,
+                notes TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            PRAGMA user_version = 5;",
         )?;
     }
     Ok(())
@@ -369,6 +384,79 @@ pub fn delete_checkpoint(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn row_to_task(row: &rusqlite::Row) -> rusqlite::Result<Task> {
+    Ok(Task {
+        id: row.get("id")?,
+        project_id: row.get("project_id")?,
+        title: row.get("title")?,
+        notes: row.get("notes")?,
+        status: row.get("status")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+    })
+}
+
+/// 모든 태스크를 생성 순으로 나열한다.
+pub fn list_tasks(conn: &Connection) -> rusqlite::Result<Vec<Task>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, title, notes, status, created_at, updated_at
+         FROM tasks ORDER BY created_at",
+    )?;
+    let rows = stmt
+        .query_map([], row_to_task)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
+/// 태스크를 새로 만든다(status는 todo로 시작).
+pub fn insert_task(
+    conn: &Connection,
+    project_id: Option<&str>,
+    title: &str,
+    notes: &str,
+    now: i64,
+) -> rusqlite::Result<Task> {
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tasks (id, project_id, title, notes, status, created_at, updated_at)
+         VALUES (?1,?2,?3,?4,'todo',?5,?5)",
+        params![id, project_id, title, notes, now],
+    )?;
+    Ok(Task {
+        id,
+        project_id: project_id.map(|p| p.to_string()),
+        title: title.into(),
+        notes: notes.into(),
+        status: "todo".into(),
+        created_at: now,
+        updated_at: now,
+    })
+}
+
+/// 태스크의 제목/메모를 수정한다.
+pub fn update_task(conn: &Connection, id: &str, title: &str, notes: &str, now: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE tasks SET title = ?2, notes = ?3, updated_at = ?4 WHERE id = ?1",
+        params![id, title, notes, now],
+    )?;
+    Ok(())
+}
+
+/// 태스크 상태를 바꾼다.
+pub fn set_task_status(conn: &Connection, id: &str, status: &str, now: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE tasks SET status = ?2, updated_at = ?3 WHERE id = ?1",
+        params![id, status, now],
+    )?;
+    Ok(())
+}
+
+/// 태스크를 삭제한다.
+pub fn delete_task(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM tasks WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -412,6 +500,23 @@ mod tests {
 
         delete_checkpoint(&conn, &cp.id).unwrap();
         assert!(list_checkpoints(&conn, agent_id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn 태스크_생성_상태변경_삭제_라운드트립() {
+        let conn = mem();
+        let task = insert_task(&conn, None, "로그인 개선", "메모", 10).unwrap();
+        assert_eq!(task.status, "todo");
+        assert_eq!(list_tasks(&conn).unwrap().len(), 1);
+
+        set_task_status(&conn, &task.id, "doing", 20).unwrap();
+        update_task(&conn, &task.id, "로그인 개선 v2", "수정된 메모", 30).unwrap();
+        let after = list_tasks(&conn).unwrap();
+        assert_eq!(after[0].status, "doing");
+        assert_eq!(after[0].title, "로그인 개선 v2");
+
+        delete_task(&conn, &task.id).unwrap();
+        assert!(list_tasks(&conn).unwrap().is_empty());
     }
 
     fn sample_agent(project_id: &str) -> Agent {
