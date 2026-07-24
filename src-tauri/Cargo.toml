@@ -1,6 +1,6 @@
 [package]
 name = "worklane"
-version = "0.1.0"
+version = "0.1.1"
 description = "여러 CLI 코딩 에이전트를 병렬로 실행·관리하는 데스크톱 앱"
 authors = ["benny"]
 edition = "2021"
