@@ -10,6 +10,7 @@
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { canCreateWorkspace, requiresCommand, resolveWorkspaceTitle } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
+  import { shell } from "$lib/stores/shell.svelte";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -33,7 +34,7 @@
     try {
       const sharedAgent = project.agents.find((agent) => agent.id === worktreeMode);
       const effectiveBranch = sharedAgent?.branch ?? branch.trim();
-      await projectStore.addAgent({
+      const agent = await projectStore.addAgent({
         projectId: project.id,
         projectPath: project.path,
         title: resolveWorkspaceTitle(title, effectiveBranch),
@@ -44,6 +45,7 @@
         shareWorktree: Boolean(sharedAgent),
         worktreePath: sharedAgent?.worktreePath ?? (worktreePath.trim() || undefined),
       });
+      shell.selectAgent(agent.id);
       open = false;
       title = ""; branch = ""; worktreePath = ""; worktreeMode = "new";
     } catch (e) {
