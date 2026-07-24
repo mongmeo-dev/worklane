@@ -662,6 +662,35 @@ pub fn list_github_issues(repo_path: &str) -> Result<Vec<GithubIssue>, String> {
     serde_json::from_str(&out).map_err(|e| format!("이슈 목록 파싱 실패: {e}"))
 }
 
+/// working tree(추적 파일 기준)의 스냅샷 커밋을 만든다. 변경이 없으면 None.
+pub fn snapshot_worktree(worktree: &str) -> Result<Option<String>, String> {
+    let sha = run_git(worktree, &["stash", "create"])?.trim().to_string();
+    Ok(if sha.is_empty() { None } else { Some(sha) })
+}
+
+/// 스냅샷 커밋을 refs/worklane/checkpoints/<id>로 고정해 GC를 막는다.
+pub fn anchor_checkpoint(worktree: &str, id: &str, sha: &str) -> Result<(), String> {
+    run_git(
+        worktree,
+        &["update-ref", &format!("refs/worklane/checkpoints/{id}"), sha],
+    )?;
+    Ok(())
+}
+
+/// 고정한 체크포인트 ref를 제거한다(없어도 실패하지 않는다).
+pub fn drop_checkpoint_ref(worktree: &str, id: &str) {
+    let _ = run_git_allow_fail(
+        worktree,
+        &["update-ref", "-d", &format!("refs/worklane/checkpoints/{id}")],
+    );
+}
+
+/// working tree를 스냅샷 상태로 되돌린다(추적 파일 기준).
+pub fn restore_snapshot(worktree: &str, sha: &str) -> Result<(), String> {
+    run_git(worktree, &["restore", "--source", sha, "--staged", "--worktree", "--", "."])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod review_tests {
     use super::*;

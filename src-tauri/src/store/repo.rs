@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Project, Prompt};
+use crate::store::models::{Agent, Checkpoint, Project, Prompt};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -47,6 +47,19 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                 updated_at INTEGER NOT NULL
             );
             PRAGMA user_version = 3;",
+        )?;
+    }
+    if version < 4 {
+        // worktree 체크포인트(스냅샷) 이력.
+        conn.execute_batch(
+            "CREATE TABLE checkpoints (
+                id TEXT PRIMARY KEY,
+                agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                label TEXT NOT NULL,
+                sha TEXT NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            PRAGMA user_version = 4;",
         )?;
     }
     Ok(())
@@ -306,6 +319,56 @@ pub fn delete_prompt(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn row_to_checkpoint(row: &rusqlite::Row) -> rusqlite::Result<Checkpoint> {
+    Ok(Checkpoint {
+        id: row.get("id")?,
+        agent_id: row.get("agent_id")?,
+        label: row.get("label")?,
+        sha: row.get("sha")?,
+        created_at: row.get("created_at")?,
+    })
+}
+
+/// 에이전트의 체크포인트를 최신순으로 나열한다.
+pub fn list_checkpoints(conn: &Connection, agent_id: &str) -> rusqlite::Result<Vec<Checkpoint>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, agent_id, label, sha, created_at FROM checkpoints
+         WHERE agent_id = ?1 ORDER BY created_at DESC",
+    )?;
+    let rows = stmt
+        .query_map(params![agent_id], row_to_checkpoint)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
+/// 체크포인트를 저장한다.
+pub fn insert_checkpoint(
+    conn: &Connection,
+    agent_id: &str,
+    label: &str,
+    sha: &str,
+    now: i64,
+) -> rusqlite::Result<Checkpoint> {
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO checkpoints (id, agent_id, label, sha, created_at) VALUES (?1,?2,?3,?4,?5)",
+        params![id, agent_id, label, sha, now],
+    )?;
+    Ok(Checkpoint {
+        id,
+        agent_id: agent_id.into(),
+        label: label.into(),
+        sha: sha.into(),
+        created_at: now,
+    })
+}
+
+/// 체크포인트를 삭제한다.
+pub fn delete_checkpoint(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM checkpoints WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,6 +394,24 @@ mod tests {
 
         delete_prompt(&conn, &created.id).unwrap();
         assert!(list_prompts(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn 체크포인트_저장_조회_삭제_라운드트립() {
+        let mut conn = mem();
+        let project = insert_project_with_default_agent(
+            &mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 1,
+        )
+        .unwrap();
+        let agent_id = &project.agents[0].id;
+
+        let cp = insert_checkpoint(&conn, agent_id, "작업 전", "deadbeef", 10).unwrap();
+        assert_eq!(list_checkpoints(&conn, agent_id).unwrap().len(), 1);
+        assert_eq!(list_checkpoints(&conn, agent_id).unwrap()[0].sha, "deadbeef");
+        assert_eq!(cp.label, "작업 전");
+
+        delete_checkpoint(&conn, &cp.id).unwrap();
+        assert!(list_checkpoints(&conn, agent_id).unwrap().is_empty());
     }
 
     fn sample_agent(project_id: &str) -> Agent {

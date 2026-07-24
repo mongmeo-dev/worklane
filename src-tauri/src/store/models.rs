@@ -44,3 +44,14 @@ pub struct Prompt {
     pub created_at: i64,
     pub updated_at: i64,
 }
+
+/// worktree 체크포인트(스냅샷) 한 건.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Checkpoint {
+    pub id: String,
+    pub agent_id: String,
+    pub label: String,
+    pub sha: String,
+    pub created_at: i64,
+}

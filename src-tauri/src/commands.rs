@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Project, Prompt}, StoreState};
+use crate::store::{self, models::{Agent, Checkpoint, Project, Prompt}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -193,6 +193,69 @@ pub fn update_prompt(
 pub fn delete_prompt(store: tauri::State<'_, StoreState>, id: String) -> Result<(), String> {
     let conn = store.0.lock().map_err(|e| e.to_string())?;
     store::repo::delete_prompt(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 에이전트 worktree의 현재 상태를 체크포인트(스냅샷)로 저장한다.
+#[tauri::command]
+pub async fn create_checkpoint(
+    store: tauri::State<'_, StoreState>,
+    agent_id: String,
+    worktree_path: String,
+    label: String,
+) -> Result<Checkpoint, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    let sha = tauri::async_runtime::spawn_blocking({
+        let worktree_path = worktree_path.clone();
+        move || crate::git::snapshot_worktree(&worktree_path)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let sha = sha.ok_or_else(|| "저장할 변경이 없습니다.".to_string())?;
+
+    let label = if label.trim().is_empty() { "체크포인트".to_string() } else { label.trim().to_string() };
+    let checkpoint = {
+        let conn = store.0.lock().map_err(|e| e.to_string())?;
+        store::repo::insert_checkpoint(&conn, &agent_id, &label, &sha, now_ms() as i64)
+            .map_err(|e| e.to_string())?
+    };
+    crate::git::anchor_checkpoint(&worktree_path, &checkpoint.id, &sha)?;
+    Ok(checkpoint)
+}
+
+/// 에이전트의 체크포인트 목록을 반환한다.
+#[tauri::command]
+pub fn list_checkpoints(
+    store: tauri::State<'_, StoreState>,
+    agent_id: String,
+) -> Result<Vec<Checkpoint>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_checkpoints(&conn, &agent_id).map_err(|e| e.to_string())
+}
+
+/// worktree를 지정한 체크포인트 스냅샷으로 되돌린다(추적 변경 기준).
+#[tauri::command]
+pub async fn rollback_checkpoint(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    sha: String,
+) -> Result<(), String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::restore_snapshot(&worktree_path, &sha))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 체크포인트를 삭제한다(고정 ref와 DB 항목 모두 제거).
+#[tauri::command]
+pub fn delete_checkpoint(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    id: String,
+) -> Result<(), String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    crate::git::drop_checkpoint_ref(&worktree_path, &id);
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_checkpoint(&conn, &id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
