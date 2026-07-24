@@ -114,6 +114,19 @@ class AgentKindStore {
     this.#persist();
   }
 
+  /** 표시 순서를 위(-1)/아래(1)로 한 칸 이동하고 저장한다. 경계를 벗어나면 무시. */
+  move(id: string, dir: -1 | 1): void {
+    const from = this.#kinds.findIndex((k) => k.id === id);
+    if (from === -1) return;
+    const to = from + dir;
+    if (to < 0 || to >= this.#kinds.length) return;
+    const next = [...this.#kinds];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    this.#kinds = next;
+    this.#persist();
+  }
+
   #uniqueId(base: string): string {
     const taken = (id: string) => id === BLANK_TERMINAL_KIND || this.#kinds.some((k) => k.id === id);
     if (!taken(base)) return base;

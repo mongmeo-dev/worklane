@@ -6,6 +6,8 @@
   import { t } from "$lib/i18n";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Plus from "@lucide/svelte/icons/plus";
+  import ChevronUp from "@lucide/svelte/icons/chevron-up";
+  import ChevronDown from "@lucide/svelte/icons/chevron-down";
 
   let newLabel = $state("");
   let newCommand = $state("");
@@ -48,6 +50,26 @@
               aria-label={t("settings.agents.defaultCommandLabel")}
               onchange={(e) => agentKindStore.update(kind.id, { defaultCommand: e.currentTarget.value })}
             />
+          </div>
+          <div class="flex shrink-0 flex-col">
+            <button
+              type="button"
+              class="flex h-4 w-6 items-center justify-center rounded-t-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              aria-label={t("settings.agents.moveUpKind", { label: kind.label })}
+              disabled={index === 0}
+              onclick={() => agentKindStore.move(kind.id, -1)}
+            >
+              <ChevronUp class="size-3.5" />
+            </button>
+            <button
+              type="button"
+              class="flex h-4 w-6 items-center justify-center rounded-b-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              aria-label={t("settings.agents.moveDownKind", { label: kind.label })}
+              disabled={index === agentKindStore.cliKinds.length - 1}
+              onclick={() => agentKindStore.move(kind.id, 1)}
+            >
+              <ChevronDown class="size-3.5" />
+            </button>
           </div>
           <button
             type="button"

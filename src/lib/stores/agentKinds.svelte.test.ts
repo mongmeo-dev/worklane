@@ -91,6 +91,40 @@ describe("agentKinds store", () => {
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(3);
   });
 
+  it("move는 순서를 한 칸 옮기고 저장한다", async () => {
+    const store = await freshStore();
+    store.move("codex", -1);
+    expect(store.cliKindIds).toEqual(["codex", "claude-code", "cursor", "gemini"]);
+    store.move("codex", 1);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).map((k: { id: string }) => k.id)).toEqual([
+      "claude-code",
+      "codex",
+      "cursor",
+      "gemini",
+    ]);
+  });
+
+  it("move는 경계를 벗어나는 이동을 무시한다", async () => {
+    const store = await freshStore();
+    store.move("claude-code", -1);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    store.move("gemini", 1);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+  });
+
+  it("move로 바뀐 순서는 selectableKindIds(생성 모달 옵션)에 반영된다", async () => {
+    const store = await freshStore();
+    store.move("gemini", -1);
+    expect(store.selectableKindIds).toEqual([
+      "claude-code",
+      "codex",
+      "gemini",
+      "cursor",
+      "terminal",
+    ]);
+  });
+
   it("init은 저장된 목록(삭제 반영 포함)을 복원한다", async () => {
     localStorage.setItem(
       STORAGE_KEY,
