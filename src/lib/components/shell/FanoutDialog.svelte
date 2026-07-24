@@ -10,10 +10,12 @@
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import { promptStore } from "$lib/stores/prompts.svelte";
+  import { githubIssues, type GithubIssue } from "$lib/ipc/github";
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Library from "@lucide/svelte/icons/library";
   import Save from "@lucide/svelte/icons/save";
+  import CircleDot from "@lucide/svelte/icons/circle-dot";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -50,6 +52,32 @@
     } catch {
       // 저장 실패는 조용히 무시(라이브러리 없이도 팬아웃은 가능).
     }
+  }
+
+  let issuesOpen = $state(false);
+  let issues = $state<GithubIssue[]>([]);
+  let issuesLoading = $state(false);
+  let issuesError = $state<string | null>(null);
+
+  async function toggleIssues() {
+    issuesOpen = !issuesOpen;
+    if (issuesOpen && issues.length === 0) {
+      issuesLoading = true;
+      issuesError = null;
+      try {
+        issues = await githubIssues(project.path);
+      } catch (e) {
+        issuesError = e instanceof Error ? e.message : String(e);
+      } finally {
+        issuesLoading = false;
+      }
+    }
+  }
+
+  function pickIssue(issue: GithubIssue) {
+    title = issue.title;
+    if (issue.body.trim()) prompt = issue.body.trim();
+    issuesOpen = false;
   }
 
   onMount(() => {
@@ -116,7 +144,32 @@
     </Dialog.Header>
     <div class="flex flex-col gap-3 py-2">
       <div class="flex flex-col gap-1.5">
-        <Label for="fo-title">작업 이름</Label>
+        <div class="flex items-center gap-2">
+          <Label for="fo-title" class="flex-1">작업 이름</Label>
+          <div class="relative">
+            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {issuesOpen ? 'bg-accent' : ''}" onclick={toggleIssues}>
+              <CircleDot class="size-3" />GitHub 이슈
+            </button>
+            {#if issuesOpen}
+              <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+                {#if issuesLoading}
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">이슈를 불러오는 중…</p>
+                {:else if issuesError}
+                  <p class="px-3 py-3 text-[10.5px] text-destructive">{issuesError}</p>
+                {:else if issues.length === 0}
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">열린 이슈가 없습니다.</p>
+                {:else}
+                  {#each issues as issue (issue.number)}
+                    <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickIssue(issue)}>
+                      <span class="shrink-0 font-mono text-[10px] text-muted-foreground">#{issue.number}</span>
+                      <span class="min-w-0 flex-1 truncate text-[11px]">{issue.title}</span>
+                    </button>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
+          </div>
+        </div>
         <Input id="fo-title" bind:value={title} placeholder="예: 로그인 리팩터링" />
       </div>
       <div class="flex flex-col gap-1.5">
