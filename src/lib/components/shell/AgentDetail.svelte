@@ -92,7 +92,7 @@
     {:else}
       {#key agent.id}
         <div class="flex h-full flex-col bg-terminal p-1.5">
-          <div class="min-h-0 flex-1"><Terminal sessionId={agent.id} cmd={agent.command} cwd={agent.worktreePath} /></div>
+          <div class="min-h-0 flex-1"><Terminal sessionId={agent.id} cmd={agent.command} cwd={agent.worktreePath} initialPrompt={agent.prompt ?? undefined} /></div>
           <div class="shrink-0 px-2 py-1 font-mono text-[9.5px] text-white/35">esc 중단 · ⌥⏎ 줄바꿈</div>
         </div>
       {/key}

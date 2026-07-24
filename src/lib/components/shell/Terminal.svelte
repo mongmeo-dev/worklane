@@ -9,14 +9,17 @@
   import { HangulImeAddon } from "$lib/terminal/HangulImeAddon";
   import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
+  import { injectionDone, markInjected } from "$lib/terminal/promptInjection";
 
   interface Props {
     sessionId: string;
     cmd: string;
     cwd: string;
+    /** 세션이 준비되면 자동으로 전송할 시드 프롬프트(팬아웃/태스크). 1회만 주입한다. */
+    initialPrompt?: string;
   }
 
-  let { sessionId, cmd, cwd }: Props = $props();
+  let { sessionId, cmd, cwd, initialPrompt }: Props = $props();
 
   let el: HTMLDivElement;
   let term: Terminal | undefined;
@@ -24,6 +27,10 @@
   let ro: ResizeObserver | undefined;
   let ime: HangulImeAddon | undefined;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  // 시드 프롬프트 자동 주입: 출력이 잦아든 뒤(=CLI 입력 대기) 1회 전송한다.
+  const INJECT_IDLE_MS = 900;
+  let injectArmed = false;
+  let injectTimer: ReturnType<typeof setTimeout> | undefined;
   // 마지막으로 PTY에 통지한 크기. 값이 실제로 바뀔 때만 resize를 보낸다.
   let lastRows = 0;
   let lastCols = 0;
@@ -51,6 +58,18 @@
 
   function writeBytes(data: string) {
     writeToPty(sessionId, new TextEncoder().encode(data));
+  }
+
+  // 출력 이벤트마다 호출: idle이 INJECT_IDLE_MS 지속되면 시드 프롬프트를 1회 전송한다.
+  function scheduleInjection() {
+    if (!injectArmed) return;
+    clearTimeout(injectTimer);
+    injectTimer = setTimeout(() => {
+      if (!injectArmed) return;
+      injectArmed = false;
+      markInjected(sessionId);
+      writeBytes(`${initialPrompt!.trim()}\r`);
+    }, INJECT_IDLE_MS);
   }
 
   // xterm의 문자 폭 측정(CharSizeService)은 Canvas 2D `measureText`를 쓰는데,
@@ -119,6 +138,9 @@
     ime = new HangulImeAddon(writeBytes);
     term.loadAddon(ime);
 
+    // 시드 프롬프트가 있고 아직 주입 전이면 자동 주입을 무장한다(세션당 1회).
+    injectArmed = Boolean(initialPrompt?.trim()) && !injectionDone(sessionId);
+
     await createSession({
       sessionId,
       cmd,
@@ -129,6 +151,7 @@
         const bytes = new Uint8Array(o.bytes);
         sessionStatus.appendOutput(sessionId, bytes);
         term?.write(bytes);
+        scheduleInjection();
       },
     });
 
@@ -176,6 +199,7 @@
   onDestroy(() => {
     ro?.disconnect();
     clearTimeout(settleTimer);
+    clearTimeout(injectTimer);
     closeSession(sessionId).catch(() => {});
     term?.dispose();
   });
