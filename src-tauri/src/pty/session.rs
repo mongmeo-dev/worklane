@@ -20,6 +20,12 @@ pub struct Session {
     pub last_input_ms: AtomicU64,
     /// ③ 이 세션의 상태파일이 놓이는 디렉토리.
     pub hook_dir: PathBuf,
+    /// ③ 에이전트별 상태 프로브가 상태파일을 찾는 기준 작업 디렉터리.
+    pub cwd: PathBuf,
+    /// ③ PTY로 직접 스폰한 자식 pid. 프로브의 프로세스 트리 매칭에 쓴다. (없으면 None)
+    pub child_pid: Option<u32>,
+    /// ③ 상태 프로브 백그라운드 태스크 핸들. 세션 종료(close) 시 abort한다.
+    pub hook_task: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
 }
 
 impl Session {

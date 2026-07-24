@@ -3,6 +3,7 @@ mod system;
 mod usage;
 mod files;
 mod pty;
+mod hooks;
 mod git;
 mod commands;
 mod store;

@@ -11,7 +11,7 @@ pub enum AgentStatus {
 }
 
 /// 에이전트 훅(상태파일)이 노출하는 값. 상태파일 JSON의 "status" 필드와 대응.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HookStatus {
     Working,

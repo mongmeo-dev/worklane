@@ -74,10 +74,12 @@ pub fn create(
         .map_err(|e| e.to_string())?;
 
     let mut builder = build_command(&cmd);
+    let cwd_path = std::path::PathBuf::from(&cwd);
     builder.cwd(cwd);
     builder.env("TERM", "xterm-256color");
 
     let child = pair.slave.spawn_command(builder).map_err(|e| e.to_string())?;
+    let child_pid = child.process_id();
     let reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
 
@@ -88,6 +90,9 @@ pub fn create(
         last_output_ms: AtomicU64::new(now_ms()),
         last_input_ms: AtomicU64::new(0),
         hook_dir,
+        cwd: cwd_path,
+        child_pid,
+        hook_task: Mutex::new(None),
     });
     state.0.insert(session_id.clone(), session.clone());
 
@@ -113,6 +118,9 @@ pub fn create(
             }
         }
     });
+
+    // ③ 커맨드에 맞는 상태 프로브(예: gjc)가 있으면 백그라운드 감시를 시작한다.
+    crate::hooks::start_for_session(&cmd, &session_id, &session);
 
     Ok(())
 }
@@ -146,6 +154,12 @@ pub fn resize(state: &PtyState, session_id: &str, rows: u16, cols: u16) -> Resul
 /// 세션을 종료하고 맵에서 제거한다.
 pub fn close(state: &PtyState, session_id: &str) -> Result<(), String> {
     if let Some((_, s)) = state.0.remove(session_id) {
+        // ③ 상태 프로브 태스크를 먼저 정리한다(더 이상 상태파일을 갱신하지 않도록).
+        if let Ok(mut task) = s.hook_task.lock() {
+            if let Some(handle) = task.take() {
+                handle.abort();
+            }
+        }
         if let Ok(mut child) = s.child.lock() {
             let _ = child.kill();
             for _ in 0..40 {
