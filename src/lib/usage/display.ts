@@ -3,6 +3,14 @@ export type GaugeTone = "normal" | "warning" | "danger";
 export function clampPercent(percent: number): number {
   return Math.min(100, Math.max(0, percent));
 }
+/** API가 제공하는 소진율을 화면에 표시할 잔여율로 변환한다. */
+export function remainingPercent(usedPercent: number): number {
+  return 100 - clampPercent(usedPercent);
+}
+
+export function remainingLabel(usedPercent: number): string {
+  return `잔여 ${Math.round(remainingPercent(usedPercent))}%`;
+}
 
 export function gaugeTone(percent: number): GaugeTone {
   if (percent >= 90) return "danger";

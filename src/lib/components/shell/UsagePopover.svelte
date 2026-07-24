@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { UsageInfo } from "$lib/ipc/usage";
   import { openUrl } from "@tauri-apps/plugin-opener";
-  import { clampPercent, gaugeColorClass, gaugeTextClass } from "$lib/usage/display";
+  import { gaugeColorClass, gaugeTextClass, remainingLabel, remainingPercent } from "$lib/usage/display";
   import ExternalLink from "@lucide/svelte/icons/external-link";
 
   let { info }: { info: UsageInfo } = $props();
@@ -34,10 +34,10 @@
         <section>
           <div class="flex items-center gap-2 text-[10.5px]">
             <span class="min-w-0 flex-1 truncate text-muted-foreground">{metric.label}</span>
-            <span class="font-mono font-semibold {gaugeTextClass(metric.percent)}">{metric.valueText}</span>
+            <span class="font-mono font-semibold {gaugeTextClass(metric.percent)}">{remainingLabel(metric.percent)}</span>
           </div>
           <div class="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
-            <span class="block h-full rounded-full {gaugeColorClass(metric.percent)}" style:width={`${clampPercent(metric.percent)}%`}></span>
+            <span class="block h-full rounded-full {gaugeColorClass(metric.percent)}" style:width={`${remainingPercent(metric.percent)}%`}></span>
           </div>
           <p class="mt-1 text-[9.5px] text-muted-foreground/75">{metric.resetNote}</p>
         </section>
