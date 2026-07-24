@@ -2,10 +2,11 @@
   import type { Agent } from "$lib/types";
   import type { FileEntry } from "$lib/ipc/files";
   import { listWorktreeFiles } from "$lib/ipc/files";
-  import { fileGroups, fileTotals } from "$lib/files/viewModel";
+  import { fileTotals, fileTree, type FileTreeNode } from "$lib/files/viewModel";
   import { shell } from "$lib/stores/shell.svelte";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import Folder from "@lucide/svelte/icons/folder";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import ReviewActions from "./ReviewActions.svelte";
 
@@ -14,8 +15,18 @@
   let files = $state<FileEntry[]>([]);
   let loading = $state(true);
   let error = $state<string | null>(null);
-  const groups = $derived(fileGroups(files));
+  const tree = $derived(fileTree(files));
   const totals = $derived(fileTotals(files));
+
+  // 접힘 상태 폴더는 여기에 없는 폴더이며, 기본은 모두 접힘(빈 집합)이다.
+  let expanded = $state<Set<string>>(new Set());
+
+  function toggleGroup(dir: string) {
+    const next = new Set(expanded);
+    if (next.has(dir)) next.delete(dir);
+    else next.add(dir);
+    expanded = next;
+  }
 
   async function load() {
     loading = true;
@@ -44,6 +55,44 @@
   });
 </script>
 
+{#snippet treeNode(node: FileTreeNode, depth: number)}
+  {#if node.kind === "dir"}
+    {@const open = expanded.has(node.path)}
+    <button
+      type="button"
+      class="flex h-7 w-full items-center gap-1.5 rounded-[7px] pr-2 text-left transition-colors hover:bg-sidebar-accent/60"
+      style="padding-left: {depth * 12 + 6}px"
+      aria-expanded={open}
+      onclick={() => toggleGroup(node.path)}
+    >
+      <ChevronRight class="size-3 shrink-0 text-muted-foreground transition-transform {open ? 'rotate-90' : ''}" />
+      <Folder class="size-3 shrink-0 text-muted-foreground" />
+      <span class="min-w-0 flex-1 truncate text-[11px] font-medium text-foreground/90">{node.name}</span>
+      {#if !open && node.changed > 0}
+        <span class="shrink-0 font-mono text-[8.5px]"><span class="text-diff-add">+{node.add}</span> <span class="text-diff-remove">−{node.del}</span></span>
+      {/if}
+    </button>
+    {#if open}
+      {#each node.children as child (child.path)}
+        {@render treeNode(child, depth + 1)}
+      {/each}
+    {/if}
+  {:else}
+    <button
+      type="button"
+      class="flex h-7 w-full items-center gap-2 rounded-[7px] pr-2 text-left transition-colors {shell.openFilePath === node.path ? 'bg-sidebar-accent ring-1 ring-inset ring-sidebar-ring' : 'hover:bg-sidebar-accent/60'}"
+      style="padding-left: {depth * 12 + 10}px"
+      onclick={() => shell.openFile(node.path)}
+    >
+      <span class="size-[7px] shrink-0 rounded-full {markerClass(node.change)}"></span>
+      <span class="min-w-0 flex-1 truncate text-[11px] {node.change === 'none' ? 'text-muted-foreground' : 'font-medium text-foreground'}">{node.name}</span>
+      {#if node.change !== "none"}
+        <span class="shrink-0 font-mono text-[8.5px]"><span class="text-diff-add">+{node.add}</span> <span class="text-diff-remove">−{node.del}</span></span>
+      {/if}
+    </button>
+  {/if}
+{/snippet}
+
 <aside class="flex h-full w-[264px] shrink-0 flex-col border-l bg-sidebar text-sidebar-foreground">
   <header class="flex h-11 shrink-0 items-center gap-2 border-b px-3">
     <h2 class="text-[12px] font-semibold">파일</h2>
@@ -71,28 +120,9 @@
       {:else if files.length === 0}
         <p class="px-2 py-6 text-center text-xs text-muted-foreground">표시할 파일이 없습니다.</p>
       {:else}
-        <div class="flex flex-col gap-2.5">
-          {#each groups as group (group.dir)}
-            <section>
-              <h3 class="flex items-center gap-1.5 px-1.5 py-1 font-mono text-[9.5px] font-medium text-muted-foreground">
-                <Folder class="size-3" /><span class="truncate">{group.label}</span>
-              </h3>
-              <div class="flex flex-col gap-0.5">
-                {#each group.files as file (file.path)}
-                  <button
-                    type="button"
-                    class="flex h-7 w-full items-center gap-2 rounded-[7px] px-2 text-left transition-colors {shell.openFilePath === file.path ? 'bg-sidebar-accent ring-1 ring-inset ring-sidebar-ring' : 'hover:bg-sidebar-accent/60'}"
-                    onclick={() => shell.openFile(file.path)}
-                  >
-                    <span class="size-[7px] shrink-0 rounded-full {markerClass(file.change)}"></span>
-                    <span class="min-w-0 flex-1 truncate text-[11px] {file.change === 'none' ? 'text-muted-foreground' : 'font-medium text-foreground'}">{file.name}</span>
-                    {#if file.change !== "none"}
-                      <span class="shrink-0 font-mono text-[8.5px]"><span class="text-diff-add">+{file.add}</span> <span class="text-diff-remove">−{file.del}</span></span>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            </section>
+        <div class="flex flex-col gap-0.5">
+          {#each tree as node (node.path)}
+            {@render treeNode(node, 0)}
           {/each}
         </div>
       {/if}
