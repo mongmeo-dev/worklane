@@ -9,6 +9,7 @@
   import PanelRight from "@lucide/svelte/icons/panel-right";
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
   import StatusChips from "./StatusChips.svelte";
+  import AttentionInbox from "./AttentionInbox.svelte";
 
   interface Props {
     projects: Project[];
@@ -46,6 +47,7 @@
   </div>
 
   <div class="ml-auto flex items-center gap-1">
+    <AttentionInbox {projects} />
     <Button variant="outline" size="sm" class="h-[30px] gap-1.5 rounded-full bg-card px-3 text-xs" onclick={onNewAgent} disabled={projects.length === 0}>
       <Plus class="size-4" />
       새 에이전트

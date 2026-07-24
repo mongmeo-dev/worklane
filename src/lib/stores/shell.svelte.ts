@@ -17,6 +17,7 @@ export class ShellStore {
   #leftPanelOpen = $state(loadBoolean(LEFT_KEY, true));
   #rightPanelOpen = $state(loadBoolean(RIGHT_KEY, true));
   #usagePopover = $state<string | null>(null);
+  #attentionOpen = $state(false);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -25,11 +26,13 @@ export class ShellStore {
   get leftPanelOpen(): boolean { return this.#leftPanelOpen; }
   get rightPanelOpen(): boolean { return this.#rightPanelOpen; }
   get usagePopover(): string | null { return this.#usagePopover; }
+  get attentionOpen(): boolean { return this.#attentionOpen; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
     this.#openFilePath = null;
     this.#showEditor = false;
+    this.#attentionOpen = false;
   }
 
   selectTerminal(id: string): void {
@@ -78,6 +81,14 @@ export class ShellStore {
 
   closeUsagePopover(): void {
     this.#usagePopover = null;
+  }
+
+  toggleAttention(): void {
+    this.#attentionOpen = !this.#attentionOpen;
+  }
+
+  closeAttention(): void {
+    this.#attentionOpen = false;
   }
 }
 
