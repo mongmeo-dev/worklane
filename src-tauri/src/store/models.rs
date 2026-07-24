@@ -12,6 +12,12 @@ pub struct Agent {
     pub branch: String,
     pub worktree_path: String,
     pub worktree_managed: bool,
+    /// 팬아웃 그룹 식별자. 같은 프롬프트로 병렬 생성된 에이전트끼리 공유한다.
+    #[serde(default)]
+    pub group_id: Option<String>,
+    /// 팬아웃 시 공유한 작업 프롬프트(비교/복사용).
+    #[serde(default)]
+    pub prompt: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }

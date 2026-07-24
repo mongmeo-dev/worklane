@@ -28,6 +28,14 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             PRAGMA user_version = 1;",
         )?;
     }
+    if version < 2 {
+        // 팬아웃(멀티 에이전트 병렬 실행) 지원: 그룹 식별자와 공유 프롬프트 컬럼.
+        conn.execute_batch(
+            "ALTER TABLE agents ADD COLUMN group_id TEXT;
+             ALTER TABLE agents ADD COLUMN prompt TEXT;
+             PRAGMA user_version = 2;",
+        )?;
+    }
     Ok(())
 }
 
@@ -41,6 +49,8 @@ fn row_to_agent(row: &rusqlite::Row) -> rusqlite::Result<Agent> {
         branch: row.get("branch")?,
         worktree_path: row.get("worktree_path")?,
         worktree_managed: row.get::<_, i64>("worktree_managed")? != 0,
+        group_id: row.get("group_id")?,
+        prompt: row.get("prompt")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -65,7 +75,7 @@ pub fn list_projects(conn: &Connection) -> rusqlite::Result<Vec<Project>> {
 
     let mut astmt = conn.prepare(
         "SELECT id, project_id, title, kind, command, branch, worktree_path,
-                worktree_managed, created_at, updated_at
+                worktree_managed, group_id, prompt, created_at, updated_at
          FROM agents WHERE project_id = ?1 ORDER BY created_at",
     )?;
     let mut result = Vec::with_capacity(projects.len());
@@ -110,6 +120,8 @@ fn build_default_agent(
         branch: branch.into(),
         worktree_path: path.into(),
         worktree_managed: false,
+        group_id: None,
+        prompt: None,
         created_at: now,
         updated_at: now,
     }
@@ -170,10 +182,10 @@ pub fn delete_project(conn: &Connection, id: &str) -> rusqlite::Result<()> {
 pub fn insert_agent(conn: &Connection, a: &Agent) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO agents (id, project_id, title, kind, command, branch,
-            worktree_path, worktree_managed, created_at, updated_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            worktree_path, worktree_managed, group_id, prompt, created_at, updated_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
         params![a.id, a.project_id, a.title, a.kind, a.command, a.branch,
-            a.worktree_path, a.worktree_managed as i64, a.created_at, a.updated_at],
+            a.worktree_path, a.worktree_managed as i64, a.group_id, a.prompt, a.created_at, a.updated_at],
     )?;
     Ok(())
 }
@@ -181,7 +193,7 @@ pub fn insert_agent(conn: &Connection, a: &Agent) -> rusqlite::Result<()> {
 pub fn get_agent(conn: &Connection, id: &str) -> rusqlite::Result<Option<Agent>> {
     let mut stmt = conn.prepare(
         "SELECT id, project_id, title, kind, command, branch, worktree_path,
-                worktree_managed, created_at, updated_at FROM agents WHERE id = ?1",
+                worktree_managed, group_id, prompt, created_at, updated_at FROM agents WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], row_to_agent)?;
     match rows.next() {
@@ -258,6 +270,8 @@ mod tests {
             branch: "feat/x".into(),
             worktree_path: "/tmp/wt".into(),
             worktree_managed: true,
+            group_id: None,
+            prompt: None,
             created_at: 1,
             updated_at: 1,
         }

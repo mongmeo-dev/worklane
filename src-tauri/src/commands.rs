@@ -360,6 +360,8 @@ pub fn create_agent(
     branch: String,
     start_point: String,
     worktree_path: Option<String>,
+    group_id: Option<String>,
+    prompt: Option<String>,
 ) -> Result<Agent, String> {
     use tauri::Manager;
     let explicit_path = worktree_path
@@ -397,6 +399,8 @@ pub fn create_agent(
         branch,
         worktree_path: created.clone(),
         worktree_managed: managed,
+        group_id,
+        prompt,
         created_at: now,
         updated_at: now,
     };
@@ -510,6 +514,8 @@ mod shared_worktree_tests {
                 branch: "main".into(),
                 worktree_path: worktree_path.into(),
                 worktree_managed: false,
+                group_id: None,
+                prompt: None,
                 created_at: 1,
                 updated_at: 1,
             },
