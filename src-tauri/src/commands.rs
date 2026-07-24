@@ -141,6 +141,14 @@ pub async fn open_in_app(
         .map_err(|e| e.to_string())?
 }
 
+/// 저장소의 열린 GitHub 이슈를 조회한다.
+#[tauri::command]
+pub async fn github_issues(repo_path: String) -> Result<Vec<crate::git::GithubIssue>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::git::list_github_issues(&repo_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// 프롬프트 라이브러리를 나열한다.
 #[tauri::command]
 pub fn list_prompts(store: tauri::State<'_, StoreState>) -> Result<Vec<Prompt>, String> {

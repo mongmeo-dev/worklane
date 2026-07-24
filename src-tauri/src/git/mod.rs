@@ -640,6 +640,28 @@ pub fn open_pull_request(worktree: &str) -> Result<PullRequest, String> {
     }
 }
 
+/// GitHub 이슈 한 건.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GithubIssue {
+    pub number: u64,
+    pub title: String,
+    pub url: String,
+    #[serde(default)]
+    pub body: String,
+}
+
+/// 저장소의 열린 GitHub 이슈를 gh CLI로 조회한다(최근 30건).
+pub fn list_github_issues(repo_path: &str) -> Result<Vec<GithubIssue>, String> {
+    if !gh_available() {
+        return Err("gh CLI가 설치되어 있지 않습니다. GitHub CLI 설치·인증 후 사용하세요.".into());
+    }
+    let out = run_gh(
+        repo_path,
+        &["issue", "list", "--json", "number,title,url,body", "--limit", "30"],
+    )?;
+    serde_json::from_str(&out).map_err(|e| format!("이슈 목록 파싱 실패: {e}"))
+}
+
 #[cfg(test)]
 mod review_tests {
     use super::*;

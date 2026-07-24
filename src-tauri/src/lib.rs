@@ -42,6 +42,7 @@ pub fn run() {
             commands::git_push,
             commands::git_open_pull_request,
             commands::open_in_app,
+            commands::github_issues,
             commands::list_prompts,
             commands::create_prompt,
             commands::update_prompt,
