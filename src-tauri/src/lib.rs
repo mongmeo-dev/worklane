@@ -10,6 +10,7 @@ mod external;
 mod verify;
 mod ports;
 mod linear;
+mod webhook;
 
 use pty::PtyState;
 use tauri::Manager;
@@ -47,6 +48,7 @@ pub fn run() {
             commands::open_in_app,
             commands::github_issues,
             commands::linear_issues,
+            commands::send_webhook,
             commands::run_verification,
             commands::git_pr_status,
             commands::git_pr_merge,
