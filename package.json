@@ -1,6 +1,6 @@
 {
   "name": "worklane",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "여러 CLI 코딩 에이전트를 병렬로 실행·관리하는 데스크톱 앱",
   "type": "module",
   "license": "MIT",
