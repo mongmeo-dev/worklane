@@ -18,6 +18,10 @@ export interface Agent {
   worktreePath: string;
   /** 앱이 자동 생성한 worktree면 true (삭제 시 정리 대상) */
   worktreeManaged: boolean;
+  /** 팬아웃 그룹 식별자. 같은 프롬프트로 병렬 생성된 에이전트끼리 공유한다. */
+  groupId?: string | null;
+  /** 팬아웃 시 공유한 작업 프롬프트(비교/복사용). */
+  prompt?: string | null;
   createdAt: number;
   updatedAt: number;
   /** 런타임 파생: 3계층 트래킹이 판별하는 실행 상태. 미실행 시 idle. */

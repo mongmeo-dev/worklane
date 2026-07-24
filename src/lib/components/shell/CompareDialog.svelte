@@ -1,0 +1,156 @@
+<!-- 비교 다이얼로그: 팬아웃 그룹 멤버의 변경 규모를 나란히 비교하고 채택한다. -->
+<script lang="ts">
+  import * as Dialog from "$lib/components/ui/dialog";
+  import { listWorktreeFiles } from "$lib/ipc/files";
+  import { fileTotals } from "$lib/files/viewModel";
+  import { groupOf } from "$lib/fanout/model";
+  import { agentKindLabels, statusLabels } from "$lib/data/labels";
+  import { projectStore } from "$lib/stores/projects.svelte";
+  import { shell } from "$lib/stores/shell.svelte";
+  import StatusDot from "./StatusDot.svelte";
+  import GitBranch from "@lucide/svelte/icons/git-branch";
+  import Copy from "@lucide/svelte/icons/copy";
+  import Check from "@lucide/svelte/icons/check";
+
+  type Totals = { changed: number; add: number; del: number };
+
+  const group = $derived(
+    shell.compareGroupId ? groupOf(projectStore.projects, shell.compareGroupId) : undefined,
+  );
+
+  let totals = $state<Record<string, Totals | null>>({});
+  let loading = $state(false);
+  let pendingAdopt = $state<string | null>(null);
+  let copied = $state(false);
+  let busy = $state(false);
+
+  async function loadTotals() {
+    if (!group) return;
+    loading = true;
+    const next: Record<string, Totals | null> = {};
+    await Promise.all(
+      group.members.map(async (member) => {
+        try {
+          next[member.id] = fileTotals(await listWorktreeFiles(member.worktreePath));
+        } catch {
+          next[member.id] = null;
+        }
+      }),
+    );
+    totals = next;
+    loading = false;
+  }
+
+  async function copyPrompt() {
+    if (!group?.prompt) return;
+    try {
+      await navigator.clipboard.writeText(group.prompt);
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    } catch {
+      // 클립보드 접근 실패는 조용히 무시한다.
+    }
+  }
+
+  async function adopt(agentId: string) {
+    if (!group || busy) return;
+    busy = true;
+    try {
+      for (const member of group.members) {
+        if (member.id === agentId) continue;
+        await projectStore.removeAgent(member.id, true, true);
+      }
+      shell.selectAgent(agentId);
+    } catch {
+      // 실패 시 다이얼로그를 유지해 다시 시도할 수 있게 한다.
+    } finally {
+      busy = false;
+      pendingAdopt = null;
+    }
+  }
+
+  $effect(() => {
+    void shell.compareGroupId;
+    pendingAdopt = null;
+    void loadTotals();
+  });
+</script>
+
+<Dialog.Root open={shell.compareGroupId !== null} onOpenChange={(open) => (open ? null : shell.closeCompare())}>
+  <Dialog.Content class="w-[720px] max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[14px] p-0 sm:max-w-[720px]">
+    {#if group}
+      <Dialog.Header class="border-b px-5 py-3.5">
+        <Dialog.Title class="text-[14px] font-semibold">결과 비교 · {group.title}</Dialog.Title>
+        <Dialog.Description class="text-[11px]">{group.projectName} · {group.members.length}개 에이전트 병렬 실행</Dialog.Description>
+      </Dialog.Header>
+
+      {#if group.prompt}
+        <div class="flex items-start gap-2 border-b bg-muted/40 px-5 py-2.5">
+          <p class="min-w-0 flex-1 whitespace-pre-wrap text-[11px] text-muted-foreground">{group.prompt}</p>
+          <button
+            type="button"
+            class="flex shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent"
+            onclick={copyPrompt}
+          >
+            {#if copied}<Check class="size-3" />복사됨{:else}<Copy class="size-3" />프롬프트 복사{/if}
+          </button>
+        </div>
+      {/if}
+
+      <div class="grid max-h-[440px] grid-cols-2 gap-3 overflow-auto p-5">
+        {#each group.members as member (member.id)}
+          {@const stat = totals[member.id]}
+          {@const status = member.status ?? "idle"}
+          <div class="flex flex-col gap-2.5 rounded-xl border bg-tile p-3.5">
+            <div class="flex items-center gap-2">
+              <StatusDot {status} size={8} />
+              <span class="text-[12px] font-semibold">{agentKindLabels[member.kind]}</span>
+              <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabels[status]}</span>
+            </div>
+            <div class="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+              <GitBranch class="size-3" /><span class="truncate">{member.branch}</span>
+            </div>
+            <div class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-mono text-[11px]">
+              {#if loading && stat === undefined}
+                <span class="text-muted-foreground">불러오는 중…</span>
+              {:else if stat}
+                <span><span class="text-muted-foreground">파일</span> {stat.changed}</span>
+                <span class="text-diff-add">+{stat.add}</span>
+                <span class="text-diff-remove">−{stat.del}</span>
+              {:else}
+                <span class="text-muted-foreground">변경 정보를 읽을 수 없음</span>
+              {/if}
+            </div>
+            <div class="mt-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                class="flex h-7 flex-1 items-center justify-center rounded-md border bg-card text-[11px] font-semibold hover:bg-accent"
+                onclick={() => shell.selectAgent(member.id)}
+              >열기</button>
+              {#if pendingAdopt === member.id}
+                <button
+                  type="button"
+                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-status-blocked text-[11px] font-bold text-status-blocked-on disabled:opacity-50"
+                  disabled={busy}
+                  onclick={() => adopt(member.id)}
+                >나머지 정리 후 채택</button>
+                <button
+                  type="button"
+                  class="flex h-7 items-center justify-center rounded-md border px-2 text-[11px] hover:bg-accent"
+                  onclick={() => (pendingAdopt = null)}
+                >취소</button>
+              {:else}
+                <button
+                  type="button"
+                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-primary text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+                  disabled={busy || group.members.length < 2}
+                  onclick={() => (pendingAdopt = member.id)}
+                >채택</button>
+              {/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </Dialog.Content>
+</Dialog.Root>

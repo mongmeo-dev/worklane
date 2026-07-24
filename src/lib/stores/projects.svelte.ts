@@ -37,11 +37,12 @@ export function createProjectStore() {
       await ipc.deleteProject(id);
       projects = projects.filter((p) => p.id !== id);
     },
-    async addAgent(opts: CreateAgentOptions): Promise<void> {
+    async addAgent(opts: CreateAgentOptions): Promise<Agent> {
       const agent = await ipc.createAgent(opts);
       projects = projects.map((p) =>
         p.id === opts.projectId ? { ...p, agents: [...p.agents, agent] } : p,
       );
+      return agent;
     },
     async addDefaultWorkspace(
       projectId: string,

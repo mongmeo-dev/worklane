@@ -37,6 +37,10 @@ export interface CreateAgentOptions {
   /** true이면 다른 에이전트의 worktreePath를 그대로 재사용한다. */
   shareWorktree?: boolean;
   worktreePath?: string;
+  /** 팬아웃 그룹 식별자(멀티 에이전트 병렬 생성 시 공유). */
+  groupId?: string;
+  /** 팬아웃 시 공유한 작업 프롬프트. */
+  prompt?: string;
 }
 
 export function createAgent(opts: CreateAgentOptions): Promise<Agent> {
@@ -49,6 +53,8 @@ export function createAgent(opts: CreateAgentOptions): Promise<Agent> {
     branch: opts.branch,
     startPoint: opts.startPoint,
     worktreePath: opts.worktreePath ?? null,
+    groupId: opts.groupId ?? null,
+    prompt: opts.prompt ?? null,
   });
 }
 

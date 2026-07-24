@@ -4,6 +4,7 @@
   import { statusCounts } from "$lib/shell/derived";
   import { shell } from "$lib/stores/shell.svelte";
   import Plus from "@lucide/svelte/icons/plus";
+  import GitFork from "@lucide/svelte/icons/git-fork";
   import Settings from "@lucide/svelte/icons/settings";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
@@ -15,9 +16,10 @@
     projects: Project[];
     showRightToggle: boolean;
     onNewAgent: () => void;
+    onFanout: () => void;
   }
 
-  let { projects, showRightToggle, onNewAgent }: Props = $props();
+  let { projects, showRightToggle, onNewAgent, onFanout }: Props = $props();
   const counts = $derived(statusCounts(projects));
 </script>
 
@@ -51,6 +53,10 @@
     <Button variant="outline" size="sm" class="h-[30px] gap-1.5 rounded-full bg-card px-3 text-xs" onclick={onNewAgent} disabled={projects.length === 0}>
       <Plus class="size-4" />
       새 에이전트
+    </Button>
+    <Button variant="outline" size="sm" class="h-[30px] gap-1.5 rounded-full bg-card px-3 text-xs" onclick={onFanout} disabled={projects.length === 0}>
+      <GitFork class="size-4" />
+      팬아웃
     </Button>
     <Button
       variant="ghost"

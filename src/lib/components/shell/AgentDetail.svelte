@@ -2,6 +2,7 @@
   import type { Agent, Project } from "$lib/types";
   import { agentKindLabels } from "$lib/data/labels";
   import { agentsForWorktree } from "$lib/shell/derived";
+  import { groupOf } from "$lib/fanout/model";
   import { shell } from "$lib/stores/shell.svelte";
   import StatusDot from "./StatusDot.svelte";
   import StatusBadge from "./StatusBadge.svelte";
@@ -11,9 +12,11 @@
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import X from "@lucide/svelte/icons/x";
+  import GitFork from "@lucide/svelte/icons/git-fork";
 
   let { agent, projects }: { agent: Agent; projects: Project[] } = $props();
   const sharedAgents = $derived(agentsForWorktree(projects, agent));
+  const group = $derived(agent.groupId ? groupOf(projects, agent.groupId) : undefined);
   const status = $derived(agent.status ?? "idle");
 </script>
 
@@ -31,7 +34,14 @@
     {#if sharedAgents.length > 1}
       <span class="rounded-full bg-accent-share/10 px-2 py-0.5 text-[10px] font-semibold text-accent-share">공유 worktree · {sharedAgents.length} 에이전트</span>
     {/if}
-    <span class="ml-auto text-[10.5px] text-muted-foreground">{agent.lastActivity ?? "대기 중"}</span>
+    {#if group && group.members.length > 1}
+      <button type="button" class="ml-auto flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent" onclick={() => shell.openCompare(group.groupId)}>
+        <GitFork class="size-3" />비교 · {group.members.length}
+      </button>
+      <span class="text-[10.5px] text-muted-foreground">{agent.lastActivity ?? "대기 중"}</span>
+    {:else}
+      <span class="ml-auto text-[10.5px] text-muted-foreground">{agent.lastActivity ?? "대기 중"}</span>
+    {/if}
     <StatusBadge {status} />
   </header>
 

@@ -18,6 +18,7 @@ export class ShellStore {
   #rightPanelOpen = $state(loadBoolean(RIGHT_KEY, true));
   #usagePopover = $state<string | null>(null);
   #attentionOpen = $state(false);
+  #compareGroupId = $state<string | null>(null);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -27,12 +28,14 @@ export class ShellStore {
   get rightPanelOpen(): boolean { return this.#rightPanelOpen; }
   get usagePopover(): string | null { return this.#usagePopover; }
   get attentionOpen(): boolean { return this.#attentionOpen; }
+  get compareGroupId(): string | null { return this.#compareGroupId; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
     this.#openFilePath = null;
     this.#showEditor = false;
     this.#attentionOpen = false;
+    this.#compareGroupId = null;
   }
 
   selectTerminal(id: string): void {
@@ -89,6 +92,15 @@ export class ShellStore {
 
   closeAttention(): void {
     this.#attentionOpen = false;
+  }
+
+  openCompare(groupId: string): void {
+    this.#compareGroupId = groupId;
+    this.#attentionOpen = false;
+  }
+
+  closeCompare(): void {
+    this.#compareGroupId = null;
   }
 }
 

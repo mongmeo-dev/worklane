@@ -11,11 +11,14 @@
   import MainPanel from "$lib/components/shell/MainPanel.svelte";
   import SettingsDialog from "$lib/components/shell/SettingsDialog.svelte";
   import AgentDialog from "$lib/components/shell/AgentDialog.svelte";
+  import FanoutDialog from "$lib/components/shell/FanoutDialog.svelte";
+  import CompareDialog from "$lib/components/shell/CompareDialog.svelte";
   import StatusBar from "$lib/components/shell/StatusBar.svelte";
 
   const STORAGE_KEY = "shell:sidebar-size";
 
   let newAgentOpen = $state(false);
+  let fanoutOpen = $state(false);
 
   const selectedAgent = $derived<Agent | undefined>(
     projectStore.projects.flatMap((p) => p.agents).find((a) => a.id === shell.selectedAgentId),
@@ -51,7 +54,7 @@
 </script>
 
 <div class="flex h-screen w-screen flex-col overflow-hidden text-sm">
-  <TitleBar projects={projectStore.projects} showRightToggle={Boolean(selectedAgent)} onNewAgent={() => (newAgentOpen = true)} />
+  <TitleBar projects={projectStore.projects} showRightToggle={Boolean(selectedAgent)} onNewAgent={() => (newAgentOpen = true)} onFanout={() => (fanoutOpen = true)} />
   <div class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal" class="h-full w-full">
       {#if shell.leftPanelOpen}
@@ -74,7 +77,9 @@
   <StatusBar />
 
   <SettingsDialog />
+  <CompareDialog />
   {#if newAgentProject}
     <AgentDialog bind:open={newAgentOpen} project={newAgentProject} />
+    <FanoutDialog bind:open={fanoutOpen} project={newAgentProject} />
   {/if}
 </div>
