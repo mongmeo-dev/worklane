@@ -20,6 +20,7 @@ export class ShellStore {
   #attentionOpen = $state(false);
   #compareGroupId = $state<string | null>(null);
   #showPreview = $state(false);
+  #worktreeRev = $state(0);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -31,6 +32,7 @@ export class ShellStore {
   get attentionOpen(): boolean { return this.#attentionOpen; }
   get compareGroupId(): string | null { return this.#compareGroupId; }
   get showPreview(): boolean { return this.#showPreview; }
+  get worktreeRev(): number { return this.#worktreeRev; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
@@ -96,6 +98,11 @@ export class ShellStore {
 
   closeUsagePopover(): void {
     this.#usagePopover = null;
+  }
+
+  /** worktree 파일 상태가 외부(롤백 등)로 바뀌었음을 알려 관련 뷰를 재로딩시킨다. */
+  bumpWorktree(): void {
+    this.#worktreeRev += 1;
   }
 
   toggleAttention(): void {

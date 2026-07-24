@@ -3,6 +3,7 @@
   import type { ReviewStatus } from "$lib/ipc/review";
   import { gitCommitAll, gitOpenPullRequest, gitPush, gitReviewStatus } from "$lib/ipc/review";
   import { canCommit, canPush, pushLabel } from "$lib/review/model";
+  import { shell } from "$lib/stores/shell.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import Upload from "@lucide/svelte/icons/upload";
@@ -79,6 +80,7 @@
 
   $effect(() => {
     void agent.worktreePath;
+    void shell.worktreeRev;
     void refresh();
   });
 </script>

@@ -39,6 +39,7 @@
 
   $effect(() => {
     void agent.worktreePath;
+    void shell.worktreeRev;
     void load();
   });
 </script>

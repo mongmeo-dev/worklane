@@ -3,6 +3,7 @@
   import type { DiffLine, FileContent, FileEntry } from "$lib/ipc/files";
   import { gitFileDiff, listWorktreeFiles, readWorktreeFile } from "$lib/ipc/files";
   import { sourceLines } from "$lib/files/viewModel";
+  import { shell } from "$lib/stores/shell.svelte";
 
   let { agent, path, sharedCount = 1 }: { agent: Agent; path: string; sharedCount?: number } = $props();
 
@@ -42,6 +43,7 @@
 
   $effect(() => {
     void agent.worktreePath;
+    void shell.worktreeRev;
     void path;
     void load();
   });
