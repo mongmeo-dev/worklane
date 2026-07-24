@@ -4,6 +4,7 @@
   import { projectStore } from "$lib/stores/projects.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
   import { attentionNotifier } from "$lib/attention/notifier";
+  import { promptStore } from "$lib/stores/prompts.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -43,6 +44,7 @@
   onMount(() => {
     sessionStatus.start();
     projectStore.load();
+    promptStore.load();
     attentionNotifier.start((agentId) => {
       for (const project of projectStore.projects) {
         const agent = project.agents.find((a) => a.id === agentId);

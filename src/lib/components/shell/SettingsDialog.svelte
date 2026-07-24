@@ -4,12 +4,15 @@
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
   import ScreenSettings from "$lib/components/settings/ScreenSettings.svelte";
   import AgentSettings from "$lib/components/settings/AgentSettings.svelte";
+  import PromptSettings from "$lib/components/settings/PromptSettings.svelte";
   import Monitor from "@lucide/svelte/icons/monitor";
   import Bot from "@lucide/svelte/icons/bot";
+  import Library from "@lucide/svelte/icons/library";
 
   const tabs: { id: SettingsTab; label: string; icon: typeof Monitor }[] = [
     { id: "screen", label: "화면", icon: Monitor },
     { id: "agents", label: "에이전트", icon: Bot },
+    { id: "prompts", label: "프롬프트", icon: Library },
   ];
 </script>
 
@@ -33,7 +36,7 @@
       </nav>
 
       <div class="min-w-0 flex-1 overflow-auto p-5">
-        {#if settingsUi.activeTab === "screen"}<ScreenSettings />{:else}<AgentSettings />{/if}
+        {#if settingsUi.activeTab === "screen"}<ScreenSettings />{:else if settingsUi.activeTab === "agents"}<AgentSettings />{:else}<PromptSettings />{/if}
       </div>
     </div>
   </Dialog.Content>

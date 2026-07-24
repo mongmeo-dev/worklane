@@ -9,7 +9,11 @@
   import { fanoutBranch } from "$lib/fanout/model";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
+  import { promptStore } from "$lib/stores/prompts.svelte";
+  import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
+  import Library from "@lucide/svelte/icons/library";
+  import Save from "@lucide/svelte/icons/save";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -28,6 +32,29 @@
   );
   let error = $state("");
   let busy = $state(false);
+  let libOpen = $state(false);
+  let saved = $state(false);
+
+  function insertPrompt(body: string, promptTitle: string) {
+    prompt = body;
+    if (!title.trim()) title = promptTitle;
+    libOpen = false;
+  }
+
+  async function saveToLibrary() {
+    if (!prompt.trim()) return;
+    try {
+      await promptStore.add(title.trim() || "제목 없는 프롬프트", prompt.trim());
+      saved = true;
+      setTimeout(() => (saved = false), 1500);
+    } catch {
+      // 저장 실패는 조용히 무시(라이브러리 없이도 팬아웃은 가능).
+    }
+  }
+
+  onMount(() => {
+    if (promptStore.prompts.length === 0) void promptStore.load();
+  });
 
   const selected = $derived(rows.filter((r) => r.selected));
   const canSubmit = $derived(
@@ -93,7 +120,26 @@
         <Input id="fo-title" bind:value={title} placeholder="예: 로그인 리팩터링" />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="fo-prompt">프롬프트 (선택)</Label>
+        <div class="flex items-center gap-2">
+          <Label for="fo-prompt" class="flex-1">프롬프트 (선택)</Label>
+          {#if promptStore.prompts.length > 0}
+            <div class="relative">
+              <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {libOpen ? 'bg-accent' : ''}" onclick={() => (libOpen = !libOpen)}>
+                <Library class="size-3" />라이브러리
+              </button>
+              {#if libOpen}
+                <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-52 w-56 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+                  {#each promptStore.prompts as p (p.id)}
+                    <button type="button" class="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-accent" onclick={() => insertPrompt(p.body, p.title)}>{p.title}</button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!prompt.trim()} onclick={saveToLibrary}>
+            <Save class="size-3" />{saved ? "저장됨" : "저장"}
+          </button>
+        </div>
         <textarea
           id="fo-prompt"
           class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
