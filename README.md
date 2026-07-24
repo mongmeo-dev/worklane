@@ -106,6 +106,10 @@ pnpm tauri build
 
 Generated artifacts are written to the platform-specific Tauri bundle directory under `src-tauri/target/release/bundle/`.
 
+### Releases & Auto-Update
+
+Pushing a `vX.Y.Z` tag runs the release workflow (`.github/workflows/release.yml`), which signs the bundle and publishes a GitHub Release plus the `latest.json` update manifest. Installed apps then update themselves. See [docs/release.md](docs/release.md) for the required signing secrets and the release steps.
+
 ## Development
 
 | Command | Description |

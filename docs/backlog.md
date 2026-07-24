@@ -26,7 +26,7 @@
 
 2026-07-24 고도화 기능 13종 구현 후 남긴 운영/후속 항목.
 
-- [ ] **자동 업데이트 릴리스 서명** — `tauri-plugin-updater`를 붙이고 공개키를 `tauri.conf.json`에 넣었다. 실제 업데이트가 동작하려면 릴리스 CI가 `TAURI_SIGNING_PRIVATE_KEY`(+비밀번호)로 서명하고 `latest.json`을 GitHub Releases에 게시해야 한다. 개인키는 저장소에 커밋하지 않는다(로컬 생성분은 `/tmp`).
+- [x] **자동 업데이트 릴리스 파이프라인** — `tauri-plugin-updater` + 공개키(`tauri.conf.json`) + 릴리스 워크플로(`.github/workflows/release.yml`, tauri-action)로 서명·게시·`latest.json` 생성까지 구성했다. 절차는 `docs/release.md` 참조. 남은 수동 단계는 GitHub Secrets에 `TAURI_SIGNING_PRIVATE_KEY`/`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 등록뿐이다(리포지토리 소유자만 가능). 개인키는 `keys/`(gitignore)에 보관하며 커밋하지 않는다.
 - [ ] **프롬프트 자동 주입 정확도** — 출력이 `INJECT_IDLE_MS`(900ms) 잦아든 시점을 CLI 준비로 간주해 1회 전송한다. 일부 TUI에서 타이밍이 어긋날 수 있어, 에이전트 훅 기반 준비 신호로 대체하면 정확도가 오른다. 세션당 1회 주입은 `localStorage`로 보장한다.
 - [ ] **포트 감지 크로스플랫폼** — `lsof` 기반이라 macOS만 동작한다. Windows/Linux는 각 플랫폼 방식(netstat/ss 등)으로 확장 필요.
 - [ ] **로컬 병합 제약** — 기준 브랜치가 다른 worktree에 체크아웃돼 있고 dirty면 병합을 거부한다. `merge-tree`(git ≥2.38) 전제이며, non-FF는 merge-tree+commit-tree+update-ref로 처리한다.

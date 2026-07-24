@@ -106,6 +106,10 @@ pnpm tauri build
 
 생성된 결과물은 `src-tauri/target/release/bundle/` 아래의 플랫폼별 Tauri 번들 디렉터리에 저장됩니다.
 
+### 릴리스 · 자동 업데이트
+
+`vX.Y.Z` 태그를 푸시하면 릴리스 워크플로(`.github/workflows/release.yml`)가 번들을 서명하고 GitHub Release와 `latest.json` 업데이트 매니페스트를 게시합니다. 설치된 앱은 이를 읽어 스스로 업데이트합니다. 필요한 서명 시크릿과 릴리스 절차는 [docs/release.md](docs/release.md)를 참고하세요.
+
 ## 개발
 
 | 명령 | 설명 |
