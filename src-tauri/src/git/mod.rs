@@ -691,6 +691,152 @@ pub fn restore_snapshot(worktree: &str, sha: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// git 명령을 실행하고 (성공여부, stdout)을 반환한다. 종료코드로 판단할 때 쓴다.
+fn run_git_capture(cwd: &str, args: &[&str]) -> Result<(bool, String), String> {
+    let output = Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("git 실행 실패: {e}"))?;
+    Ok((output.status.success(), String::from_utf8_lossy(&output.stdout).into_owned()))
+}
+
+/// 종료코드 0이면 true(그 외 false). is-ancestor/rev-parse --verify 등에 쓴다.
+fn git_bool(cwd: &str, args: &[&str]) -> bool {
+    Command::new("git")
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// 로컬 base 브랜치가 있으면 그 이름을, 없으면 origin/base를 쓴다.
+fn resolve_base_ref(worktree: &str, base: &str) -> Result<String, String> {
+    if git_bool(worktree, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{base}")]) {
+        Ok(base.to_string())
+    } else if git_bool(
+        worktree,
+        &["rev-parse", "--verify", "--quiet", &format!("refs/remotes/origin/{base}")],
+    ) {
+        Ok(format!("origin/{base}"))
+    } else {
+        Err(format!("기준 브랜치 {base}를 찾을 수 없습니다."))
+    }
+}
+
+/// `git merge-tree --write-tree --name-only` 결과에서 충돌 파일 목록을 뽑는다.
+/// 성공(충돌 없음)이면 빈 벡터. 첫 줄은 tree OID이므로 제외한다.
+fn parse_merge_tree_conflicts(success: bool, stdout: &str) -> Vec<String> {
+    if success {
+        return Vec::new();
+    }
+    stdout
+        .lines()
+        .skip(1)
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| l.to_string())
+        .collect()
+}
+
+/// `git worktree list --porcelain`에서 base 브랜치를 체크아웃한 worktree 경로를 찾는다.
+fn parse_worktree_for_branch(porcelain: &str, base: &str) -> Option<String> {
+    let target = format!("refs/heads/{base}");
+    let mut current_path: Option<String> = None;
+    for line in porcelain.lines() {
+        if let Some(path) = line.strip_prefix("worktree ") {
+            current_path = Some(path.trim().to_string());
+        } else if let Some(branch) = line.strip_prefix("branch ") {
+            if branch.trim() == target {
+                return current_path.clone();
+            }
+        }
+    }
+    None
+}
+
+/// 병합 미리보기 결과.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergePreview {
+    pub base: String,
+    pub branch: String,
+    /// 충돌 파일 목록(비면 깨끗)
+    pub conflicts: Vec<String>,
+    /// branch가 이미 base에 병합돼 있는가(병합 불필요)
+    pub already_merged: bool,
+    /// base 브랜치가 어떤 worktree에 체크아웃돼 있는가
+    pub base_checked_out: bool,
+}
+
+fn merge_tree_conflicts(worktree: &str, base_ref: &str, branch: &str) -> Result<Vec<String>, String> {
+    let (success, stdout) = run_git_capture(
+        worktree,
+        &["merge-tree", "--write-tree", "--name-only", base_ref, branch],
+    )?;
+    Ok(parse_merge_tree_conflicts(success, &stdout))
+}
+
+/// 현재 브랜치를 기준 브랜치에 병합했을 때의 충돌/상태를 미리 계산한다.
+pub fn merge_preview(worktree: &str) -> Result<MergePreview, String> {
+    let base = default_base_branch(worktree);
+    let branch = run_git(worktree, &["rev-parse", "--abbrev-ref", "HEAD"])?
+        .trim()
+        .to_string();
+    let base_ref = resolve_base_ref(worktree, &base)?;
+
+    let already_merged = git_bool(worktree, &["merge-base", "--is-ancestor", &branch, &base_ref]);
+    let conflicts = merge_tree_conflicts(worktree, &base_ref, &branch)?;
+    let base_checked_out = worktree_for_branch(worktree, &base)?.is_some();
+
+    Ok(MergePreview { base, branch, conflicts, already_merged, base_checked_out })
+}
+
+fn worktree_for_branch(worktree: &str, base: &str) -> Result<Option<String>, String> {
+    let list = run_git(worktree, &["worktree", "list", "--porcelain"])?;
+    Ok(parse_worktree_for_branch(&list, base))
+}
+
+/// 현재 브랜치를 기준 브랜치에 로컬 병합한다.
+/// base가 체크아웃된 worktree가 있으면 거기서 병합하고(깨끗할 때만),
+/// 없으면 merge-tree + commit-tree + update-ref로 체크아웃 없이 병합한다.
+pub fn merge_into_base(worktree: &str) -> Result<String, String> {
+    let base = default_base_branch(worktree);
+    let branch = run_git(worktree, &["rev-parse", "--abbrev-ref", "HEAD"])?
+        .trim()
+        .to_string();
+    let base_ref = resolve_base_ref(worktree, &base)?;
+
+    if git_bool(worktree, &["merge-base", "--is-ancestor", &branch, &base_ref]) {
+        return Err("이미 기준 브랜치에 병합된 상태입니다.".to_string());
+    }
+    let conflicts = merge_tree_conflicts(worktree, &base_ref, &branch)?;
+    if !conflicts.is_empty() {
+        return Err(format!("충돌로 병합할 수 없습니다: {}", conflicts.join(", ")));
+    }
+
+    if let Some(base_path) = worktree_for_branch(worktree, &base)? {
+        if worktree_has_changes(&base_path)? {
+            return Err("기준 브랜치 worktree에 커밋 안 된 변경이 있어 병합할 수 없습니다.".to_string());
+        }
+        run_git(&base_path, &["merge", "--no-ff", "--no-edit", &branch])?;
+    } else {
+        let tree = run_git(worktree, &["merge-tree", "--write-tree", &base_ref, &branch])?
+            .trim()
+            .to_string();
+        let message = format!("Merge {branch} into {base}");
+        let commit = run_git(
+            worktree,
+            &["commit-tree", &tree, "-p", &base_ref, "-p", &branch, "-m", &message],
+        )?
+        .trim()
+        .to_string();
+        run_git(worktree, &["update-ref", &format!("refs/heads/{base}"), &commit])?;
+    }
+    Ok(format!("{base} 브랜치에 병합했습니다."))
+}
+
 #[cfg(test)]
 mod review_tests {
     use super::*;
@@ -730,6 +876,30 @@ mod review_tests {
             compare_url("https://github.com/owner/repo", "main", "feat/x"),
             "https://github.com/owner/repo/compare/main...feat/x?expand=1"
         );
+    }
+
+    #[test]
+    fn merge_tree_성공이면_충돌이_없다() {
+        assert!(parse_merge_tree_conflicts(true, "abc123treeoid").is_empty());
+    }
+
+    #[test]
+    fn merge_tree_실패면_첫줄_제외한_충돌파일을_읽는다() {
+        let out = "treeoid\nsrc/a.rs\nsrc/b.rs\n";
+        assert_eq!(
+            parse_merge_tree_conflicts(false, out),
+            vec!["src/a.rs".to_string(), "src/b.rs".to_string()]
+        );
+    }
+
+    #[test]
+    fn worktree_list에서_base_브랜치_경로를_찾는다() {
+        let porcelain = "worktree /repo/main\nHEAD aaa\nbranch refs/heads/main\n\nworktree /repo/feat\nHEAD bbb\nbranch refs/heads/feat/x\n";
+        assert_eq!(
+            parse_worktree_for_branch(porcelain, "main"),
+            Some("/repo/main".to_string())
+        );
+        assert_eq!(parse_worktree_for_branch(porcelain, "release"), None);
     }
 }
 

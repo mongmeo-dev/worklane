@@ -149,6 +149,30 @@ pub async fn github_issues(repo_path: String) -> Result<Vec<crate::git::GithubIs
         .map_err(|e| e.to_string())?
 }
 
+/// 현재 브랜치를 기준 브랜치에 병합했을 때의 충돌/상태를 미리 계산한다.
+#[tauri::command]
+pub async fn git_merge_preview(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<crate::git::MergePreview, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::merge_preview(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 현재 브랜치를 기준 브랜치에 로컬 병합한다.
+#[tauri::command]
+pub async fn git_merge_into_base(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<String, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::merge_into_base(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// worktree에서 검증 명령을 실행한다(팬아웃 결과 자동 검증용).
 #[tauri::command]
 pub async fn run_verification(

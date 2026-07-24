@@ -46,6 +46,8 @@ pub fn run() {
             commands::open_in_app,
             commands::github_issues,
             commands::run_verification,
+            commands::git_merge_preview,
+            commands::git_merge_into_base,
             commands::detect_preview_ports,
             commands::list_prompts,
             commands::create_prompt,
