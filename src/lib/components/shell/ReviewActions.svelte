@@ -4,6 +4,7 @@
   import { gitCommitAll, gitOpenPullRequest, gitPush, gitReviewStatus } from "$lib/ipc/review";
   import { canCommit, canPush, pushLabel } from "$lib/review/model";
   import { shell } from "$lib/stores/shell.svelte";
+  import { logEvent } from "$lib/ipc/events";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import Upload from "@lucide/svelte/icons/upload";
@@ -35,7 +36,9 @@
     error = null;
     note = null;
     try {
+      const committed = message.trim();
       await gitCommitAll(agent.worktreePath, message);
+      logEvent(agent.id, "commit", committed);
       message = "";
       note = "커밋했습니다.";
       await refresh();
@@ -54,6 +57,7 @@
     note = null;
     try {
       const branch = await gitPush(agent.worktreePath);
+      logEvent(agent.id, "push", branch);
       note = `푸시 완료 · ${branch}`;
       await refresh();
     } catch (e) {
@@ -69,6 +73,7 @@
     note = null;
     try {
       const pr = await gitOpenPullRequest(agent.worktreePath);
+      logEvent(agent.id, "pr", `${pr.mode}: ${pr.url}`);
       await openUrl(pr.url);
       note = pr.mode === "gh" ? "PR을 열었습니다." : "GitHub compare 페이지를 열었습니다.";
     } catch (e) {

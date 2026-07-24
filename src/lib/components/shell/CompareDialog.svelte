@@ -15,6 +15,7 @@
   import Trophy from "@lucide/svelte/icons/trophy";
   import { runVerification, type VerifyResult } from "$lib/ipc/verify";
   import { recommendWinner } from "$lib/fanout/ranking";
+  import { logEvent } from "$lib/ipc/events";
 
   type Totals = { changed: number; add: number; del: number };
 
@@ -54,7 +55,9 @@
     await Promise.all(
       group.members.map(async (member) => {
         try {
-          next[member.id] = await runVerification(member.worktreePath, verifyCommand.trim());
+          const result = await runVerification(member.worktreePath, verifyCommand.trim());
+          next[member.id] = result;
+          logEvent(member.id, "verify", `${result.success ? "통과" : "실패"} · ${verifyCommand.trim()}`);
         } catch {
           next[member.id] = null;
         }
@@ -100,6 +103,7 @@
         if (member.id === agentId) continue;
         await projectStore.removeAgent(member.id, true, true);
       }
+      logEvent(agentId, "adopt", "결과 채택(나머지 정리)");
       shell.selectAgent(agentId);
     } catch {
       // 실패 시 다이얼로그를 유지해 다시 시도할 수 있게 한다.

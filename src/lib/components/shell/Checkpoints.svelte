@@ -10,6 +10,7 @@
     rollbackCheckpoint,
   } from "$lib/ipc/checkpoints";
   import { shell } from "$lib/stores/shell.svelte";
+  import { logEvent } from "$lib/ipc/events";
   import History from "@lucide/svelte/icons/history";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -56,6 +57,7 @@
     error = null;
     try {
       const cp = await createCheckpoint(agent.id, agent.worktreePath, label.trim());
+      logEvent(agent.id, "checkpoint", cp.label);
       list = [cp, ...list];
       label = "";
     } catch (e) {
@@ -70,6 +72,7 @@
     error = null;
     try {
       await rollbackCheckpoint(agent.id, agent.worktreePath, cp.sha);
+      logEvent(agent.id, "rollback", cp.label);
       shell.bumpWorktree();
       pendingRollback = null;
       await loadList();

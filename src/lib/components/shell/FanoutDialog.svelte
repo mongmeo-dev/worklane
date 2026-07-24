@@ -11,6 +11,7 @@
   import { shell } from "$lib/stores/shell.svelte";
   import { promptStore } from "$lib/stores/prompts.svelte";
   import { githubIssues, type GithubIssue } from "$lib/ipc/github";
+  import { logEvent } from "$lib/ipc/events";
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Library from "@lucide/svelte/icons/library";
@@ -135,7 +136,7 @@
     const groupId = uuid();
     try {
       for (const row of selected) {
-        await projectStore.addAgent({
+        const agent = await projectStore.addAgent({
           projectId: project.id,
           projectPath: project.path,
           title: title.trim(),
@@ -146,6 +147,7 @@
           groupId,
           prompt: prompt.trim() || undefined,
         });
+        logEvent(agent.id, "fanout", `팬아웃 생성 · ${title.trim()}`);
       }
       onOpenChange(false);
       reset();

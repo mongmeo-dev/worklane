@@ -9,6 +9,7 @@
   import Terminal from "./Terminal.svelte";
   import OpenExternal from "./OpenExternal.svelte";
   import Checkpoints from "./Checkpoints.svelte";
+  import Timeline from "./Timeline.svelte";
   import FileViewer from "./FileViewer.svelte";
   import Preview from "./Preview.svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
@@ -39,6 +40,7 @@
     {/if}
     <div class="ml-auto flex items-center gap-2.5">
       <Checkpoints {agent} />
+      <Timeline {agent} />
       <OpenExternal worktreePath={agent.worktreePath} />
       {#if group && group.members.length > 1}
         <button type="button" class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent" onclick={() => shell.openCompare(group.groupId)}>

@@ -8,6 +8,7 @@
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { composer } from "$lib/stores/composer.svelte";
   import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
+  import { eventRecorder } from "$lib/stores/eventRecorder";
   import { shell } from "$lib/stores/shell.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -69,6 +70,7 @@
       }
       return undefined;
     });
+    eventRecorder.start();
   });
 </script>
 
