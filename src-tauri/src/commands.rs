@@ -724,6 +724,16 @@ pub fn delete_project(
     store::repo::delete_project(&conn, &id).map_err(|e| e.to_string())
 }
 
+/// 작업 이름을 확정한다. 비어 있으면 브랜치 이름을 기본값으로 사용한다.
+fn resolve_agent_title(title: &str, branch: &str) -> String {
+    let trimmed = title.trim();
+    if trimmed.is_empty() {
+        branch.trim().to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub fn create_agent(
@@ -741,6 +751,8 @@ pub fn create_agent(
     prompt: Option<String>,
 ) -> Result<Agent, String> {
     use tauri::Manager;
+    // 작업 이름을 받지 않았으면 브랜치 이름을 기본값으로 사용한다.
+    let title = resolve_agent_title(&title, &branch);
     let explicit_path = worktree_path
         .as_deref()
         .is_some_and(|path| !path.trim().is_empty());
@@ -944,5 +956,13 @@ mod shared_worktree_tests {
         assert!(registered_worktree_path(&store, "/").is_err());
 
         std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn 작업_이름이_비면_브랜치_이름을_기본값으로_쓴다() {
+        assert_eq!(resolve_agent_title("", "feat/login"), "feat/login");
+        assert_eq!(resolve_agent_title("   ", "feat/login"), "feat/login");
+        assert_eq!(resolve_agent_title("로그인 리팩터링", "feat/login"), "로그인 리팩터링");
+        assert_eq!(resolve_agent_title("  로그인  ", "feat/login"), "로그인");
     }
 }

@@ -8,7 +8,7 @@
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
-  import { canCreateWorkspace, requiresCommand } from "./agentDialogModel";
+  import { canCreateWorkspace, requiresCommand, resolveWorkspaceTitle } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
@@ -32,13 +32,14 @@
     error = "";
     try {
       const sharedAgent = project.agents.find((agent) => agent.id === worktreeMode);
+      const effectiveBranch = sharedAgent?.branch ?? branch.trim();
       await projectStore.addAgent({
         projectId: project.id,
         projectPath: project.path,
-        title: title.trim(),
+        title: resolveWorkspaceTitle(title, effectiveBranch),
         kind,
         command: command.trim(),
-        branch: sharedAgent?.branch ?? branch.trim(),
+        branch: effectiveBranch,
         startPoint: sharedAgent?.branch ?? startPoint.trim(),
         shareWorktree: Boolean(sharedAgent),
         worktreePath: sharedAgent?.worktreePath ?? (worktreePath.trim() || undefined),
@@ -58,8 +59,8 @@
     </Dialog.Header>
     <div class="flex flex-col gap-3 py-2">
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-title">작업 이름</Label>
-        <Input id="ag-title" bind:value={title} placeholder="예: 로그인 리팩터링" />
+        <Label for="ag-title">작업 이름 (선택)</Label>
+        <Input id="ag-title" bind:value={title} placeholder="비우면 브랜치 이름으로 만듭니다" />
       </div>
       <div class="flex flex-col gap-1.5">
         <Label>종류</Label>

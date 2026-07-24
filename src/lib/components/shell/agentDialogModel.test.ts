@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { canCreateWorkspace, requiresCommand, type WorkspaceFormInput } from "./agentDialogModel";
+import {
+  canCreateWorkspace,
+  requiresCommand,
+  resolveWorkspaceTitle,
+  type WorkspaceFormInput,
+} from "./agentDialogModel";
 
 const base: WorkspaceFormInput = {
   title: "로그인 리팩터링",
@@ -26,8 +31,8 @@ describe("canCreateWorkspace", () => {
     expect(canCreateWorkspace(base)).toBe(true);
   });
 
-  it("작업 이름이 비면 제출할 수 없다", () => {
-    expect(canCreateWorkspace({ ...base, title: "   " })).toBe(false);
+  it("작업 이름이 비어도 제출할 수 있다(브랜치 이름을 기본값으로 사용)", () => {
+    expect(canCreateWorkspace({ ...base, title: "   " })).toBe(true);
   });
 
   it("빈 터미널은 실행 커맨드가 비어도 제출할 수 있다", () => {
@@ -60,5 +65,16 @@ describe("canCreateWorkspace", () => {
         startPoint: "",
       }),
     ).toBe(true);
+  });
+});
+
+describe("resolveWorkspaceTitle", () => {
+  it("작업 이름이 있으면 그대로(트림) 사용한다", () => {
+    expect(resolveWorkspaceTitle("  로그인 리팩터링  ", "feat/login")).toBe("로그인 리팩터링");
+  });
+
+  it("작업 이름이 비면 브랜치 이름을 기본값으로 사용한다", () => {
+    expect(resolveWorkspaceTitle("", "feat/login")).toBe("feat/login");
+    expect(resolveWorkspaceTitle("   ", "feat/login")).toBe("feat/login");
   });
 });
