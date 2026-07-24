@@ -3,6 +3,7 @@
   import { integrations } from "$lib/stores/integrations.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import { updater } from "$lib/stores/updater.svelte";
 </script>
 
 <div class="flex flex-col gap-5">
@@ -45,5 +46,22 @@
       spellcheck="false"
     />
     <p class="text-[10.5px] text-muted-foreground">입력 대기·완료 전이와 사용량 예산 초과 시 이 웹훅으로도 알림을 보냅니다. URL로 Slack/Discord를 자동 판별합니다.</p>
+  </section>
+
+  <section class="flex flex-col gap-2 rounded-[10px] border p-4">
+    <div class="flex items-center gap-2">
+      <h2 class="text-[12.5px] font-semibold">앱 업데이트</h2>
+      <button
+        type="button"
+        class="ml-auto rounded-md border bg-card px-2.5 py-1 text-[11px] font-semibold hover:bg-accent disabled:opacity-50"
+        disabled={updater.status === "checking" || updater.status === "downloading"}
+        onclick={() => updater.check(true)}
+      >{updater.status === "checking" ? "확인 중…" : "업데이트 확인"}</button>
+    </div>
+    {#if updater.available}
+      <p class="text-[11px] text-status-done-fg">새 버전 {updater.version}이 있습니다. 우하단 배너에서 설치하세요.</p>
+    {:else if updater.message}
+      <p class="text-[10.5px] text-muted-foreground">{updater.message}</p>
+    {/if}
   </section>
 </div>

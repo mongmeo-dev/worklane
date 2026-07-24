@@ -10,6 +10,7 @@
   import { composer } from "$lib/stores/composer.svelte";
   import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
   import { eventRecorder } from "$lib/stores/eventRecorder";
+  import { updater } from "$lib/stores/updater.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -21,6 +22,7 @@
   import CompareDialog from "$lib/components/shell/CompareDialog.svelte";
   import TaskBoard from "$lib/components/shell/TaskBoard.svelte";
   import CommandPalette from "$lib/components/shell/CommandPalette.svelte";
+  import UpdateBanner from "$lib/components/shell/UpdateBanner.svelte";
   import StatusBar from "$lib/components/shell/StatusBar.svelte";
 
   const STORAGE_KEY = "shell:sidebar-size";
@@ -74,6 +76,7 @@
       return undefined;
     });
     eventRecorder.start();
+    void updater.check();
 
     const onKeydown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -110,6 +113,7 @@
   <StatusBar />
 
   <CommandPalette projects={projectStore.projects} onNewAgent={() => (newAgentOpen = true)} onTasks={() => (taskBoardOpen = true)} />
+  <UpdateBanner />
 
   <SettingsDialog />
   <CompareDialog />
