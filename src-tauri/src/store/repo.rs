@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Project};
+use crate::store::models::{Agent, Project, Prompt};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -34,6 +34,19 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             "ALTER TABLE agents ADD COLUMN group_id TEXT;
              ALTER TABLE agents ADD COLUMN prompt TEXT;
              PRAGMA user_version = 2;",
+        )?;
+    }
+    if version < 3 {
+        // 재사용 프롬프트/플레이북 라이브러리.
+        conn.execute_batch(
+            "CREATE TABLE prompts (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            PRAGMA user_version = 3;",
         )?;
     }
     Ok(())
@@ -249,6 +262,50 @@ pub fn delete_agent(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// 프롬프트 라이브러리를 최근 갱신 순으로 나열한다.
+pub fn list_prompts(conn: &Connection) -> rusqlite::Result<Vec<Prompt>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, title, body, created_at, updated_at FROM prompts ORDER BY updated_at DESC",
+    )?;
+    let prompts = stmt
+        .query_map([], |row| {
+            Ok(Prompt {
+                id: row.get("id")?,
+                title: row.get("title")?,
+                body: row.get("body")?,
+                created_at: row.get("created_at")?,
+                updated_at: row.get("updated_at")?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(prompts)
+}
+
+/// 프롬프트를 새로 저장한다.
+pub fn insert_prompt(conn: &Connection, title: &str, body: &str, now: i64) -> rusqlite::Result<Prompt> {
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO prompts (id, title, body, created_at, updated_at) VALUES (?1,?2,?3,?4,?4)",
+        params![id, title, body, now],
+    )?;
+    Ok(Prompt { id, title: title.into(), body: body.into(), created_at: now, updated_at: now })
+}
+
+/// 프롬프트의 제목/본문을 갱신한다.
+pub fn update_prompt(conn: &Connection, id: &str, title: &str, body: &str, now: i64) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE prompts SET title = ?2, body = ?3, updated_at = ?4 WHERE id = ?1",
+        params![id, title, body, now],
+    )?;
+    Ok(())
+}
+
+/// 프롬프트를 삭제한다.
+pub fn delete_prompt(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,6 +315,22 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         migrate(&conn).unwrap();
         conn
+    }
+
+    #[test]
+    fn 프롬프트_저장_수정_삭제_라운드트립() {
+        let conn = mem();
+        let created = insert_prompt(&conn, "릴리스", "릴리스 준비를 해줘", 10).unwrap();
+        assert_eq!(list_prompts(&conn).unwrap().len(), 1);
+
+        update_prompt(&conn, &created.id, "릴리스 v2", "업데이트된 지시", 20).unwrap();
+        let after = list_prompts(&conn).unwrap();
+        assert_eq!(after[0].title, "릴리스 v2");
+        assert_eq!(after[0].body, "업데이트된 지시");
+        assert_eq!(after[0].updated_at, 20);
+
+        delete_prompt(&conn, &created.id).unwrap();
+        assert!(list_prompts(&conn).unwrap().is_empty());
     }
 
     fn sample_agent(project_id: &str) -> Agent {

@@ -33,3 +33,14 @@ pub struct Project {
     pub updated_at: i64,
     pub agents: Vec<Agent>,
 }
+
+/// 재사용 프롬프트/플레이북 라이브러리 항목.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Prompt {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}

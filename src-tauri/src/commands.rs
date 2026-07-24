@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Project}, StoreState};
+use crate::store::{self, models::{Agent, Project, Prompt}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -139,6 +139,52 @@ pub async fn open_in_app(
     tauri::async_runtime::spawn_blocking(move || crate::external::open_in_app(&worktree_path, &app))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// 프롬프트 라이브러리를 나열한다.
+#[tauri::command]
+pub fn list_prompts(store: tauri::State<'_, StoreState>) -> Result<Vec<Prompt>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_prompts(&conn).map_err(|e| e.to_string())
+}
+
+/// 프롬프트를 새로 저장한다.
+#[tauri::command]
+pub fn create_prompt(
+    store: tauri::State<'_, StoreState>,
+    title: String,
+    body: String,
+) -> Result<Prompt, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("프롬프트 제목을 입력하세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_prompt(&conn, title, body.trim(), now_ms() as i64).map_err(|e| e.to_string())
+}
+
+/// 프롬프트를 수정한다.
+#[tauri::command]
+pub fn update_prompt(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+    title: String,
+    body: String,
+) -> Result<(), String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("프롬프트 제목을 입력하세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::update_prompt(&conn, &id, title, body.trim(), now_ms() as i64)
+        .map_err(|e| e.to_string())
+}
+
+/// 프롬프트를 삭제한다.
+#[tauri::command]
+pub fn delete_prompt(store: tauri::State<'_, StoreState>, id: String) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_prompt(&conn, &id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
