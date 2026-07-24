@@ -79,6 +79,55 @@ pub async fn git_diff(cwd: String) -> Result<String, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// 검토 대상 worktree의 커밋/푸시 상태 요약을 반환한다.
+#[tauri::command]
+pub async fn git_review_status(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<crate::git::ReviewStatus, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::review_status(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// worktree의 모든 변경을 스테이징 후 커밋한다.
+#[tauri::command]
+pub async fn git_commit_all(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    message: String,
+) -> Result<(), String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::commit_all(&worktree_path, &message))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 현재 브랜치를 origin에 푸시한다. 푸시한 브랜치명을 반환한다.
+#[tauri::command]
+pub async fn git_push(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<String, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::push_current_branch(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// PR을 생성하거나 GitHub compare 페이지 URL을 반환한다.
+#[tauri::command]
+pub async fn git_open_pull_request(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<crate::git::PullRequest, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::open_pull_request(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn list_worktree_files(
     store: tauri::State<'_, StoreState>,

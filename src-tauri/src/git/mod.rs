@@ -429,6 +429,259 @@ pub fn file_diff_lines(worktree: &str, relative: &str) -> Result<Vec<DiffLine>, 
     Ok(parse_unified_diff(&untracked))
 }
 
+/// 검토 화면의 커밋/푸시 상태 요약.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewStatus {
+    /// 현재 체크아웃된 브랜치명
+    pub branch: String,
+    /// working tree의 uncommitted 변경 파일 수(추적/미추적 포함)
+    pub changed_count: u32,
+    /// 추적 브랜치(@{u})가 설정돼 있는가
+    pub has_upstream: bool,
+    /// 추적 브랜치보다 앞선(푸시 안 된) 커밋 수
+    pub ahead: u32,
+    /// 추적 브랜치보다 뒤진 커밋 수
+    pub behind: u32,
+    /// origin 원격이 설정돼 있는가
+    pub has_remote: bool,
+}
+
+/// 검토 대상 worktree의 커밋/푸시 상태를 요약한다.
+pub fn review_status(worktree: &str) -> Result<ReviewStatus, String> {
+    let branch = run_git(worktree, &["rev-parse", "--abbrev-ref", "HEAD"])?
+        .trim()
+        .to_string();
+
+    let porcelain = run_git(worktree, &["status", "--porcelain"])?;
+    let changed_count = porcelain.lines().filter(|l| !l.trim().is_empty()).count() as u32;
+
+    let has_remote = !run_git_allow_fail(worktree, &["remote"])
+        .unwrap_or_default()
+        .trim()
+        .is_empty();
+
+    let upstream = run_git_allow_fail(
+        worktree,
+        &["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    )
+    .unwrap_or_default()
+    .trim()
+    .to_string();
+    let has_upstream = !upstream.is_empty();
+
+    let (ahead, behind) = if has_upstream {
+        // "<behind>\t<ahead>" 형식으로 반환된다.
+        let counts = run_git_allow_fail(
+            worktree,
+            &["rev-list", "--left-right", "--count", "@{u}...HEAD"],
+        )
+        .unwrap_or_default();
+        let mut it = counts.split_whitespace();
+        let behind = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let ahead = it.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        (ahead, behind)
+    } else {
+        (0, 0)
+    };
+
+    Ok(ReviewStatus { branch, changed_count, has_upstream, ahead, behind, has_remote })
+}
+
+/// worktree의 모든 변경(추적/미추적)을 스테이징한 뒤 커밋한다. 변경이 없으면 에러.
+pub fn commit_all(worktree: &str, message: &str) -> Result<(), String> {
+    let message = message.trim();
+    if message.is_empty() {
+        return Err("커밋 메시지를 입력하세요.".to_string());
+    }
+    if !worktree_has_changes(worktree)? {
+        return Err("커밋할 변경이 없습니다.".to_string());
+    }
+    run_git(worktree, &["add", "-A"])?;
+    run_git(worktree, &["commit", "-m", message])?;
+    Ok(())
+}
+
+/// 현재 브랜치를 origin에 푸시하고 upstream을 설정한다. 푸시한 브랜치명을 반환한다.
+pub fn push_current_branch(worktree: &str) -> Result<String, String> {
+    let branch = run_git(worktree, &["rev-parse", "--abbrev-ref", "HEAD"])?
+        .trim()
+        .to_string();
+    run_git(worktree, &["push", "-u", "origin", &branch])?;
+    Ok(branch)
+}
+
+/// 저장소 기본 브랜치명을 origin/HEAD로 추정한다. 실패 시 "main".
+pub fn default_base_branch(worktree: &str) -> String {
+    run_git_allow_fail(worktree, &["rev-parse", "--abbrev-ref", "origin/HEAD"])
+        .unwrap_or_default()
+        .trim()
+        .strip_prefix("origin/")
+        .map(|b| b.to_string())
+        .filter(|b| !b.is_empty())
+        .unwrap_or_else(|| "main".to_string())
+}
+
+/// git 원격 URL 문자열을 https 웹 URL(https://host/owner/repo)로 정규화한다.
+fn normalize_remote_url(raw: &str) -> Option<String> {
+    let stripped = raw.trim().strip_suffix(".git").unwrap_or(raw.trim());
+    if let Some(rest) = stripped.strip_prefix("git@") {
+        let (host, path) = rest.split_once(':')?;
+        return Some(format!("https://{host}/{path}"));
+    }
+    if let Some(rest) = stripped.strip_prefix("ssh://") {
+        let rest = rest.strip_prefix("git@").unwrap_or(rest);
+        let (host, path) = rest.split_once('/')?;
+        return Some(format!("https://{host}/{path}"));
+    }
+    if stripped.starts_with("https://") || stripped.starts_with("http://") {
+        return Some(stripped.to_string());
+    }
+    None
+}
+
+/// GitHub compare 페이지 URL을 만든다.
+fn compare_url(web: &str, base: &str, branch: &str) -> String {
+    format!("{web}/compare/{base}...{branch}?expand=1")
+}
+
+/// origin 원격의 웹 베이스 URL을 반환한다.
+fn remote_web_url(worktree: &str) -> Option<String> {
+    let raw = run_git_allow_fail(worktree, &["remote", "get-url", "origin"])
+        .ok()?
+        .trim()
+        .to_string();
+    if raw.is_empty() {
+        return None;
+    }
+    normalize_remote_url(&raw)
+}
+
+/// PR 생성/조회 결과.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PullRequest {
+    /// 열 URL(gh로 만든 PR 또는 GitHub compare 페이지)
+    pub url: String,
+    /// "gh" 또는 "compare"
+    pub mode: String,
+}
+
+fn gh_available() -> bool {
+    Command::new("gh")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn run_gh(worktree: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("gh")
+        .args(args)
+        .current_dir(worktree)
+        .output()
+        .map_err(|e| format!("gh 실행 실패: {e}"))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("gh {:?} 실패: {}", args, stderr.trim()));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+/// PR을 생성(또는 조회)하거나 compare 페이지 URL을 반환한다.
+/// gh CLI가 있으면 PR을 만들고, 없으면 GitHub compare 페이지로 폴백한다.
+pub fn open_pull_request(worktree: &str) -> Result<PullRequest, String> {
+    let base = default_base_branch(worktree);
+    let branch = run_git(worktree, &["rev-parse", "--abbrev-ref", "HEAD"])?
+        .trim()
+        .to_string();
+
+    if gh_available() {
+        match run_gh(
+            worktree,
+            &["pr", "create", "--base", &base, "--head", &branch, "--fill"],
+        ) {
+            Ok(out) => {
+                let url = out
+                    .lines()
+                    .rev()
+                    .find(|l| l.trim_start().starts_with("http"))
+                    .unwrap_or_else(|| out.trim())
+                    .trim()
+                    .to_string();
+                return Ok(PullRequest { url, mode: "gh".into() });
+            }
+            Err(create_err) => {
+                // 이미 PR이 있으면 create가 실패한다 → view로 기존 PR URL 조회.
+                if let Ok(out) = run_gh(worktree, &["pr", "view", "--json", "url", "--jq", ".url"]) {
+                    let url = out.trim().to_string();
+                    if !url.is_empty() {
+                        return Ok(PullRequest { url, mode: "gh".into() });
+                    }
+                }
+                // gh는 있으나 실패 → compare 폴백.
+                if let Some(web) = remote_web_url(worktree) {
+                    return Ok(PullRequest {
+                        url: compare_url(&web, &base, &branch),
+                        mode: "compare".into(),
+                    });
+                }
+                return Err(create_err);
+            }
+        }
+    }
+
+    match remote_web_url(worktree) {
+        Some(web) => Ok(PullRequest {
+            url: compare_url(&web, &base, &branch),
+            mode: "compare".into(),
+        }),
+        None => Err("origin 원격을 찾을 수 없어 PR 페이지를 열 수 없습니다.".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod review_tests {
+    use super::*;
+
+    #[test]
+    fn scp_형식_원격을_https로_변환한다() {
+        assert_eq!(
+            normalize_remote_url("git@github.com:owner/repo.git"),
+            Some("https://github.com/owner/repo".to_string())
+        );
+    }
+
+    #[test]
+    fn https_원격은_git_접미사만_제거한다() {
+        assert_eq!(
+            normalize_remote_url("https://github.com/owner/repo.git"),
+            Some("https://github.com/owner/repo".to_string())
+        );
+    }
+
+    #[test]
+    fn ssh_형식_원격을_https로_변환한다() {
+        assert_eq!(
+            normalize_remote_url("ssh://git@github.com/owner/repo.git"),
+            Some("https://github.com/owner/repo".to_string())
+        );
+    }
+
+    #[test]
+    fn 알수없는_형식은_none() {
+        assert_eq!(normalize_remote_url("file:///tmp/repo"), None);
+    }
+
+    #[test]
+    fn compare_url을_만든다() {
+        assert_eq!(
+            compare_url("https://github.com/owner/repo", "main", "feat/x"),
+            "https://github.com/owner/repo/compare/main...feat/x?expand=1"
+        );
+    }
+}
+
 /// git 명령을 실행하고 성공 시 stdout을 반환한다. non-zero exit은 에러로 처리한다.
 fn run_git(cwd: &str, args: &[&str]) -> Result<String, String> {
     let output = Command::new("git")
