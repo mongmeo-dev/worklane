@@ -18,6 +18,7 @@ struct RateLimits {
 
 #[derive(Deserialize)]
 struct Window {
+    #[serde(alias = "utilization")]
     used_percentage: f32,
     #[serde(default)]
     resets_at: Option<ResetAt>,
@@ -34,7 +35,11 @@ impl ResetAt {
     fn display(&self) -> String {
         match self {
             Self::Epoch(epoch) => format_reset(*epoch),
-            Self::Text(text) => text.clone(),
+            Self::Text(text) => {
+                time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339)
+                    .map(|timestamp| format_reset(timestamp.unix_timestamp()))
+                    .unwrap_or_else(|_| text.clone())
+            }
         }
     }
 }
@@ -61,16 +66,7 @@ fn format_reset(epoch: i64) -> String {
     }
 }
 
-/// Claude Code statusLine 입력 스풀을 공통 사용량 모델로 변환한다.
-pub fn parse_spool(json: &str) -> UsageInfo {
-    let disconnected = UsageInfo::disconnected("claude-code", "Claude Code");
-    let Ok(spool) = serde_json::from_str::<Spool>(json) else {
-        return disconnected;
-    };
-    let Some(rate_limits) = spool.rate_limits else {
-        return disconnected;
-    };
-
+fn usage_info_from_rate_limits(rate_limits: RateLimits) -> UsageInfo {
     let mut metrics = Vec::new();
     let mut primary_percent = None;
     let mut primary_reset = None;
@@ -99,7 +95,7 @@ pub fn parse_spool(json: &str) -> UsageInfo {
         });
     }
     if metrics.is_empty() {
-        return disconnected;
+        return UsageInfo::disconnected("claude-code", "Claude Code");
     }
 
     UsageInfo {
@@ -115,8 +111,109 @@ pub fn parse_spool(json: &str) -> UsageInfo {
     }
 }
 
-/// Claude Code statusLine 훅이 남긴 최신 스풀 파일을 읽는다.
+/// Claude Code statusLine 입력 스풀을 공통 사용량 모델로 변환한다.
+pub fn parse_spool(json: &str) -> UsageInfo {
+    let Ok(spool) = serde_json::from_str::<Spool>(json) else {
+        return UsageInfo::disconnected("claude-code", "Claude Code");
+    };
+    spool
+        .rate_limits
+        .map(usage_info_from_rate_limits)
+        .unwrap_or_else(|| UsageInfo::disconnected("claude-code", "Claude Code"))
+}
+
+fn parse_api_usage(json: &str) -> Result<UsageInfo, String> {
+    let rate_limits =
+        serde_json::from_str::<RateLimits>(json).map_err(|error| error.to_string())?;
+    let usage = usage_info_from_rate_limits(rate_limits);
+    if usage.connected {
+        Ok(usage)
+    } else {
+        Err("Claude 사용량 API 응답에 한도 정보가 없음".into())
+    }
+}
+
+#[derive(Deserialize)]
+struct Credentials {
+    #[serde(rename = "claudeAiOauth")]
+    oauth: Option<OAuthCredentials>,
+}
+
+#[derive(Deserialize)]
+struct OAuthCredentials {
+    #[serde(rename = "accessToken")]
+    access_token: String,
+}
+
+fn token_from_credentials(raw: &str) -> Option<String> {
+    serde_json::from_str::<Credentials>(raw)
+        .ok()?
+        .oauth
+        .map(|credentials| credentials.access_token)
+        .filter(|token| !token.is_empty())
+}
+
+fn oauth_token() -> Option<String> {
+    if let Ok(token) = std::env::var("CLAUDE_CODE_OAUTH_TOKEN") {
+        if !token.is_empty() {
+            return Some(token);
+        }
+    }
+
+    if let Some(home) = home_dir() {
+        let credentials = home.join(".claude").join(".credentials.json");
+        if let Ok(raw) = std::fs::read_to_string(credentials) {
+            if let Some(token) = token_from_credentials(&raw) {
+                return Some(token);
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("/usr/bin/security")
+            .args([
+                "find-generic-password",
+                "-s",
+                "Claude Code-credentials",
+                "-w",
+            ])
+            .output()
+            .ok()?;
+        if output.status.success() {
+            return token_from_credentials(&String::from_utf8_lossy(&output.stdout));
+        }
+    }
+
+    None
+}
+
+fn read_live_usage() -> Result<UsageInfo, String> {
+    let token = oauth_token().ok_or("Claude OAuth 자격 증명 없음")?;
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let response = client
+        .get("https://api.anthropic.com/api/oauth/usage")
+        .bearer_auth(token)
+        .header("anthropic-beta", "oauth-2025-04-20")
+        .header(
+            reqwest::header::USER_AGENT,
+            concat!("worklane/", env!("CARGO_PKG_VERSION")),
+        )
+        .send()
+        .and_then(reqwest::blocking::Response::error_for_status)
+        .map_err(|error| error.to_string())?;
+    let body = response.text().map_err(|error| error.to_string())?;
+    parse_api_usage(&body)
+}
+
+/// Claude OAuth 사용량 API에서 최신 한도를 조회하고, 실패하면 statusLine 스풀로 폴백한다.
 pub fn read_usage() -> UsageInfo {
+    if let Ok(usage) = read_live_usage() {
+        return usage;
+    }
     let disconnected = UsageInfo::disconnected("claude-code", "Claude Code");
     let Some(home) = home_dir() else {
         return disconnected;
@@ -439,6 +536,28 @@ mod tests {
         assert_eq!(info.metrics.len(), 2);
         assert_eq!(info.metrics[0].percent, 62.0);
         assert_eq!(info.metrics[1].percent, 41.0);
+    }
+
+    #[test]
+    fn oauth_api_응답에서_최신_한도를_읽는다() {
+        let info = parse_api_usage(
+            r#"{"five_hour":{"utilization":9.0,"resets_at":"2026-07-24T12:39:59Z"},"seven_day":{"utilization":77.0,"resets_at":"2026-07-26T09:59:59Z"},"extra_usage":{"is_enabled":false}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(info.primary_percent, Some(9.0));
+        assert_eq!(info.metrics[1].percent, 77.0);
+        assert!(!info.metrics[0].reset_note.is_empty());
+    }
+
+    #[test]
+    fn 자격증명_json에서_oauth_토큰을_읽는다() {
+        assert_eq!(
+            token_from_credentials(r#"{"claudeAiOauth":{"accessToken":"secret","expiresAt":0}}"#)
+                .as_deref(),
+            Some("secret")
+        );
+        assert!(token_from_credentials("{}").is_none());
     }
 
     #[test]

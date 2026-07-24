@@ -7,10 +7,13 @@ use super::{home_dir, UsageInfo, UsageMetric};
 #[derive(Debug, Clone, Deserialize)]
 pub struct Window {
     #[serde(default)]
+    #[serde(alias = "usedPercent")]
     pub used_percent: f32,
     #[serde(default)]
+    #[serde(alias = "windowDurationMins")]
     pub window_minutes: Option<u64>,
     #[serde(default)]
+    #[serde(alias = "resetsAt")]
     pub resets_at: Option<i64>,
 }
 
@@ -21,6 +24,7 @@ pub struct RateLimits {
     #[serde(default)]
     pub secondary: Option<Window>,
     #[serde(default)]
+    #[serde(alias = "planType")]
     pub plan_type: Option<String>,
 }
 
@@ -168,8 +172,135 @@ fn format_reset(epoch: i64) -> String {
     }
 }
 
-/// 최근 Codex 세션들의 사용량 이벤트 중 실제 발생 시각이 가장 최신인 값을 읽는다.
+fn parse_app_server_rate_limits(response: serde_json::Value) -> Result<RateLimits, String> {
+    if let Some(error) = response.get("error") {
+        return Err(format!("Codex app-server 오류: {error}"));
+    }
+    let rate_limits = response
+        .get("result")
+        .and_then(|result| result.get("rateLimits"))
+        .cloned()
+        .ok_or("Codex app-server 응답에 rateLimits가 없음")?;
+    serde_json::from_value(rate_limits).map_err(|error| error.to_string())
+}
+
+fn write_rpc(stdin: &mut impl std::io::Write, message: serde_json::Value) -> Result<(), String> {
+    serde_json::to_writer(&mut *stdin, &message).map_err(|error| error.to_string())?;
+    stdin.write_all(b"\n").map_err(|error| error.to_string())?;
+    stdin.flush().map_err(|error| error.to_string())
+}
+
+fn receive_rpc(
+    receiver: &std::sync::mpsc::Receiver<serde_json::Value>,
+    id: i64,
+) -> Result<serde_json::Value, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        let message = receiver
+            .recv_timeout(remaining)
+            .map_err(|_| "Codex app-server 응답 시간 초과".to_string())?;
+        if message.get("id").and_then(serde_json::Value::as_i64) == Some(id) {
+            return Ok(message);
+        }
+    }
+}
+
+fn read_app_server_usage(executable: &std::ffi::OsStr) -> Result<UsageInfo, String> {
+    use std::io::BufRead;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(executable)
+        .arg("app-server")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    let result = (|| {
+        let mut stdin = child.stdin.take().ok_or("Codex app-server stdin 없음")?;
+        let stdout = child.stdout.take().ok_or("Codex app-server stdout 없음")?;
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            for line in std::io::BufReader::new(stdout)
+                .lines()
+                .map_while(Result::ok)
+            {
+                if let Ok(message) = serde_json::from_str(&line) {
+                    if sender.send(message).is_err() {
+                        break;
+                    }
+                }
+            }
+        });
+
+        write_rpc(
+            &mut stdin,
+            serde_json::json!({
+                "method": "initialize",
+                "id": 1,
+                "params": {
+                    "clientInfo": {
+                        "name": "worklane",
+                        "title": "Worklane",
+                        "version": env!("CARGO_PKG_VERSION")
+                    }
+                }
+            }),
+        )?;
+        let initialized = receive_rpc(&receiver, 1)?;
+        if let Some(error) = initialized.get("error") {
+            return Err(format!("Codex app-server 초기화 오류: {error}"));
+        }
+
+        write_rpc(
+            &mut stdin,
+            serde_json::json!({"method": "initialized", "params": {}}),
+        )?;
+        write_rpc(
+            &mut stdin,
+            serde_json::json!({"method": "account/rateLimits/read", "id": 2}),
+        )?;
+        parse_app_server_rate_limits(receive_rpc(&receiver, 2)?).map(to_usage_info)
+    })();
+
+    let _ = child.kill();
+    let _ = child.wait();
+    result
+}
+
+fn read_live_usage() -> Result<UsageInfo, String> {
+    let mut candidates = Vec::new();
+    if let Some(executable) = std::env::var_os("CODEX_BIN") {
+        candidates.push(PathBuf::from(executable));
+    }
+    candidates.push(PathBuf::from("codex"));
+    if let Some(home) = home_dir() {
+        candidates.push(home.join(".local").join("bin").join("codex"));
+        candidates.push(
+            home.join(".local")
+                .join("share")
+                .join("mise")
+                .join("shims")
+                .join("codex"),
+        );
+    }
+
+    let mut last_error = "Codex 실행 파일 없음".to_string();
+    for executable in candidates {
+        match read_app_server_usage(executable.as_os_str()) {
+            Ok(usage) => return Ok(usage),
+            Err(error) => last_error = error,
+        }
+    }
+    Err(last_error)
+}
+
+/// Codex app-server에서 최신 한도를 조회하고, 실패하면 최근 로컬 이벤트로 폴백한다.
 pub fn read_usage() -> UsageInfo {
+    if let Ok(usage) = read_live_usage() {
+        return usage;
+    }
     let disconnected = UsageInfo::disconnected("codex", "Codex CLI");
     let Some(home) = home_dir() else {
         return disconnected;
@@ -242,6 +373,30 @@ mod tests {
 
         assert_eq!(limits.primary.as_ref().unwrap().used_percent, 42.0);
         assert_eq!(limits.plan_type.as_deref(), Some("pro"));
+    }
+
+    #[test]
+    fn app_server의_camel_case_응답을_사용량으로_변환한다() {
+        let limits = parse_app_server_rate_limits(serde_json::json!({
+            "id": 2,
+            "result": {
+                "rateLimits": {
+                    "primary": {
+                        "usedPercent": 33.0,
+                        "windowDurationMins": 10080,
+                        "resetsAt": 1785287819
+                    },
+                    "secondary": null,
+                    "planType": "pro"
+                }
+            }
+        }))
+        .unwrap();
+        let info = to_usage_info(limits);
+
+        assert_eq!(info.primary_percent, Some(33.0));
+        assert_eq!(info.metrics[0].label, "주간 한도");
+        assert_eq!(info.plan.as_deref(), Some("Pro"));
     }
 
     #[test]
