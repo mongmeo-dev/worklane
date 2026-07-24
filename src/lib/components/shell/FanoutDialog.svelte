@@ -11,6 +11,8 @@
   import { shell } from "$lib/stores/shell.svelte";
   import { promptStore } from "$lib/stores/prompts.svelte";
   import { githubIssues, type GithubIssue } from "$lib/ipc/github";
+  import { linearIssues, type LinearIssue } from "$lib/ipc/linear";
+  import { integrations } from "$lib/stores/integrations.svelte";
   import { logEvent } from "$lib/ipc/events";
   import { playbookStore } from "$lib/stores/playbooks.svelte";
   import type { Playbook } from "$lib/ipc/playbooks";
@@ -135,6 +137,32 @@
     issuesOpen = false;
   }
 
+  let linearOpen = $state(false);
+  let linearList = $state<LinearIssue[]>([]);
+  let linearLoading = $state(false);
+  let linearError = $state<string | null>(null);
+
+  async function toggleLinear() {
+    linearOpen = !linearOpen;
+    if (linearOpen) {
+      linearLoading = true;
+      linearError = null;
+      try {
+        linearList = await linearIssues(integrations.linearKey);
+      } catch (e) {
+        linearError = e instanceof Error ? e.message : String(e);
+      } finally {
+        linearLoading = false;
+      }
+    }
+  }
+
+  function pickLinear(issue: LinearIssue) {
+    title = `${issue.identifier} ${issue.title}`;
+    if (issue.description.trim()) prompt = issue.description.trim();
+    linearOpen = false;
+  }
+
   onMount(() => {
     if (promptStore.prompts.length === 0) void promptStore.load();
     if (playbookStore.playbooks.length === 0) void playbookStore.load();
@@ -241,6 +269,29 @@
                   {#each issues as issue (issue.number)}
                     <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickIssue(issue)}>
                       <span class="shrink-0 font-mono text-[10px] text-muted-foreground">#{issue.number}</span>
+                      <span class="min-w-0 flex-1 truncate text-[11px]">{issue.title}</span>
+                    </button>
+                  {/each}
+                {/if}
+              </div>
+            {/if}
+          </div>
+          <div class="relative">
+            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {linearOpen ? 'bg-accent' : ''}" onclick={toggleLinear}>
+              <CircleDot class="size-3" />Linear
+            </button>
+            {#if linearOpen}
+              <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+                {#if linearLoading}
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">이슈를 불러오는 중…</p>
+                {:else if linearError}
+                  <p class="px-3 py-3 text-[10.5px] text-destructive">{linearError}</p>
+                {:else if linearList.length === 0}
+                  <p class="px-3 py-3 text-[11px] text-muted-foreground">할당된 이슈가 없습니다.</p>
+                {:else}
+                  {#each linearList as issue (issue.identifier)}
+                    <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickLinear(issue)}>
+                      <span class="shrink-0 font-mono text-[10px] text-muted-foreground">{issue.identifier}</span>
                       <span class="min-w-0 flex-1 truncate text-[11px]">{issue.title}</span>
                     </button>
                   {/each}

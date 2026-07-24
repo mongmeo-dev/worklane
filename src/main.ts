@@ -6,6 +6,7 @@ import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
 import { budget } from "$lib/stores/budget.svelte";
 import { previewStore } from "$lib/stores/preview.svelte";
 import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
+import { integrations } from "$lib/stores/integrations.svelte";
 
 // 첫 렌더 전에 저장된 설정을 적용한다(테마 FOUC 방지).
 theme.init();
@@ -13,6 +14,7 @@ terminalSettings.init();
 budget.init();
 previewStore.init();
 autoCheckpoint.init();
+integrations.init();
 
 const app = mount(App, {
   target: document.getElementById("app")!,
