@@ -9,6 +9,8 @@
   import { overBudget } from "$lib/usage/budget";
   import { budget } from "$lib/stores/budget.svelte";
   import { sendAttentionNotification } from "$lib/ipc/notify";
+  import { notifyWebhook } from "$lib/ipc/webhook";
+  import { integrations } from "$lib/stores/integrations.svelte";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import UsagePopover from "./UsagePopover.svelte";
 
@@ -45,10 +47,10 @@
     for (const info of list) {
       const over = info.connected && overBudget(info.primaryPercent, budget.threshold);
       if (over && !prevOver[info.provider] && info.primaryPercent !== null) {
-        void sendAttentionNotification(
-          `${info.fullName} 사용량 ${Math.round(info.primaryPercent)}%`,
-          `예산 임계값 ${budget.threshold}%를 넘었습니다.`,
-        );
+        const title = `${info.fullName} 사용량 ${Math.round(info.primaryPercent)}%`;
+        const body = `예산 임계값 ${budget.threshold}%를 넘었습니다.`;
+        void sendAttentionNotification(title, body);
+        notifyWebhook(integrations.webhookUrl, `${title} — ${body}`);
       }
       prevOver[info.provider] = over;
     }

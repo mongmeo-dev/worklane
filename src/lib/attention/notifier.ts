@@ -1,6 +1,8 @@
 import type { AgentStatus } from "$lib/types";
 import { listenStatus } from "$lib/ipc/status";
 import { ensureNotificationPermission, sendAttentionNotification } from "$lib/ipc/notify";
+import { notifyWebhook } from "$lib/ipc/webhook";
+import { integrations } from "$lib/stores/integrations.svelte";
 
 /**
  * 이전 상태에서 현재 상태로의 전이가 OS 알림을 발생시켜야 하는지 판정한다.
@@ -54,6 +56,7 @@ class AttentionNotifier {
         if (!meta) return;
         const msg = attentionNotification(e.status as "blocked" | "done", meta);
         void sendAttentionNotification(msg.title, msg.body);
+        notifyWebhook(integrations.webhookUrl, `${msg.title} — ${msg.body}`);
       });
     })();
     return this.startPromise;
