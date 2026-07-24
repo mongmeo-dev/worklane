@@ -11,6 +11,10 @@
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import Copy from "@lucide/svelte/icons/copy";
   import Check from "@lucide/svelte/icons/check";
+  import FlaskConical from "@lucide/svelte/icons/flask-conical";
+  import Trophy from "@lucide/svelte/icons/trophy";
+  import { runVerification, type VerifyResult } from "$lib/ipc/verify";
+  import { recommendWinner } from "$lib/fanout/ranking";
 
   type Totals = { changed: number; add: number; del: number };
 
@@ -23,6 +27,42 @@
   let pendingAdopt = $state<string | null>(null);
   let copied = $state(false);
   let busy = $state(false);
+  let verifyCommand = $state(
+    typeof localStorage !== "undefined" ? (localStorage.getItem("verify:command") ?? "") : "",
+  );
+  let results = $state<Record<string, VerifyResult | null>>({});
+  let verifying = $state(false);
+  let showOutput = $state<string | null>(null);
+
+  const recommended = $derived.by(() => {
+    if (!group) return null;
+    return recommendWinner(
+      group.members.map((m) => ({
+        agentId: m.id,
+        changed: totals[m.id]?.changed ?? Number.POSITIVE_INFINITY,
+        success: results[m.id]?.success ?? false,
+        durationMs: results[m.id]?.durationMs ?? Number.POSITIVE_INFINITY,
+      })),
+    );
+  });
+
+  async function runVerify() {
+    if (!group || verifying || !verifyCommand.trim()) return;
+    verifying = true;
+    if (typeof localStorage !== "undefined") localStorage.setItem("verify:command", verifyCommand.trim());
+    const next: Record<string, VerifyResult | null> = {};
+    await Promise.all(
+      group.members.map(async (member) => {
+        try {
+          next[member.id] = await runVerification(member.worktreePath, verifyCommand.trim());
+        } catch {
+          next[member.id] = null;
+        }
+      }),
+    );
+    results = next;
+    verifying = false;
+  }
 
   async function loadTotals() {
     if (!group) return;
@@ -72,6 +112,8 @@
   $effect(() => {
     void shell.compareGroupId;
     pendingAdopt = null;
+    results = {};
+    showOutput = null;
     void loadTotals();
   });
 </script>
@@ -97,15 +139,36 @@
         </div>
       {/if}
 
+      <div class="flex items-center gap-1.5 border-b px-5 py-2.5">
+        <FlaskConical class="size-3.5 shrink-0 text-muted-foreground" />
+        <input
+          class="min-w-0 flex-1 rounded-md border bg-input/40 px-2.5 py-1 font-mono text-[11px] outline-none focus:ring-1 focus:ring-ring"
+          bind:value={verifyCommand}
+          placeholder="검증 명령 (예: pnpm test)"
+          onkeydown={(e) => e.key === "Enter" && runVerify()}
+          aria-label="검증 명령"
+        />
+        <button
+          type="button"
+          class="flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+          disabled={verifying || !verifyCommand.trim()}
+          onclick={runVerify}
+        >{verifying ? "검증 중…" : "검증 실행"}</button>
+      </div>
+
       <div class="grid max-h-[440px] grid-cols-2 gap-3 overflow-auto p-5">
         {#each group.members as member (member.id)}
           {@const stat = totals[member.id]}
           {@const status = member.status ?? "idle"}
-          <div class="flex flex-col gap-2.5 rounded-xl border bg-tile p-3.5">
+          <div class="flex flex-col gap-2.5 rounded-xl border bg-tile p-3.5 {recommended === member.id ? 'border-status-done ring-1 ring-status-done/40' : ''}">
             <div class="flex items-center gap-2">
               <StatusDot {status} size={8} />
               <span class="text-[12px] font-semibold">{agentKindLabels[member.kind]}</span>
-              <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabels[status]}</span>
+              {#if recommended === member.id}
+                <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-[9px] font-bold text-status-done-fg"><Trophy class="size-3" />추천</span>
+              {:else}
+                <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabels[status]}</span>
+              {/if}
             </div>
             <div class="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
               <GitBranch class="size-3" /><span class="truncate">{member.branch}</span>
@@ -121,6 +184,23 @@
                 <span class="text-muted-foreground">변경 정보를 읽을 수 없음</span>
               {/if}
             </div>
+            {#if results[member.id] !== undefined}
+              {@const r = results[member.id]}
+              {#if r === null}
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[10.5px] text-destructive">검증 실행 실패</div>
+              {:else}
+                <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 font-mono text-[10.5px]">
+                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold {r.success ? 'bg-status-done/15 text-status-done-fg' : 'bg-status-blocked text-status-blocked-on'}">{r.success ? "통과" : `실패${r.exitCode !== null ? ` ·${r.exitCode}` : ""}`}</span>
+                  <span class="text-muted-foreground">{(r.durationMs / 1000).toFixed(1)}s</span>
+                  {#if r.outputTail}
+                    <button type="button" class="ml-auto text-[10px] text-muted-foreground hover:text-foreground" onclick={() => (showOutput = showOutput === member.id ? null : member.id)}>출력</button>
+                  {/if}
+                </div>
+                {#if showOutput === member.id && r.outputTail}
+                  <pre class="max-h-28 overflow-auto rounded-lg border bg-terminal p-2 font-mono text-[9.5px] leading-relaxed text-white/70">{r.outputTail}</pre>
+                {/if}
+              {/if}
+            {/if}
             <div class="mt-auto flex items-center gap-1.5">
               <button
                 type="button"
