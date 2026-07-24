@@ -30,6 +30,7 @@ pub fn run() {
 
     builder
         .manage(PtyState::default())
+        .manage(std::sync::Arc::new(system::ResourceMonitor::new()))
         .setup(|app| {
             let state = app.state::<PtyState>();
             let map = state.0.clone();

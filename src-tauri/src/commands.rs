@@ -531,8 +531,11 @@ pub async fn git_file_diff(
 }
 
 #[tauri::command]
-pub async fn read_system_resources() -> Result<crate::system::SystemResources, String> {
-    tauri::async_runtime::spawn_blocking(crate::system::read_resources)
+pub async fn read_system_resources(
+    monitor: tauri::State<'_, std::sync::Arc<crate::system::ResourceMonitor>>,
+) -> Result<crate::system::SystemResources, String> {
+    let monitor = monitor.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || monitor.read())
         .await
         .map_err(|e| e.to_string())
 }
