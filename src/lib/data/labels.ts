@@ -14,6 +14,9 @@ export const BLANK_TERMINAL_KIND = "terminal" satisfies AgentKind;
 /** 실제 CLI 코딩 에이전트 종류(빈 터미널 제외). 팬아웃·기본 커맨드 등 에이전트 전용 화면에서 사용. */
 export const cliAgentKinds: AgentKind[] = ["claude-code", "codex", "cursor", "gemini"];
 
+/** 워크스페이스 생성 시 고를 수 있는 전체 종류(빈 터미널 포함, 목록 맨 뒤에 배치). */
+export const agentKinds: AgentKind[] = [...cliAgentKinds, BLANK_TERMINAL_KIND];
+
 export const statusLabels: Record<AgentStatus, string> = {
   running: "실행 중",
   idle: "대기",

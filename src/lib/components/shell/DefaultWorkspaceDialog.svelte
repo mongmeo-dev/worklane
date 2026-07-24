@@ -7,7 +7,8 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
-  import { agentKindLabels, agentKindDefaults, cliAgentKinds } from "$lib/data/labels";
+  import { agentKindLabels, agentKindDefaults, agentKinds } from "$lib/data/labels";
+  import { requiresCommand } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
 
@@ -52,22 +53,22 @@
         <Select.Root type="single" value={kind} onValueChange={onKindChange}>
           <Select.Trigger>{agentKindLabels[kind]}</Select.Trigger>
           <Select.Content>
-            {#each cliAgentKinds as k (k)}
+            {#each agentKinds as k (k)}
               <Select.Item value={k}>{agentKindLabels[k]}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="dw-cmd">실행 커맨드</Label>
-        <Input id="dw-cmd" bind:value={command} />
+        <Label for="dw-cmd">실행 커맨드{requiresCommand(kind) ? "" : " (선택)"}</Label>
+        <Input id="dw-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : "비우면 기본 셸이 열립니다"} />
       </div>
       {#if error}
         <p class="text-xs text-destructive">{error}</p>
       {/if}
     </div>
     <Dialog.Footer>
-      <Button onclick={submit} disabled={submitting || !command.trim()}>다시 만들기</Button>
+      <Button onclick={submit} disabled={submitting || (requiresCommand(kind) && !command.trim())}>다시 만들기</Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

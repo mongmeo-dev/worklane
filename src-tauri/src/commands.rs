@@ -589,11 +589,22 @@ pub fn create_project(
     store::repo::insert_project(&conn, &name, &path, now_ms() as i64).map_err(|e| e.to_string())
 }
 
+/// 특정 CLI 없이 기본 셸만 여는 빈 터미널 워크스페이스 종류.
+const BLANK_TERMINAL_KIND: &str = "terminal";
+
+/// 빈 터미널을 제외한 종류는 실행 커맨드가 필요하다.
+fn command_required(kind: &str) -> bool {
+    kind.trim() != BLANK_TERMINAL_KIND
+}
+
 fn validate_default_workspace_input(name: &str, kind: &str, command: &str) -> Result<(), String> {
     if name.trim().is_empty() {
         return Err("프로젝트 이름을 입력해 주세요.".into());
     }
-    if kind.trim().is_empty() || command.trim().is_empty() {
+    if kind.trim().is_empty() {
+        return Err("에이전트 종류를 선택해 주세요.".into());
+    }
+    if command_required(kind) && command.trim().is_empty() {
         return Err("에이전트 종류와 실행 명령을 확인해 주세요.".into());
     }
     Ok(())
@@ -631,7 +642,10 @@ pub fn create_default_agent(
     kind: String,
     command: String,
 ) -> Result<Agent, String> {
-    if kind.trim().is_empty() || command.trim().is_empty() {
+    if kind.trim().is_empty() {
+        return Err("에이전트 종류를 선택해 주세요.".into());
+    }
+    if command_required(&kind) && command.trim().is_empty() {
         return Err("에이전트 종류와 실행 명령을 확인해 주세요.".into());
     }
 
@@ -901,6 +915,10 @@ mod shared_worktree_tests {
         assert!(validate_default_workspace_input("프로젝트", "", "codex").is_err());
         assert!(validate_default_workspace_input("프로젝트", "codex", "").is_err());
         assert!(validate_default_workspace_input("프로젝트", "codex", "codex").is_ok());
+        // 빈 터미널은 실행 명령이 없어도 허용한다.
+        assert!(validate_default_workspace_input("프로젝트", "terminal", "").is_ok());
+        assert!(command_required("codex"));
+        assert!(!command_required("terminal"));
     }
 
     #[test]
