@@ -43,11 +43,11 @@
   );
 
   // localStorage에서 사이드바 비율 복원. 손상값(빈 문자열/NaN)은 기본값 22로 폴백하고
-  // paneforge의 min/max(15~40) 범위로 clamp한다.
+  // paneforge의 min/max(10~40) 범위로 clamp한다.
   function loadSidebarSize(): number {
     const raw = Number(localStorage.getItem(STORAGE_KEY));
     const size = Number.isFinite(raw) && raw > 0 ? raw : 22;
-    return Math.min(40, Math.max(15, size));
+    return Math.min(40, Math.max(10, size));
   }
   const initialSize = loadSidebarSize();
 
@@ -97,7 +97,7 @@
         <Resizable.Pane
           class="flex"
           defaultSize={initialSize}
-          minSize={15}
+          minSize={10}
           maxSize={40}
           onResize={persistSize}
         >
