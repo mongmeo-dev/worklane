@@ -19,6 +19,7 @@
   import FanoutDialog from "$lib/components/shell/FanoutDialog.svelte";
   import CompareDialog from "$lib/components/shell/CompareDialog.svelte";
   import TaskBoard from "$lib/components/shell/TaskBoard.svelte";
+  import CommandPalette from "$lib/components/shell/CommandPalette.svelte";
   import StatusBar from "$lib/components/shell/StatusBar.svelte";
 
   const STORAGE_KEY = "shell:sidebar-size";
@@ -71,6 +72,15 @@
       return undefined;
     });
     eventRecorder.start();
+
+    const onKeydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        shell.togglePalette();
+      }
+    };
+    window.addEventListener("keydown", onKeydown);
+    return () => window.removeEventListener("keydown", onKeydown);
   });
 </script>
 
@@ -96,6 +106,8 @@
     </Resizable.PaneGroup>
   </div>
   <StatusBar />
+
+  <CommandPalette projects={projectStore.projects} onNewAgent={() => (newAgentOpen = true)} onTasks={() => (taskBoardOpen = true)} />
 
   <SettingsDialog />
   <CompareDialog />

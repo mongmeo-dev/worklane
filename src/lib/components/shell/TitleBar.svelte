@@ -6,6 +6,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import GitFork from "@lucide/svelte/icons/git-fork";
   import ListTodo from "@lucide/svelte/icons/list-todo";
+  import Search from "@lucide/svelte/icons/search";
   import Settings from "@lucide/svelte/icons/settings";
   import PanelLeft from "@lucide/svelte/icons/panel-left";
   import PanelRight from "@lucide/svelte/icons/panel-right";
@@ -51,6 +52,15 @@
   </div>
 
   <div class="ml-auto flex items-center gap-1">
+    <button
+      type="button"
+      class="flex h-[30px] items-center gap-1.5 rounded-full border bg-card px-2.5 text-[11px] text-muted-foreground hover:text-foreground"
+      aria-label="명령 팔레트 열기"
+      onclick={() => shell.togglePalette()}
+    >
+      <Search class="size-3.5" />
+      <kbd class="font-mono text-[9.5px]">⌘K</kbd>
+    </button>
     <AttentionInbox {projects} />
     <Button variant="ghost" size="sm" class="h-[30px] gap-1.5 rounded-full px-3 text-xs" onclick={onTasks}>
       <ListTodo class="size-4" />

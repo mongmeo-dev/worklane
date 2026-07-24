@@ -21,6 +21,7 @@ export class ShellStore {
   #compareGroupId = $state<string | null>(null);
   #showPreview = $state(false);
   #worktreeRev = $state(0);
+  #paletteOpen = $state(false);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -33,6 +34,7 @@ export class ShellStore {
   get compareGroupId(): string | null { return this.#compareGroupId; }
   get showPreview(): boolean { return this.#showPreview; }
   get worktreeRev(): number { return this.#worktreeRev; }
+  get paletteOpen(): boolean { return this.#paletteOpen; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
@@ -41,6 +43,7 @@ export class ShellStore {
     this.#showPreview = false;
     this.#attentionOpen = false;
     this.#compareGroupId = null;
+    this.#paletteOpen = false;
   }
 
   selectTerminal(id: string): void {
@@ -103,6 +106,14 @@ export class ShellStore {
   /** worktree 파일 상태가 외부(롤백 등)로 바뀌었음을 알려 관련 뷰를 재로딩시킨다. */
   bumpWorktree(): void {
     this.#worktreeRev += 1;
+  }
+
+  togglePalette(): void {
+    this.#paletteOpen = !this.#paletteOpen;
+  }
+
+  closePalette(): void {
+    this.#paletteOpen = false;
   }
 
   toggleAttention(): void {
