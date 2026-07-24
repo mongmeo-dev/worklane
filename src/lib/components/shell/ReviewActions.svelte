@@ -9,6 +9,8 @@
   import GitCommitHorizontal from "@lucide/svelte/icons/git-commit-horizontal";
   import Upload from "@lucide/svelte/icons/upload";
   import GitPullRequestArrow from "@lucide/svelte/icons/git-pull-request-arrow";
+  import GitMerge from "@lucide/svelte/icons/git-merge";
+  import { gitMergePreview, gitMergeIntoBase, type MergePreview } from "$lib/ipc/merge";
 
   let { agent, onChanged }: { agent: Agent; onChanged?: () => void } = $props();
 
@@ -83,6 +85,50 @@
     }
   }
 
+  let merging = $state(false);
+  let mergeConflicts = $state<string[]>([]);
+  let pendingMerge = $state<MergePreview | null>(null);
+
+  async function previewMerge() {
+    merging = true;
+    error = null;
+    note = null;
+    mergeConflicts = [];
+    pendingMerge = null;
+    try {
+      const preview = await gitMergePreview(agent.worktreePath);
+      if (preview.alreadyMerged) {
+        note = `이미 ${preview.base}에 병합된 상태입니다.`;
+      } else if (preview.conflicts.length > 0) {
+        mergeConflicts = preview.conflicts;
+      } else {
+        pendingMerge = preview;
+      }
+    } catch (e) {
+      error = reason(e);
+    } finally {
+      merging = false;
+    }
+  }
+
+  async function confirmMerge() {
+    if (!pendingMerge) return;
+    merging = true;
+    error = null;
+    try {
+      const message = await gitMergeIntoBase(agent.worktreePath);
+      logEvent(agent.id, "merge", `${pendingMerge.branch} → ${pendingMerge.base}`);
+      note = message;
+      pendingMerge = null;
+      await refresh();
+      shell.bumpWorktree();
+    } catch (e) {
+      error = reason(e);
+    } finally {
+      merging = false;
+    }
+  }
+
   $effect(() => {
     void agent.worktreePath;
     void shell.worktreeRev;
@@ -139,6 +185,35 @@
       {busy === "pr" ? "여는 중" : "PR"}
     </button>
   </div>
+
+  {#if pendingMerge}
+    <div class="mt-1.5 flex items-center gap-1.5">
+      <button
+        type="button"
+        class="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-status-done text-[10.5px] font-bold text-background disabled:opacity-50"
+        disabled={merging}
+        onclick={confirmMerge}
+      >
+        <GitMerge class="size-3.5" />{pendingMerge.base}로 병합
+      </button>
+      <button type="button" class="h-7 rounded-md border px-2.5 text-[10.5px] hover:bg-accent" onclick={() => (pendingMerge = null)}>취소</button>
+    </div>
+  {:else}
+    <button
+      type="button"
+      class="mt-1.5 flex h-7 w-full items-center justify-center gap-1 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40"
+      disabled={!status || busy !== null || merging}
+      onclick={previewMerge}
+    >
+      <GitMerge class="size-3.5" />{merging ? "확인 중…" : "기준 브랜치로 병합"}
+    </button>
+  {/if}
+
+  {#if mergeConflicts.length > 0}
+    <p class="mt-1.5 rounded-md border border-status-blocked/30 bg-status-blocked/10 px-2 py-1 text-[10px] text-status-blocked-fg">
+      충돌 {mergeConflicts.length}개 · {mergeConflicts.slice(0, 4).join(", ")}{mergeConflicts.length > 4 ? " …" : ""}
+    </p>
+  {/if}
 
   {#if error}
     <p class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">{error}</p>
