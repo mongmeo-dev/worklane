@@ -7,6 +7,7 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import Folder from "@lucide/svelte/icons/folder";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
+  import ReviewActions from "./ReviewActions.svelte";
 
   let { agent, sharedCount = 1 }: { agent: Agent; sharedCount?: number } = $props();
 
@@ -96,4 +97,6 @@
       {/if}
     </div>
   </ScrollArea>
+
+  <ReviewActions {agent} onChanged={load} />
 </aside>
