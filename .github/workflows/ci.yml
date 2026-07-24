@@ -1,0 +1,50 @@
+name: ci
+
+# 커밋 메시지에 [ci skip] 또는 [skip ci]가 있으면 GitHub Actions가 이 실행을 건너뛴다.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Rust 툴체인 설치
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust 캐시
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: 프런트엔드 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: 타입 검사
+        run: pnpm check
+
+      - name: 프런트엔드 테스트
+        run: pnpm test
+
+      # cargo test 전에 generate_context!가 참조하는 dist를 만든다.
+      - name: 프런트엔드 빌드
+        run: pnpm build
+
+      - name: Rust 테스트
+        run: cargo test
+        working-directory: src-tauri

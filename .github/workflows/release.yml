@@ -1,0 +1,59 @@
+name: release
+
+# 버전 태그(vX.Y.Z)를 푸시하면 서명된 번들과 자동 업데이트 매니페스트(latest.json)를
+# GitHub Releases에 게시한다. 앱은 tauri.conf.json의 updater endpoint에서 이 매니페스트를 읽어
+# 자동으로 새 버전을 확인·설치한다.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: 체크아웃
+        uses: actions/checkout@v4
+
+      - name: pnpm 설치
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Rust 툴체인 설치(유니버설 타깃)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust 캐시
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: 프런트엔드 의존성 설치
+        run: pnpm install --frozen-lockfile
+
+      - name: 빌드·서명·릴리스
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 업데이트 서명 키. Settings → Secrets and variables → Actions 에 등록한다.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Worklane ${{ github.ref_name }}"
+          releaseBody: "앱이 자동으로 이 릴리스로 업데이트됩니다."
+          releaseDraft: false
+          prerelease: false
+          # macOS 유니버설 바이너리 하나로 arm64/x86_64를 모두 커버한다.
+          args: --target universal-apple-darwin
