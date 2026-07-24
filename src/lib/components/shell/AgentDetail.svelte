@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Agent, Project } from "$lib/types";
-  import { agentKindLabels } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { agentsForWorktree } from "$lib/shell/derived";
   import { groupOf } from "$lib/fanout/model";
   import { shell } from "$lib/stores/shell.svelte";
@@ -32,7 +32,7 @@
     </button>
     <StatusDot {status} size={10} />
     <h1 class="min-w-0 truncate text-base font-bold">{agent.title}</h1>
-    <span class="rounded-full bg-muted px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase text-muted-foreground">{agentKindLabels[agent.kind]}</span>
+    <span class="rounded-full bg-muted px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase text-muted-foreground">{agentKindStore.labelOf(agent.kind)}</span>
     <span class="flex min-w-0 items-center gap-1 font-mono text-[10.5px] text-muted-foreground">
       <GitBranch class="size-3" /><span class="truncate">{agent.branch}</span>
     </span>
@@ -71,7 +71,7 @@
         type="button"
         class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shared.id === agent.id && !shell.showEditor && !shell.showPreview ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
         onclick={() => shell.selectTerminal(shared.id)}
-      >터미널{sharedAgents.length > 1 ? ` · ${agentKindLabels[shared.kind]}` : ""}</button>
+      >터미널{sharedAgents.length > 1 ? ` · ${agentKindStore.labelOf(shared.kind)}` : ""}</button>
     {/each}
     {#if shell.openFilePath}
       <div class="flex items-center border-b-2 {shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}">

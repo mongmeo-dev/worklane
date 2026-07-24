@@ -4,7 +4,8 @@
   import { listWorktreeFiles } from "$lib/ipc/files";
   import { fileTotals } from "$lib/files/viewModel";
   import { groupOf } from "$lib/fanout/model";
-  import { agentKindLabels, statusLabels } from "$lib/data/labels";
+  import { statusLabels } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import StatusDot from "./StatusDot.svelte";
@@ -167,7 +168,7 @@
           <div class="flex flex-col gap-2.5 rounded-xl border bg-tile p-3.5 {recommended === member.id ? 'border-status-done ring-1 ring-status-done/40' : ''}">
             <div class="flex items-center gap-2">
               <StatusDot {status} size={8} />
-              <span class="text-[12px] font-semibold">{agentKindLabels[member.kind]}</span>
+              <span class="text-[12px] font-semibold">{agentKindStore.labelOf(member.kind)}</span>
               {#if recommended === member.id}
                 <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-[9px] font-bold text-status-done-fg"><Trophy class="size-3" />추천</span>
               {:else}

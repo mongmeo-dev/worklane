@@ -5,7 +5,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
-  import { agentKindDefaults, agentKindLabels, cliAgentKinds } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { fanoutBranch } from "$lib/fanout/model";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
@@ -41,9 +41,12 @@
   // 다이얼로그가 열릴 때(닫힘→열림) 시드가 있으면 제목/프롬프트를 채운다.
   let wasOpen = false;
   $effect(() => {
-    if (open && !wasOpen && seed) {
-      title = seed.title;
-      prompt = seed.prompt;
+    if (open && !wasOpen) {
+      syncRows();
+      if (seed) {
+        title = seed.title;
+        prompt = seed.prompt;
+      }
     }
     wasOpen = open;
   });
@@ -54,13 +57,29 @@
     command: string;
   }
 
-  const kinds = cliAgentKinds;
   let title = $state("");
   let prompt = $state("");
   let startPoint = $state("main");
-  let rows = $state<Row[]>(
-    kinds.map((kind, index) => ({ kind, selected: index < 2, command: agentKindDefaults[kind] })),
-  );
+
+  /** 현재 등록된 CLI 종류로 팬아웃 행을 새로 만든다(앞 2개 기본 선택). */
+  function freshRows(): Row[] {
+    return agentKindStore.cliKinds.map((k, index) => ({
+      kind: k.id,
+      selected: index < 2,
+      command: k.defaultCommand,
+    }));
+  }
+
+  /** 종류 추가/삭제를 반영하되 기존 선택·커맨드 입력은 보존한다. */
+  function syncRows(): void {
+    const prev = rows;
+    rows = agentKindStore.cliKinds.map((k, index) => {
+      const existing = prev.find((r) => r.kind === k.id);
+      return existing ?? { kind: k.id, selected: index < 2, command: k.defaultCommand };
+    });
+  }
+
+  let rows = $state<Row[]>(freshRows());
   let error = $state("");
   let busy = $state(false);
   let libOpen = $state(false);
@@ -94,9 +113,9 @@
     prompt = pb.prompt;
     startPoint = pb.base.trim() || "main";
     if (!title.trim()) title = pb.name;
-    rows = kinds.map((kind) => {
-      const member = pb.members.find((m) => m.kind === kind);
-      return { kind, selected: Boolean(member), command: member?.command ?? agentKindDefaults[kind] };
+    rows = agentKindStore.cliKinds.map((k) => {
+      const member = pb.members.find((m) => m.kind === k.id);
+      return { kind: k.id, selected: Boolean(member), command: member?.command ?? k.defaultCommand };
     });
     pbOpen = false;
   }
@@ -186,7 +205,7 @@
     title = "";
     prompt = "";
     startPoint = "main";
-    rows = kinds.map((kind, index) => ({ kind, selected: index < 2, command: agentKindDefaults[kind] }));
+    rows = freshRows();
     error = "";
   }
 
@@ -343,17 +362,17 @@
                 type="button"
                 class="flex size-5 shrink-0 items-center justify-center rounded-[6px] border transition-colors {row.selected ? 'border-primary bg-primary text-primary-foreground' : 'bg-card'}"
                 aria-pressed={row.selected}
-                aria-label={`${agentKindLabels[row.kind]} 선택`}
+                aria-label={`${agentKindStore.labelOf(row.kind)} 선택`}
                 onclick={() => (row.selected = !row.selected)}
               >
                 {#if row.selected}<Check class="size-3.5" />{/if}
               </button>
-              <span class="w-24 shrink-0 text-[12px] font-medium">{agentKindLabels[row.kind]}</span>
+              <span class="w-24 shrink-0 text-[12px] font-medium">{agentKindStore.labelOf(row.kind)}</span>
               <Input
                 class="h-8 flex-1 font-mono text-[11px]"
                 bind:value={row.command}
                 disabled={!row.selected}
-                aria-label={`${agentKindLabels[row.kind]} 실행 커맨드`}
+                aria-label={`${agentKindStore.labelOf(row.kind)} 실행 커맨드`}
               />
             </div>
           {/each}

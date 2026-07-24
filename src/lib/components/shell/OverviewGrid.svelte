@@ -5,7 +5,7 @@
   import { shell } from "$lib/stores/shell.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
   import { listWorktreeFiles } from "$lib/ipc/files";
-  import { agentKindLabels } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import StatusDot from "./StatusDot.svelte";
   import { filterAgents, plainTerminalTail, searchAgents, sortAgents, tileAction, type OverviewSort } from "./overviewModel";
   import Search from "@lucide/svelte/icons/search";
@@ -124,7 +124,7 @@
             <div class="flex items-center gap-2">
               <StatusDot {status} size={7} />
               <h2 class="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{agent.title}</h2>
-              <span class="font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">{agentKindLabels[agent.kind]}</span>
+              <span class="font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">{agentKindStore.labelOf(agent.kind)}</span>
             </div>
             <div class="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/70">
               <GitBranch class="size-3" />

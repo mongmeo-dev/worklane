@@ -9,7 +9,7 @@
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
-  import { agentKindDefaults, agentKindLabels, agentKinds } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import type { AgentKind } from "$lib/types";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -17,7 +17,7 @@
   let name = $state("");
   let path = $state("");
   let error = $state("");
-  let kind = $state<AgentKind>("claude-code");
+  let kind = $state<AgentKind>(agentKindStore.selectableKindIds[0]);
   let submitting = $state(false);
 
   async function pickDir() {
@@ -37,14 +37,14 @@
         name.trim(),
         path.trim(),
         kind,
-        agentKindDefaults[kind],
+        agentKindStore.defaultCommandOf(kind),
       );
       const defaultAgent = project.agents[0];
       if (defaultAgent) shell.selectAgent(defaultAgent.id);
       open = false;
       name = "";
       path = "";
-      kind = "claude-code";
+      kind = agentKindStore.selectableKindIds[0];
     } catch (e) {
       error = String(e);
     } finally {
@@ -70,10 +70,10 @@
           value={kind}
           onValueChange={(value) => (kind = value as AgentKind)}
         >
-          <Select.Trigger>{agentKindLabels[kind]}</Select.Trigger>
+          <Select.Trigger>{agentKindStore.labelOf(kind)}</Select.Trigger>
           <Select.Content>
-            {#each agentKinds as value (value)}
-              <Select.Item value={value}>{agentKindLabels[value]}</Select.Item>
+            {#each agentKindStore.selectableKindIds as value (value)}
+              <Select.Item value={value}>{agentKindStore.labelOf(value)}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>

@@ -7,15 +7,15 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
-  import { agentKindLabels, agentKindDefaults, agentKinds } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { canCreateWorkspace, requiresCommand } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
   let title = $state("");
-  let kind = $state<AgentKind>("claude-code");
-  let command = $state(agentKindDefaults["claude-code"]);
+  let kind = $state<AgentKind>(agentKindStore.selectableKindIds[0]);
+  let command = $state(agentKindStore.defaultCommandOf(agentKindStore.selectableKindIds[0]));
   let branch = $state("");
   let startPoint = $state("main");
   let worktreePath = $state("");
@@ -25,7 +25,7 @@
   // kind 변경 시 command를 해당 기본값으로 자동 채움 (사용자가 이후 수정 가능).
   function onKindChange(v: string) {
     kind = v as AgentKind;
-    command = agentKindDefaults[kind];
+    command = agentKindStore.defaultCommandOf(kind);
   }
 
   async function submit() {
@@ -64,10 +64,10 @@
       <div class="flex flex-col gap-1.5">
         <Label>종류</Label>
         <Select.Root type="single" value={kind} onValueChange={onKindChange}>
-          <Select.Trigger>{agentKindLabels[kind]}</Select.Trigger>
+          <Select.Trigger>{agentKindStore.labelOf(kind)}</Select.Trigger>
           <Select.Content>
-            {#each agentKinds as k (k)}
-              <Select.Item value={k}>{agentKindLabels[k]}</Select.Item>
+            {#each agentKindStore.selectableKindIds as k (k)}
+              <Select.Item value={k}>{agentKindStore.labelOf(k)}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>

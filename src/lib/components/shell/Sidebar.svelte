@@ -2,7 +2,7 @@
   import type { Agent, Project } from "$lib/types";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Button } from "$lib/components/ui/button";
-  import { agentKindLabels } from "$lib/data/labels";
+  import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import { hasDefaultWorkspace, worktreeGroups } from "$lib/shell/derived";
   import { shell } from "$lib/stores/shell.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
@@ -124,7 +124,7 @@
                           <StatusBadge {status} />
                         </span>
                         <span class="mt-1 flex w-full items-center gap-1.5 pl-4 text-[10.5px] text-muted-foreground">
-                          <span>{agentKindLabels[agent.kind]}</span>
+                          <span>{agentKindStore.labelOf(agent.kind)}</span>
                           {#if !group.shared}<span>·</span><span class="min-w-0 truncate font-mono">{agent.branch}</span>{/if}
                           <span class="ml-auto shrink-0 pr-1">{agent.lastActivity ?? "대기 중"}</span>
                         </span>

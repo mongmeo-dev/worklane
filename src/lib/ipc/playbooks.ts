@@ -26,7 +26,11 @@ interface RawPlaybook {
   updatedAt: number;
 }
 
-const VALID_KINDS: AgentKind[] = ["claude-code", "codex", "cursor", "gemini"];
+// 에이전트 종류는 사용자가 자유롭게 추가·삭제할 수 있으므로 특정 목록으로 제한하지 않고
+// 비어 있지 않은 문자열이면 유효한 것으로 본다.
+function isValidKind(kind: unknown): kind is string {
+  return typeof kind === "string" && kind.trim() !== "";
+}
 
 function parseMembers(json: string): PlaybookMember[] {
   try {
@@ -37,7 +41,7 @@ function parseMembers(json: string): PlaybookMember[] {
         (m): m is PlaybookMember =>
           typeof m === "object" &&
           m !== null &&
-          VALID_KINDS.includes((m as PlaybookMember).kind) &&
+          isValidKind((m as PlaybookMember).kind) &&
           typeof (m as PlaybookMember).command === "string",
       )
       .map((m) => ({ kind: m.kind, command: m.command }));
