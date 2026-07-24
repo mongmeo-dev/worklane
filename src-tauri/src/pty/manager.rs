@@ -86,6 +86,7 @@ pub fn create(
         master: Mutex::new(pair.master),
         child: Mutex::new(child),
         last_output_ms: AtomicU64::new(now_ms()),
+        last_input_ms: AtomicU64::new(0),
         hook_dir,
     });
     state.0.insert(session_id.clone(), session.clone());
@@ -100,7 +101,7 @@ pub fn create(
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => break, // EOF/에러 = 프로세스 종료
                 Ok(n) => {
-                    pump_session.mark_output(now_ms()); // ② 출력 타임스탬프 갱신
+                    pump_session.mark_output(now_ms()); // ② 활동 시각 갱신(입력 에코 제외)
                     let payload = PtyOutput {
                         session_id: sid.clone(),
                         bytes: buf[..n].to_vec(), // 바이트 그대로
@@ -119,6 +120,8 @@ pub fn create(
 /// 세션에 입력 바이트를 쓴다.
 pub fn write(state: &PtyState, session_id: &str, data: Vec<u8>) -> Result<(), String> {
     if let Some(s) = state.0.get(session_id) {
+        // ② 입력 시각을 먼저 기록해, 뒤따르는 에코 출력을 활동에서 제외한다.
+        s.mark_input(now_ms());
         s.writer
             .lock()
             .map_err(|_| "writer lock 실패".to_string())?
