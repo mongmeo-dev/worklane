@@ -19,6 +19,7 @@ export class ShellStore {
   #usagePopover = $state<string | null>(null);
   #attentionOpen = $state(false);
   #compareGroupId = $state<string | null>(null);
+  #showPreview = $state(false);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -29,11 +30,13 @@ export class ShellStore {
   get usagePopover(): string | null { return this.#usagePopover; }
   get attentionOpen(): boolean { return this.#attentionOpen; }
   get compareGroupId(): string | null { return this.#compareGroupId; }
+  get showPreview(): boolean { return this.#showPreview; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
     this.#openFilePath = null;
     this.#showEditor = false;
+    this.#showPreview = false;
     this.#attentionOpen = false;
     this.#compareGroupId = null;
   }
@@ -41,12 +44,14 @@ export class ShellStore {
   selectTerminal(id: string): void {
     this.#selectedAgentId = id;
     this.#showEditor = false;
+    this.#showPreview = false;
   }
 
   goOverview(): void {
     this.#selectedAgentId = null;
     this.#openFilePath = null;
     this.#showEditor = false;
+    this.#showPreview = false;
   }
 
   setFilter(filter: OverviewFilter): void {
@@ -57,9 +62,16 @@ export class ShellStore {
   openFile(path: string): void {
     this.#openFilePath = path;
     this.#showEditor = true;
+    this.#showPreview = false;
   }
 
   showTerminal(): void {
+    this.#showEditor = false;
+    this.#showPreview = false;
+  }
+
+  showPreviewPane(): void {
+    this.#showPreview = true;
     this.#showEditor = false;
   }
 

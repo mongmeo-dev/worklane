@@ -9,6 +9,7 @@
   import Terminal from "./Terminal.svelte";
   import OpenExternal from "./OpenExternal.svelte";
   import FileViewer from "./FileViewer.svelte";
+  import Preview from "./Preview.svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import GitBranch from "@lucide/svelte/icons/git-branch";
   import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
@@ -62,7 +63,7 @@
     {#each sharedAgents as shared (shared.id)}
       <button
         type="button"
-        class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shared.id === agent.id && !shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
+        class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shared.id === agent.id && !shell.showEditor && !shell.showPreview ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
         onclick={() => shell.selectTerminal(shared.id)}
       >터미널{sharedAgents.length > 1 ? ` · ${agentKindLabels[shared.kind]}` : ""}</button>
     {/each}
@@ -72,10 +73,19 @@
         <button type="button" aria-label="파일 탭 닫기" class="mx-1 rounded p-1 hover:bg-muted" onclick={() => shell.closeFile()}><X class="size-3" /></button>
       </div>
     {/if}
+    <button
+      type="button"
+      class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shell.showPreview ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
+      onclick={() => shell.showPreviewPane()}
+    >프리뷰</button>
   </div>
 
-  <div class="min-h-0 flex-1 overflow-hidden rounded-xl border {status === 'blocked' && !shell.showEditor ? 'border-status-blocked/30 shadow-[0_0_20px_color-mix(in_oklch,var(--status-blocked)_8%,transparent)]' : ''}">
-    {#if shell.showEditor && shell.openFilePath}
+  <div class="min-h-0 flex-1 overflow-hidden rounded-xl border {status === 'blocked' && !shell.showEditor && !shell.showPreview ? 'border-status-blocked/30 shadow-[0_0_20px_color-mix(in_oklch,var(--status-blocked)_8%,transparent)]' : ''}">
+    {#if shell.showPreview}
+      {#key agent.id}
+        <Preview {agent} />
+      {/key}
+    {:else if shell.showEditor && shell.openFilePath}
       <FileViewer {agent} path={shell.openFilePath} sharedCount={sharedAgents.length} />
     {:else}
       {#key agent.id}
