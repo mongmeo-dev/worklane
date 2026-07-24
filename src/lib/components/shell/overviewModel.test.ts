@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent } from "$lib/types";
-import { filterAgents, plainTerminalTail, tileAction } from "./overviewModel";
+import { filterAgents, plainTerminalTail, searchAgents, sortAgents, tileAction } from "./overviewModel";
 
 const agents: Agent[] = [
   { id: "run", projectId: "p", title: "실행", kind: "codex", command: "codex", branch: "main", worktreePath: "/run", worktreeManaged: true, createdAt: 1, updatedAt: 1, status: "running" },
@@ -23,5 +23,23 @@ describe("오버뷰 표현 모델", () => {
   it("ANSI를 제거하고 마지막 줄만 유지한다", () => {
     const text = "첫 줄\n\u001b[32m둘째 줄\u001b[0m\n셋째 줄\n넷째 줄";
     expect(plainTerminalTail(text, 2)).toBe("셋째 줄\n넷째 줄");
+  });
+});
+
+describe("검색과 정렬", () => {
+  const nameOf = (a: (typeof agents)[number]) => (a.id === "run" ? "웹" : "API");
+
+  it("제목·프로젝트명으로 검색한다", () => {
+    expect(searchAgents(agents, "실행", nameOf).map((a) => a.id)).toEqual(["run"]);
+    expect(searchAgents(agents, "api", nameOf).map((a) => a.id)).toEqual(["block", "done"]);
+    expect(searchAgents(agents, "  ", nameOf)).toHaveLength(3);
+  });
+
+  it("이름순 정렬은 제목 기준", () => {
+    expect(sortAgents(agents, "name").map((a) => a.title)).toEqual(["대기", "실행", "완료"]);
+  });
+
+  it("상태순 정렬은 blocked를 앞세운다", () => {
+    expect(sortAgents(agents, "status").map((a) => a.id)[0]).toBe("block");
   });
 });

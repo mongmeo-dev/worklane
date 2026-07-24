@@ -7,13 +7,35 @@
   import { listWorktreeFiles } from "$lib/ipc/files";
   import { agentKindLabels } from "$lib/data/labels";
   import StatusDot from "./StatusDot.svelte";
-  import { filterAgents, plainTerminalTail, tileAction } from "./overviewModel";
+  import { filterAgents, plainTerminalTail, searchAgents, sortAgents, tileAction, type OverviewSort } from "./overviewModel";
+  import Search from "@lucide/svelte/icons/search";
   import GitBranch from "@lucide/svelte/icons/git-branch";
 
   let { projects }: { projects: Project[] } = $props();
 
+  const SORT_KEY = "overview:sort";
+  let query = $state("");
+  let sort = $state<OverviewSort>(
+    (typeof localStorage !== "undefined" ? (localStorage.getItem(SORT_KEY) as OverviewSort | null) : null) ?? "activity",
+  );
+  function setSort(value: OverviewSort) {
+    sort = value;
+    if (typeof localStorage !== "undefined") localStorage.setItem(SORT_KEY, value);
+  }
+  const sorts: { value: OverviewSort; label: string }[] = [
+    { value: "activity", label: "최근" },
+    { value: "status", label: "상태" },
+    { value: "name", label: "이름" },
+  ];
+
   const agents = $derived(allAgents(projects));
-  const shownAgents = $derived(filterAgents(agents, shell.overviewFilter));
+  const projectNameById = $derived(
+    new Map(projects.flatMap((p) => p.agents.map((a) => [a.id, p.name] as const))),
+  );
+  const nameOf = (agent: Agent) => projectNameById.get(agent.id) ?? "";
+  const shownAgents = $derived(
+    sortAgents(searchAgents(filterAgents(agents, shell.overviewFilter), query, nameOf), sort),
+  );
   const filters: { value: OverviewFilter; label: string }[] = [
     { value: "all", label: "전체" },
     { value: "running", label: "실행 중" },
@@ -52,7 +74,28 @@
       <h1 class="text-[15px] font-bold">전체 오버뷰</h1>
       <p class="mt-0.5 text-[10.5px] text-muted-foreground">{agents.length}개 에이전트 · {projects.length}개 프로젝트</p>
     </div>
-    <div class="ml-auto flex items-center gap-1 rounded-full border bg-card/70 p-0.5">
+    <div class="ml-auto flex items-center gap-2">
+      <label class="flex h-8 items-center gap-1.5 rounded-full border bg-card/70 px-2.5">
+        <Search class="size-3.5 text-muted-foreground" />
+        <input
+          bind:value={query}
+          class="w-28 bg-transparent text-[11.5px] outline-none placeholder:text-muted-foreground focus:w-40"
+          placeholder="검색"
+          aria-label="에이전트 검색"
+          spellcheck="false"
+        />
+      </label>
+      <div class="flex items-center gap-0.5 rounded-full border bg-card/70 p-0.5">
+        {#each sorts as option (option.value)}
+          <button
+            type="button"
+            class="rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors {sort === option.value ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => setSort(option.value)}
+          >{option.label}</button>
+        {/each}
+      </div>
+    </div>
+    <div class="flex items-center gap-1 rounded-full border bg-card/70 p-0.5">
       {#each filters as filter (filter.value)}
         <button
           type="button"
