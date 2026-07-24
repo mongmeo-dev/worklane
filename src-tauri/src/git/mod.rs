@@ -588,6 +588,112 @@ fn run_gh(worktree: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+fn run_gh_capture(worktree: &str, args: &[&str]) -> Result<(bool, String), String> {
+    let output = Command::new("gh")
+        .args(args)
+        .current_dir(worktree)
+        .output()
+        .map_err(|e| format!("gh 실행 실패: {e}"))?;
+    Ok((output.status.success(), String::from_utf8_lossy(&output.stdout).into_owned()))
+}
+
+/// PR의 CI 체크 한 건.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrCheck {
+    pub name: String,
+    pub status: String,
+    pub conclusion: String,
+}
+
+/// 현재 브랜치 PR의 상태 요약.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrStatus {
+    pub number: u64,
+    pub title: String,
+    pub url: String,
+    pub state: String,
+    pub mergeable: String,
+    pub review_decision: String,
+    pub checks: Vec<PrCheck>,
+}
+
+/// gh statusCheckRollup 항목 하나를 PrCheck로 변환한다.
+fn parse_check(item: &serde_json::Value) -> Option<PrCheck> {
+    let name = item
+        .get("name")
+        .and_then(|v| v.as_str())
+        .or_else(|| item.get("context").and_then(|v| v.as_str()))?
+        .to_string();
+    let status = item
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let conclusion = item
+        .get("conclusion")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .or_else(|| item.get("state").and_then(|v| v.as_str()))
+        .unwrap_or("")
+        .to_string();
+    Some(PrCheck { name, status, conclusion })
+}
+
+/// 현재 브랜치의 PR 상태를 조회한다. PR이 없으면 None.
+pub fn pr_status(worktree: &str) -> Result<Option<PrStatus>, String> {
+    if !gh_available() {
+        return Err("gh CLI가 설치되어 있지 않습니다.".into());
+    }
+    let (success, stdout) = run_gh_capture(
+        worktree,
+        &[
+            "pr",
+            "view",
+            "--json",
+            "number,title,url,state,mergeable,reviewDecision,statusCheckRollup",
+        ],
+    )?;
+    if !success {
+        return Ok(None);
+    }
+    let v: serde_json::Value =
+        serde_json::from_str(&stdout).map_err(|e| format!("PR 상태 파싱 실패: {e}"))?;
+    let checks = v
+        .get("statusCheckRollup")
+        .and_then(|c| c.as_array())
+        .map(|arr| arr.iter().filter_map(parse_check).collect())
+        .unwrap_or_default();
+    Ok(Some(PrStatus {
+        number: v.get("number").and_then(|x| x.as_u64()).unwrap_or(0),
+        title: v.get("title").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        url: v.get("url").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        state: v.get("state").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        mergeable: v.get("mergeable").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        review_decision: v
+            .get("reviewDecision")
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string(),
+        checks,
+    }))
+}
+
+/// PR을 병합한다. method는 squash/rebase/merge.
+pub fn pr_merge(worktree: &str, method: &str) -> Result<String, String> {
+    if !gh_available() {
+        return Err("gh CLI가 설치되어 있지 않습니다.".into());
+    }
+    let flag = match method {
+        "squash" => "--squash",
+        "rebase" => "--rebase",
+        _ => "--merge",
+    };
+    run_gh(worktree, &["pr", "merge", flag, "--delete-branch=false"])?;
+    Ok("PR을 병합했습니다.".to_string())
+}
+
 /// PR을 생성(또는 조회)하거나 compare 페이지 URL을 반환한다.
 /// gh CLI가 있으면 PR을 만들고, 없으면 GitHub compare 페이지로 폴백한다.
 pub fn open_pull_request(worktree: &str) -> Result<PullRequest, String> {
@@ -900,6 +1006,23 @@ mod review_tests {
             Some("/repo/main".to_string())
         );
         assert_eq!(parse_worktree_for_branch(porcelain, "release"), None);
+    }
+
+    #[test]
+    fn pr_체크를_conclusion과_state에서_읽는다() {
+        let run = serde_json::json!({"name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"});
+        let check = parse_check(&run).unwrap();
+        assert_eq!(check.name, "build");
+        assert_eq!(check.conclusion, "SUCCESS");
+
+        // 커밋 상태(context/state) 형식도 처리한다.
+        let ctx = serde_json::json!({"context": "ci/lint", "state": "PENDING"});
+        let check = parse_check(&ctx).unwrap();
+        assert_eq!(check.name, "ci/lint");
+        assert_eq!(check.conclusion, "PENDING");
+
+        // 이름이 없으면 None.
+        assert!(parse_check(&serde_json::json!({"status": "COMPLETED"})).is_none());
     }
 }
 

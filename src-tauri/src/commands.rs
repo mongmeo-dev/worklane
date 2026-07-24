@@ -149,6 +149,31 @@ pub async fn github_issues(repo_path: String) -> Result<Vec<crate::git::GithubIs
         .map_err(|e| e.to_string())?
 }
 
+/// 현재 브랜치 PR의 상태(CI 체크 포함)를 조회한다. PR이 없으면 null.
+#[tauri::command]
+pub async fn git_pr_status(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+) -> Result<Option<crate::git::PrStatus>, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::pr_status(&worktree_path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// 현재 브랜치의 PR을 병합한다(method: squash/rebase/merge).
+#[tauri::command]
+pub async fn git_pr_merge(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    method: String,
+) -> Result<String, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::git::pr_merge(&worktree_path, &method))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// 현재 브랜치를 기준 브랜치에 병합했을 때의 충돌/상태를 미리 계산한다.
 #[tauri::command]
 pub async fn git_merge_preview(
