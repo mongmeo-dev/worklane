@@ -23,7 +23,7 @@
 </script>
 
 <Dialog.Root open={settingsUi.isOpen} onOpenChange={(open) => (open ? settingsUi.open() : settingsUi.close())}>
-  <Dialog.Content class="h-[460px] w-[640px] max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[14px] border p-0 sm:max-w-[640px]">
+  <Dialog.Content class="flex h-[460px] w-[640px] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[14px] border p-0 sm:max-w-[640px]">
     <Dialog.Header class="flex h-12 shrink-0 justify-center border-b px-4">
       <Dialog.Title class="text-[14px] font-semibold">설정</Dialog.Title>
     </Dialog.Header>
