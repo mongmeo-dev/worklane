@@ -12,11 +12,15 @@
   import { promptStore } from "$lib/stores/prompts.svelte";
   import { githubIssues, type GithubIssue } from "$lib/ipc/github";
   import { logEvent } from "$lib/ipc/events";
+  import { playbookStore } from "$lib/stores/playbooks.svelte";
+  import type { Playbook } from "$lib/ipc/playbooks";
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Library from "@lucide/svelte/icons/library";
   import Save from "@lucide/svelte/icons/save";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
+  import BookMarked from "@lucide/svelte/icons/book-marked";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
 
   import type { FanoutSeed } from "$lib/stores/composer.svelte";
 
@@ -81,7 +85,35 @@
   let issues = $state<GithubIssue[]>([]);
   let issuesLoading = $state(false);
   let issuesError = $state<string | null>(null);
+  let pbOpen = $state(false);
+  let pbSaved = $state(false);
 
+  function applyPlaybook(pb: Playbook) {
+    prompt = pb.prompt;
+    startPoint = pb.base.trim() || "main";
+    if (!title.trim()) title = pb.name;
+    rows = kinds.map((kind) => {
+      const member = pb.members.find((m) => m.kind === kind);
+      return { kind, selected: Boolean(member), command: member?.command ?? agentKindDefaults[kind] };
+    });
+    pbOpen = false;
+  }
+
+  async function savePlaybook() {
+    if (!title.trim() || selected.length === 0) return;
+    try {
+      await playbookStore.add(
+        title.trim(),
+        prompt.trim(),
+        startPoint.trim(),
+        selected.map((r) => ({ kind: r.kind, command: r.command.trim() })),
+      );
+      pbSaved = true;
+      setTimeout(() => (pbSaved = false), 1500);
+    } catch {
+      // 저장 실패는 조용히 무시(플레이북 없이도 팬아웃 가능).
+    }
+  }
   async function toggleIssues() {
     issuesOpen = !issuesOpen;
     if (issuesOpen && issues.length === 0) {
@@ -105,6 +137,7 @@
 
   onMount(() => {
     if (promptStore.prompts.length === 0) void promptStore.load();
+    if (playbookStore.playbooks.length === 0) void playbookStore.load();
   });
 
   const selected = $derived(rows.filter((r) => r.selected));
@@ -167,6 +200,28 @@
       <Dialog.Description>한 작업을 여러 에이전트에 병렬 분기해 결과를 비교합니다.</Dialog.Description>
     </Dialog.Header>
     <div class="flex flex-col gap-3 py-2">
+      <div class="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1.5">
+        <BookMarked class="size-3.5 text-muted-foreground" />
+        <span class="text-[11px] font-semibold text-muted-foreground">플레이북</span>
+        <div class="relative">
+          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent {pbOpen ? 'bg-accent' : ''}" disabled={playbookStore.playbooks.length === 0} onclick={() => (pbOpen = !pbOpen)}>
+            불러오기{playbookStore.playbooks.length > 0 ? ` (${playbookStore.playbooks.length})` : ""}
+          </button>
+          {#if pbOpen}
+            <div class="absolute left-0 top-[calc(100%+4px)] z-50 max-h-52 w-64 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
+              {#each playbookStore.playbooks as pb (pb.id)}
+                <div class="flex items-center gap-1 px-1 py-0.5">
+                  <button type="button" class="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-[11px] hover:bg-accent" onclick={() => applyPlaybook(pb)}>{pb.name} · {pb.members.length}개</button>
+                  <button type="button" class="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label="플레이북 삭제" onclick={() => playbookStore.remove(pb.id)}><Trash2 class="size-3" /></button>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        <button type="button" class="ml-auto flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!title.trim() || selected.length === 0} onclick={savePlaybook}>
+          <Save class="size-3" />{pbSaved ? "저장됨" : "현재 설정 저장"}
+        </button>
+      </div>
       <div class="flex flex-col gap-1.5">
         <div class="flex items-center gap-2">
           <Label for="fo-title" class="flex-1">작업 이름</Label>

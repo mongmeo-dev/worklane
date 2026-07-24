@@ -6,6 +6,7 @@
   import { attentionNotifier } from "$lib/attention/notifier";
   import { promptStore } from "$lib/stores/prompts.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
+  import { playbookStore } from "$lib/stores/playbooks.svelte";
   import { composer } from "$lib/stores/composer.svelte";
   import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
   import { eventRecorder } from "$lib/stores/eventRecorder";
@@ -57,6 +58,7 @@
     projectStore.load();
     promptStore.load();
     taskStore.load();
+    playbookStore.load();
     attentionNotifier.start((agentId) => {
       for (const project of projectStore.projects) {
         const agent = project.agents.find((a) => a.id === agentId);
