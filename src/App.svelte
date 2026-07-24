@@ -7,6 +7,7 @@
   import { promptStore } from "$lib/stores/prompts.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { composer } from "$lib/stores/composer.svelte";
+  import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -58,6 +59,13 @@
       for (const project of projectStore.projects) {
         const agent = project.agents.find((a) => a.id === agentId);
         if (agent) return { agentTitle: agent.title, projectName: project.name };
+      }
+      return undefined;
+    });
+    autoCheckpoint.start((agentId) => {
+      for (const project of projectStore.projects) {
+        const agent = project.agents.find((a) => a.id === agentId);
+        if (agent) return { agentId: agent.id, worktreePath: agent.worktreePath };
       }
       return undefined;
     });
