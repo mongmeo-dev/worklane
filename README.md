@@ -25,6 +25,16 @@ The long-term goal is not to replace your coding agents or editor. It is to make
 - **Change review** — browse worktree files, inspect added and removed lines, and review file-level diffs, including untracked files.
 - **Usage and resources** — surface Codex and Claude Code usage information alongside local CPU and memory activity.
 - **Persistent preferences** — customize appearance and terminal settings, including installed system fonts.
+- **Attention inbox** — a cross-project list of agents waiting for input or finished, surfaced with native OS notifications.
+- **Review to pull request** — stage, commit, push, and open a GitHub pull request (via `gh`) or a compare page from the app.
+- **Multi-agent fan-out** — run one task across several CLI agents in isolated worktrees, compare results side by side, and adopt one.
+- **Prompt library** — save and reuse prompts/playbooks across projects and seed fan-out from them.
+- **Usage budget alerts** — set a usage threshold and get a warning and notification when a provider crosses it.
+- **Live preview** — view an agent's dev server in-app and open it in an external browser.
+- **GitHub issues** — browse a repository's issues and seed a task from one (`gh` CLI).
+- **Worktree checkpoints** — snapshot the current state and roll tracked changes back.
+- **Task board** — plan work across projects and start execution through fan-out.
+- **Open externally** — open a worktree in VS Code, Cursor, Zed, or the file manager.
 
 ## Hybrid Agent Status Tracking
 
@@ -100,9 +110,9 @@ Generated artifacts are written to the platform-specific Tauri bundle directory 
 
 Current areas of exploration include:
 
-- a clearer multi-project dashboard and faster context switching;
 - deeper status-hook integration with more CLI coding agents;
-- stronger review and merge workflows for agent-produced changes;
+- local merge and conflict pre-detection across parallel worktrees;
+- agent prompt auto-injection and orchestration dependencies;
 - macOS-first product polish and broader Windows and Linux validation;
 - signed installers and a documented release process.
 
