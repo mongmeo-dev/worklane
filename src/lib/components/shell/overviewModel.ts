@@ -48,11 +48,3 @@ export function tileAction(status: AgentStatus): string {
     done: "변경 검토 →",
   }[status];
 }
-
-export function plainTerminalTail(value: string, lines = 7): string {
-  const plain = value
-    .replace(/\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g, "")
-    .replace(/\r/g, "")
-    .trimEnd();
-  return plain.split("\n").slice(-lines).join("\n");
-}

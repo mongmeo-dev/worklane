@@ -138,8 +138,7 @@ export class PooledTerminal {
       cols: term.cols,
       onOutput: (o) => {
         const bytes = new Uint8Array(o.bytes);
-        sessionStatus.appendOutput(sessionId, bytes);
-        term.write(bytes);
+        term.write(bytes, () => sessionStatus.noteOutput(sessionId));
         instance.scheduleInjection();
       },
     });
@@ -195,6 +194,22 @@ export class PooledTerminal {
   }
 
   /**
+   * 오버뷰 미리보기용으로 현재 화면(활성 버퍼)의 마지막 비어있지 않은 줄들을 반환한다.
+   * xterm이 ANSI·OSC·커서 이동·alt-screen을 모두 해석한 뒤의 실제 표시 텍스트라,
+   * 원시 스트림을 정규식으로 걷어내는 방식과 달리 TUI 에이전트에서도 깨지지 않는다.
+   */
+  snapshot(maxLines = 7): string {
+    const buf = this.term.buffer.active;
+    let end = buf.length - 1;
+    while (end >= 0 && (buf.getLine(end)?.translateToString(true).trim() ?? "") === "") end--;
+    if (end < 0) return "";
+    const start = Math.max(0, end - maxLines + 1);
+    const rows: string[] = [];
+    for (let i = start; i <= end; i++) rows.push(buf.getLine(i)?.translateToString(true) ?? "");
+    return rows.join("\n");
+  }
+
+  /**
    * 폰트 옵션 변경을 실행 중인 터미널에 즉시 반영한다.
    * 새 폰트의 셀 폭 재측정이 반영된 다음 프레임에 fit/resize 해 행·열을 다시 계산한다.
    */
@@ -245,6 +260,11 @@ class TerminalPool {
     } finally {
       this.pending.delete(opts.sessionId);
     }
+  }
+
+  /** 세션의 현재 화면 미리보기 텍스트. 터미널이 아직 없으면 빈 문자열. */
+  snapshot(sessionId: string, maxLines = 7): string {
+    return this.instances.get(sessionId)?.snapshot(maxLines) ?? "";
   }
 }
 

@@ -4,10 +4,11 @@
   import { allAgents } from "$lib/shell/derived";
   import { shell } from "$lib/stores/shell.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
+  import { terminalPool } from "$lib/terminal/pool";
   import { listWorktreeFiles } from "$lib/ipc/files";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import StatusDot from "./StatusDot.svelte";
-  import { filterAgents, plainTerminalTail, searchAgents, sortAgents, tileAction, type OverviewSort } from "./overviewModel";
+  import { filterAgents, searchAgents, sortAgents, tileAction, type OverviewSort } from "./overviewModel";
   import Search from "@lucide/svelte/icons/search";
   import GitBranch from "@lucide/svelte/icons/git-branch";
 
@@ -66,6 +67,13 @@
     if (status === "done") return "opacity-90";
     return "";
   }
+
+  // 살아있는 xterm 버퍼에서 실제 렌더된 화면을 읽는다. revision은 출력마다 올라가는
+  // 반응형 신호라, 이를 먼저 읽어 두면 새 출력이 올 때 타일 미리보기가 재계산된다.
+  function previewOf(id: string): string {
+    sessionStatus.revision(id);
+    return terminalPool.snapshot(id);
+  }
 </script>
 
 <section class="flex min-h-0 flex-1 flex-col gap-3.5 overflow-hidden px-[22px] pb-[22px] pt-[18px]">
@@ -113,7 +121,7 @@
       <div class="grid min-h-full auto-rows-[minmax(210px,1fr)] grid-cols-[repeat(auto-fit,minmax(245px,1fr))] gap-[13px]">
         {#each shownAgents as agent (agent.id)}
           {@const status = agent.status ?? "idle"}
-          {@const tail = plainTerminalTail(sessionStatus.tail(agent.id))}
+          {@const tail = previewOf(agent.id)}
           <div
             class="flex min-h-[210px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-tile p-3 transition-[transform,border-color,opacity] hover:-translate-y-0.5 hover:border-ring {tileClass(agent)}"
             onclick={() => shell.selectAgent(agent.id)}

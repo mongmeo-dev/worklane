@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Agent } from "$lib/types";
-import { filterAgents, plainTerminalTail, searchAgents, sortAgents, tileAction } from "./overviewModel";
+import { filterAgents, searchAgents, sortAgents, tileAction } from "./overviewModel";
 
 const agents: Agent[] = [
   { id: "run", projectId: "p", title: "실행", kind: "codex", command: "codex", branch: "main", worktreePath: "/run", worktreeManaged: true, createdAt: 1, updatedAt: 1, status: "running" },
@@ -18,11 +18,6 @@ describe("오버뷰 표현 모델", () => {
     expect(tileAction("blocked")).toBe("응답하기 →");
     expect(tileAction("done")).toBe("변경 검토 →");
     expect(tileAction("idle")).toBe("재개 →");
-  });
-
-  it("ANSI를 제거하고 마지막 줄만 유지한다", () => {
-    const text = "첫 줄\n\u001b[32m둘째 줄\u001b[0m\n셋째 줄\n넷째 줄";
-    expect(plainTerminalTail(text, 2)).toBe("셋째 줄\n넷째 줄");
   });
 });
 
