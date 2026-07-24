@@ -22,6 +22,17 @@
 - [ ] **gh 의존 기능 안내** — GitHub 이슈/PR 기능은 `gh` CLI 설치·인증을 전제한다. 미설치 시 에러 메시지로 안내한다(자동 설치/OAuth 흐름은 범위 밖).
 - [ ] **사용량 예산 범위** — 예산 경고는 제공자(계정) 단위 사용량만 대상으로 한다. CLI가 프로젝트별 사용량을 노출하지 않아 프로젝트 단위 집계는 현재 불가.
 
+## 서비스 고도화(자동 주입·검증·PR·업데이트 등) 후속
+
+2026-07-24 고도화 기능 13종 구현 후 남긴 운영/후속 항목.
+
+- [ ] **자동 업데이트 릴리스 서명** — `tauri-plugin-updater`를 붙이고 공개키를 `tauri.conf.json`에 넣었다. 실제 업데이트가 동작하려면 릴리스 CI가 `TAURI_SIGNING_PRIVATE_KEY`(+비밀번호)로 서명하고 `latest.json`을 GitHub Releases에 게시해야 한다. 개인키는 저장소에 커밋하지 않는다(로컬 생성분은 `/tmp`).
+- [ ] **프롬프트 자동 주입 정확도** — 출력이 `INJECT_IDLE_MS`(900ms) 잦아든 시점을 CLI 준비로 간주해 1회 전송한다. 일부 TUI에서 타이밍이 어긋날 수 있어, 에이전트 훅 기반 준비 신호로 대체하면 정확도가 오른다. 세션당 1회 주입은 `localStorage`로 보장한다.
+- [ ] **포트 감지 크로스플랫폼** — `lsof` 기반이라 macOS만 동작한다. Windows/Linux는 각 플랫폼 방식(netstat/ss 등)으로 확장 필요.
+- [ ] **로컬 병합 제약** — 기준 브랜치가 다른 worktree에 체크아웃돼 있고 dirty면 병합을 거부한다. `merge-tree`(git ≥2.38) 전제이며, non-FF는 merge-tree+commit-tree+update-ref로 처리한다.
+- [ ] **오케스트레이션 자동 시작** — 태스크 보드는 계획 + 팬아웃 시드까지다. 태스크 의존성(선행 완료 시 자동 시작)은 상태 엔진의 done 신호로 트리거하도록 확장 가능.
+- [ ] **Linear/웹훅 자격 증명** — Linear API 키와 웹훅 URL은 `localStorage`에 평문 저장한다. OS 키체인 등 보안 저장으로 옮기는 것을 검토한다.
+
 ## 알려진 기술적 함정 (참고)
 
 - **WKWebView Canvas 폰트 측정** — WKWebView의 Canvas `measureText`는 D2Coding 등 일부 폰트 폭을 오측정한다. 터미널은 `@xterm/addon-webgl`(WebGL 렌더러)로 해결했다(커밋 `e963f63`). 향후 Canvas 기반 텍스트 측정을 추가할 때 동일 함정에 주의한다.

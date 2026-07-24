@@ -35,6 +35,17 @@ The long-term goal is not to replace your coding agents or editor. It is to make
 - **Worktree checkpoints** — snapshot the current state and roll tracked changes back.
 - **Task board** — plan work across projects and start execution through fan-out.
 - **Open externally** — open a worktree in VS Code, Cursor, Zed, or the file manager.
+- **Seed prompt auto-injection** — automatically send the seed prompt once a fan-out/task agent is ready.
+- **Fan-out auto-verification** — run a verification command (test/build) in each worktree and recommend an adoption candidate by pass state and change size.
+- **Preview port detection** — detect the dev server port opened by an agent's process and connect the preview (macOS).
+- **Auto checkpoints** — snapshot the worktree on completion and right before a rollback.
+- **Activity timeline** — a per-agent audit log of commit, push, PR, verify, checkpoint, and status transitions.
+- **Local merge & conflict pre-detection** — merge into the base branch without a PR and preview conflicts first.
+- **Command palette & search** — jump to agents/actions with ⌘K, and search/sort the overview.
+- **Fan-out playbooks** — save a prompt/base/agent recipe and re-run it in one click.
+- **In-app PR review** — see PR status and CI checks and merge via Squash/Merge/Rebase (gh CLI).
+- **Linear & webhooks** — seed work from Linear issues and send attention/budget alerts to Slack/Discord webhooks.
+- **Auto update** — check, install, and relaunch on a new version (signed releases).
 
 ## Hybrid Agent Status Tracking
 
@@ -111,8 +122,8 @@ Generated artifacts are written to the platform-specific Tauri bundle directory 
 Current areas of exploration include:
 
 - deeper status-hook integration with more CLI coding agents;
-- local merge and conflict pre-detection across parallel worktrees;
-- agent prompt auto-injection and orchestration dependencies;
+- dependency-based orchestration (auto-start after prerequisites complete);
+- cross-platform validation such as Windows and Linux port detection;
 - macOS-first product polish and broader Windows and Linux validation;
 - signed installers and a documented release process.
 
