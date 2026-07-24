@@ -6,6 +6,8 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import ExternalLink from "@lucide/svelte/icons/external-link";
+  import Radar from "@lucide/svelte/icons/radar";
+  import { detectPreviewPorts } from "$lib/ipc/ports";
 
   // AgentDetail이 {#key agent.id}로 감싸 에이전트별로 재마운트한다.
   let { agent }: { agent: Agent } = $props();
@@ -28,6 +30,30 @@
     if (trimmed) await openUrl(trimmed);
   }
 
+  let ports = $state<number[]>([]);
+  let portsOpen = $state(false);
+  let detecting = $state(false);
+
+  async function detect() {
+    detecting = true;
+    try {
+      ports = await detectPreviewPorts(agent.id);
+      portsOpen = true;
+    } catch {
+      ports = [];
+      portsOpen = true;
+    } finally {
+      detecting = false;
+    }
+  }
+
+  function pickPort(port: number) {
+    url = `http://localhost:${port}`;
+    persist();
+    frameKey += 1;
+    portsOpen = false;
+  }
+
   function onKey(event: KeyboardEvent) {
     if (event.key === "Enter") reload();
   }
@@ -44,6 +70,29 @@
       aria-label="프리뷰 URL"
       spellcheck="false"
     />
+    <div class="relative shrink-0">
+      <button
+        type="button"
+        class="grid size-7 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white disabled:opacity-40 {portsOpen ? 'bg-white/10 text-white' : ''}"
+        aria-label="dev 서버 포트 감지"
+        aria-expanded={portsOpen}
+        disabled={detecting}
+        onclick={detect}
+      >
+        <Radar class="size-3.5 {detecting ? 'animate-spin' : ''}" />
+      </button>
+      {#if portsOpen}
+        <div class="absolute right-0 top-[calc(100%+6px)] z-40 w-40 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-xl">
+          {#if ports.length > 0}
+            {#each ports as port (port)}
+              <button type="button" class="block w-full px-3 py-1.5 text-left font-mono text-[11px] hover:bg-accent" onclick={() => pickPort(port)}>localhost:{port}</button>
+            {/each}
+          {:else}
+            <p class="px-3 py-2 text-[10.5px] text-muted-foreground">감지된 포트가 없습니다.</p>
+          {/if}
+        </div>
+      {/if}
+    </div>
     <button
       type="button"
       class="grid size-7 shrink-0 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
