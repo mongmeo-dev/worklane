@@ -3,6 +3,7 @@
   import type { Agent } from "$lib/types";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
+  import { attentionNotifier } from "$lib/attention/notifier";
   import { shell } from "$lib/stores/shell.svelte";
   import * as Resizable from "$lib/components/ui/resizable";
   import TitleBar from "$lib/components/shell/TitleBar.svelte";
@@ -39,6 +40,13 @@
   onMount(() => {
     sessionStatus.start();
     projectStore.load();
+    attentionNotifier.start((agentId) => {
+      for (const project of projectStore.projects) {
+        const agent = project.agents.find((a) => a.id === agentId);
+        if (agent) return { agentTitle: agent.title, projectName: project.name };
+      }
+      return undefined;
+    });
   });
 </script>
 
