@@ -17,7 +17,29 @@
   import Save from "@lucide/svelte/icons/save";
   import CircleDot from "@lucide/svelte/icons/circle-dot";
 
-  let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
+  import type { FanoutSeed } from "$lib/stores/composer.svelte";
+
+  let {
+    open,
+    onOpenChange,
+    project,
+    seed = null,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    project: Project;
+    seed?: FanoutSeed | null;
+  } = $props();
+
+  // 다이얼로그가 열릴 때(닫힘→열림) 시드가 있으면 제목/프롬프트를 채운다.
+  let wasOpen = false;
+  $effect(() => {
+    if (open && !wasOpen && seed) {
+      title = seed.title;
+      prompt = seed.prompt;
+    }
+    wasOpen = open;
+  });
 
   interface Row {
     kind: AgentKind;
@@ -125,7 +147,7 @@
           prompt: prompt.trim() || undefined,
         });
       }
-      open = false;
+      onOpenChange(false);
       reset();
       shell.openCompare(groupId);
     } catch (e) {
@@ -136,7 +158,7 @@
   }
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root {open} {onOpenChange}>
   <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>팬아웃 — {project.name}</Dialog.Title>
