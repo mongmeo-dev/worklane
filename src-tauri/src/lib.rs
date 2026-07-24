@@ -7,6 +7,7 @@ mod git;
 mod commands;
 mod store;
 mod external;
+mod verify;
 
 use pty::PtyState;
 use tauri::Manager;
@@ -43,6 +44,7 @@ pub fn run() {
             commands::git_open_pull_request,
             commands::open_in_app,
             commands::github_issues,
+            commands::run_verification,
             commands::list_prompts,
             commands::create_prompt,
             commands::update_prompt,

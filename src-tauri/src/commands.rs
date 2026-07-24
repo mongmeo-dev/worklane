@@ -149,6 +149,19 @@ pub async fn github_issues(repo_path: String) -> Result<Vec<crate::git::GithubIs
         .map_err(|e| e.to_string())?
 }
 
+/// worktree에서 검증 명령을 실행한다(팬아웃 결과 자동 검증용).
+#[tauri::command]
+pub async fn run_verification(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    command: String,
+) -> Result<crate::verify::VerifyResult, String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::verify::run_verification(&worktree_path, &command))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// 프롬프트 라이브러리를 나열한다.
 #[tauri::command]
 pub fn list_prompts(store: tauri::State<'_, StoreState>) -> Result<Vec<Prompt>, String> {
