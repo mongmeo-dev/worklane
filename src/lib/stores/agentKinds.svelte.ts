@@ -114,15 +114,15 @@ class AgentKindStore {
     this.#persist();
   }
 
-  /** 표시 순서를 위(-1)/아래(1)로 한 칸 이동하고 저장한다. 경계를 벗어나면 무시. */
-  move(id: string, dir: -1 | 1): void {
-    const from = this.#kinds.findIndex((k) => k.id === id);
-    if (from === -1) return;
-    const to = from + dir;
-    if (to < 0 || to >= this.#kinds.length) return;
+  /** 표시 순서에서 fromIndex 항목을 빼내 toIndex 위치에 끼워 넣고 저장한다. 범위를 벗어나면 무시. */
+  reorder(fromIndex: number, toIndex: number): void {
+    const n = this.#kinds.length;
+    if (fromIndex < 0 || fromIndex >= n) return;
+    if (toIndex < 0 || toIndex >= n) return;
+    if (fromIndex === toIndex) return;
     const next = [...this.#kinds];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
+    const [item] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, item);
     this.#kinds = next;
     this.#persist();
   }

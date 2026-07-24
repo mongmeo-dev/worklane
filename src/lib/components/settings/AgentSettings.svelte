@@ -6,8 +6,7 @@
   import { t } from "$lib/i18n";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Plus from "@lucide/svelte/icons/plus";
-  import ChevronUp from "@lucide/svelte/icons/chevron-up";
-  import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import GripVertical from "@lucide/svelte/icons/grip-vertical";
 
   let newLabel = $state("");
   let newCommand = $state("");
@@ -24,6 +23,50 @@
     newCommand = "";
     addError = "";
   }
+
+  // 드래그 앤 드롭으로 종류 순서를 바꾼다. dragIndex는 잡은 항목, overIndex는 현재 놓을 위치.
+  let dragIndex = $state<number | null>(null);
+  let overIndex = $state<number | null>(null);
+
+  function onDragStart(e: DragEvent, index: number) {
+    dragIndex = index;
+    overIndex = index;
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      // Firefox는 데이터가 설정되어야 드래그를 시작한다.
+      e.dataTransfer.setData("text/plain", String(index));
+    }
+  }
+
+  function onDragOver(e: DragEvent, index: number) {
+    if (dragIndex === null) return;
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    overIndex = index;
+  }
+
+  function onDrop(e: DragEvent, index: number) {
+    e.preventDefault();
+    if (dragIndex !== null) agentKindStore.reorder(dragIndex, index);
+    dragIndex = null;
+    overIndex = null;
+  }
+
+  function onDragEnd() {
+    dragIndex = null;
+    overIndex = null;
+  }
+
+  // 드래그가 어려운 사용자를 위한 키보드 대체: 핸들에 포커스 후 위/아래 화살표로 이동.
+  function onHandleKeydown(e: KeyboardEvent, index: number) {
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      agentKindStore.reorder(index, index - 1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      agentKindStore.reorder(index, index + 1);
+    }
+  }
 </script>
 
 <div class="flex flex-col gap-5">
@@ -32,9 +75,25 @@
   </div>
   <section>
     <h2 class="mb-2 text-[11px] font-semibold text-muted-foreground">{t("settings.agents.kindsHeading")}</h2>
-    <div class="overflow-hidden rounded-[10px] border">
+    <div class="overflow-hidden rounded-[10px] border" role="list">
       {#each agentKindStore.cliKinds as kind, index (kind.id)}
-        <div class="flex items-center gap-2 px-3 py-2 {index < agentKindStore.cliKinds.length - 1 ? 'border-b' : ''}">
+        <div
+          class="flex items-center gap-2 px-3 py-2 {index < agentKindStore.cliKinds.length - 1 ? 'border-b' : ''} {dragIndex === index ? 'opacity-40' : ''} {overIndex === index && dragIndex !== null && dragIndex !== index ? 'bg-accent/60' : ''}"
+          role="listitem"
+          ondragover={(e) => onDragOver(e, index)}
+          ondrop={(e) => onDrop(e, index)}
+        >
+          <button
+            type="button"
+            draggable="true"
+            class="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
+            aria-label={t("settings.agents.dragHandle", { label: kind.label })}
+            ondragstart={(e) => onDragStart(e, index)}
+            ondragend={onDragEnd}
+            onkeydown={(e) => onHandleKeydown(e, index)}
+          >
+            <GripVertical class="size-4" />
+          </button>
           <Input
             class="h-8 w-32 text-[12px] font-medium"
             value={kind.label}
@@ -50,26 +109,6 @@
               aria-label={t("settings.agents.defaultCommandLabel")}
               onchange={(e) => agentKindStore.update(kind.id, { defaultCommand: e.currentTarget.value })}
             />
-          </div>
-          <div class="flex shrink-0 flex-col">
-            <button
-              type="button"
-              class="flex h-4 w-6 items-center justify-center rounded-t-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-              aria-label={t("settings.agents.moveUpKind", { label: kind.label })}
-              disabled={index === 0}
-              onclick={() => agentKindStore.move(kind.id, -1)}
-            >
-              <ChevronUp class="size-3.5" />
-            </button>
-            <button
-              type="button"
-              class="flex h-4 w-6 items-center justify-center rounded-b-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-              aria-label={t("settings.agents.moveDownKind", { label: kind.label })}
-              disabled={index === agentKindStore.cliKinds.length - 1}
-              onclick={() => agentKindStore.move(kind.id, 1)}
-            >
-              <ChevronDown class="size-3.5" />
-            </button>
           </div>
           <button
             type="button"
