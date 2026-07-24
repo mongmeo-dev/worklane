@@ -13,9 +13,9 @@ describe("agentKinds store", () => {
     vi.resetModules();
   });
 
-  it("기본 4종을 씨앗으로 시작한다", async () => {
+  it("기본 5종을 씨앗으로 시작한다", async () => {
     const store = await freshStore();
-    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini", "gajae-code"]);
     expect(store.cliKinds.every((k) => k.builtin)).toBe(true);
   });
 
@@ -26,6 +26,7 @@ describe("agentKinds store", () => {
       "codex",
       "cursor",
       "gemini",
+      "gajae-code",
       "terminal",
     ]);
   });
@@ -51,7 +52,7 @@ describe("agentKinds store", () => {
     expect(def.builtin).toBe(false);
     expect(store.labelOf("aider")).toBe("Aider");
     expect(store.defaultCommandOf("aider")).toBe("aider --model gpt-4");
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(5);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(6);
   });
 
   it("add는 id가 충돌하면 접미사를 붙인다", async () => {
@@ -87,21 +88,22 @@ describe("agentKinds store", () => {
   it("remove는 기본 종류도 삭제하고 저장한다", async () => {
     const store = await freshStore();
     store.remove("codex");
-    expect(store.cliKindIds).toEqual(["claude-code", "cursor", "gemini"]);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(3);
+    expect(store.cliKindIds).toEqual(["claude-code", "cursor", "gemini", "gajae-code"]);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toHaveLength(4);
   });
 
   it("reorder는 항목을 목표 위치로 옮기고 저장한다", async () => {
     const store = await freshStore();
     store.reorder(1, 0);
-    expect(store.cliKindIds).toEqual(["codex", "claude-code", "cursor", "gemini"]);
+    expect(store.cliKindIds).toEqual(["codex", "claude-code", "cursor", "gemini", "gajae-code"]);
     store.reorder(0, 3);
-    expect(store.cliKindIds).toEqual(["claude-code", "cursor", "gemini", "codex"]);
+    expect(store.cliKindIds).toEqual(["claude-code", "cursor", "gemini", "codex", "gajae-code"]);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).map((k: { id: string }) => k.id)).toEqual([
       "claude-code",
       "cursor",
       "gemini",
       "codex",
+      "gajae-code",
     ]);
   });
 
@@ -110,7 +112,7 @@ describe("agentKinds store", () => {
     store.reorder(0, 0);
     store.reorder(-1, 2);
     store.reorder(0, 9);
-    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini", "gajae-code"]);
   });
 
   it("reorder로 바뀐 순서는 selectableKindIds(생성 모달 옵션)에 반영된다", async () => {
@@ -121,6 +123,7 @@ describe("agentKinds store", () => {
       "codex",
       "gemini",
       "cursor",
+      "gajae-code",
       "terminal",
     ]);
   });
@@ -147,13 +150,13 @@ describe("agentKinds store", () => {
     localStorage.setItem(STORAGE_KEY, "{{not json");
     const store = await freshStore();
     store.init();
-    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini", "gajae-code"]);
   });
 
   it("init은 유효 항목이 하나도 없는 배열이면 기본값을 유지한다", async () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([{ nope: 1 }, { id: "terminal" }]));
     const store = await freshStore();
     store.init();
-    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini"]);
+    expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini", "gajae-code"]);
   });
 });

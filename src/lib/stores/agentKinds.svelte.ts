@@ -21,6 +21,7 @@ const BUILTIN_KINDS: readonly AgentKindDef[] = [
   { id: "codex", label: "Codex", defaultCommand: "codex", builtin: true },
   { id: "cursor", label: "Cursor", defaultCommand: "cursor-agent", builtin: true },
   { id: "gemini", label: "Gemini", defaultCommand: "gemini", builtin: true },
+  { id: "gajae-code", label: "Gajae Code", defaultCommand: "gjc", builtin: true },
 ];
 
 /** 표시명에서 id로 쓸 slug를 만든다. 영숫자만 남기고 나머지는 하이픈으로. */
