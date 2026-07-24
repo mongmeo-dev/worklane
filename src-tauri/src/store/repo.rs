@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Checkpoint, Event, Project, Prompt, Task};
+use crate::store::models::{Agent, Checkpoint, Event, Playbook, Project, Prompt, Task};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -89,6 +89,21 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             );
             CREATE INDEX idx_events_agent ON events(agent_id, created_at);
             PRAGMA user_version = 6;",
+        )?;
+    }
+    if version < 7 {
+        // 팬아웃 플레이북(재사용 레시피).
+        conn.execute_batch(
+            "CREATE TABLE playbooks (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                prompt TEXT NOT NULL,
+                base TEXT NOT NULL,
+                members TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            PRAGMA user_version = 7;",
         )?;
     }
     Ok(())
@@ -513,6 +528,62 @@ pub fn list_events(conn: &Connection, agent_id: &str) -> rusqlite::Result<Vec<Ev
     Ok(rows)
 }
 
+fn row_to_playbook(row: &rusqlite::Row) -> rusqlite::Result<Playbook> {
+    Ok(Playbook {
+        id: row.get("id")?,
+        name: row.get("name")?,
+        prompt: row.get("prompt")?,
+        base: row.get("base")?,
+        members: row.get("members")?,
+        created_at: row.get("created_at")?,
+        updated_at: row.get("updated_at")?,
+    })
+}
+
+/// 플레이북을 최근 갱신순으로 나열한다.
+pub fn list_playbooks(conn: &Connection) -> rusqlite::Result<Vec<Playbook>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, prompt, base, members, created_at, updated_at
+         FROM playbooks ORDER BY updated_at DESC",
+    )?;
+    let rows = stmt
+        .query_map([], row_to_playbook)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
+/// 플레이북을 저장한다.
+pub fn insert_playbook(
+    conn: &Connection,
+    name: &str,
+    prompt: &str,
+    base: &str,
+    members: &str,
+    now: i64,
+) -> rusqlite::Result<Playbook> {
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO playbooks (id, name, prompt, base, members, created_at, updated_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?6)",
+        params![id, name, prompt, base, members, now],
+    )?;
+    Ok(Playbook {
+        id,
+        name: name.into(),
+        prompt: prompt.into(),
+        base: base.into(),
+        members: members.into(),
+        created_at: now,
+        updated_at: now,
+    })
+}
+
+/// 플레이북을 삭제한다.
+pub fn delete_playbook(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM playbooks WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -590,6 +661,25 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].kind, "push");
         assert_eq!(events[1].detail, "첫 커밋");
+    }
+
+    #[test]
+    fn 플레이북_저장_조회_삭제_라운드트립() {
+        let conn = mem();
+        let pb = insert_playbook(
+            &conn,
+            "릴리스 준비",
+            "릴리스를 준비해줘",
+            "main",
+            r#"[{"kind":"claude-code","command":"claude"}]"#,
+            10,
+        )
+        .unwrap();
+        assert_eq!(list_playbooks(&conn).unwrap().len(), 1);
+        assert_eq!(list_playbooks(&conn).unwrap()[0].name, "릴리스 준비");
+
+        delete_playbook(&conn, &pb.id).unwrap();
+        assert!(list_playbooks(&conn).unwrap().is_empty());
     }
 
     fn sample_agent(project_id: &str) -> Agent {

@@ -80,3 +80,16 @@ pub struct Event {
     pub detail: String,
     pub created_at: i64,
 }
+
+/// 팬아웃 플레이북(재사용 레시피). members는 [{"kind","command"}] JSON 문자열.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Playbook {
+    pub id: String,
+    pub name: String,
+    pub prompt: String,
+    pub base: String,
+    pub members: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+}

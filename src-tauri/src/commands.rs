@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Checkpoint, Event, Project, Prompt, Task}, StoreState};
+use crate::store::{self, models::{Agent, Checkpoint, Event, Playbook, Project, Prompt, Task}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -416,6 +416,38 @@ pub fn list_events(
 ) -> Result<Vec<Event>, String> {
     let conn = store.0.lock().map_err(|e| e.to_string())?;
     store::repo::list_events(&conn, &agent_id).map_err(|e| e.to_string())
+}
+
+/// 팬아웃 플레이북을 나열한다.
+#[tauri::command]
+pub fn list_playbooks(store: tauri::State<'_, StoreState>) -> Result<Vec<Playbook>, String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::list_playbooks(&conn).map_err(|e| e.to_string())
+}
+
+/// 팬아웃 플레이북을 저장한다.
+#[tauri::command]
+pub fn create_playbook(
+    store: tauri::State<'_, StoreState>,
+    name: String,
+    prompt: String,
+    base: String,
+    members: String,
+) -> Result<Playbook, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("플레이북 이름을 입력하세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_playbook(&conn, name, prompt.trim(), base.trim(), &members, now_ms() as i64)
+        .map_err(|e| e.to_string())
+}
+
+/// 팬아웃 플레이북을 삭제한다.
+#[tauri::command]
+pub fn delete_playbook(store: tauri::State<'_, StoreState>, id: String) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_playbook(&conn, &id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
