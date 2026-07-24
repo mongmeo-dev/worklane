@@ -18,8 +18,26 @@ pub struct Agent {
     /// 팬아웃 시 공유한 작업 프롬프트(비교/복사용).
     #[serde(default)]
     pub prompt: Option<String>,
+    /// 이 워크스페이스(=worktree)에서 여는 터미널 탭 목록. 주 터미널 개념은 없고
+    /// 모든 터미널이 동등하다. list_projects에서 채워진다.
+    #[serde(default)]
+    pub terminals: Vec<AgentTerminal>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+/// 워크스페이스(=worktree) 안에서 크롬 탭처럼 여는 터미널 세션 한 건.
+/// 각 탭은 독립 PTY 세션이며, 주입한 커맨드로 어떤 에이전트가 도는지 추적한다.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTerminal {
+    pub id: String,
+    pub agent_id: String,
+    pub title: String,
+    pub kind: String,
+    pub command: String,
+    pub position: i64,
+    pub created_at: i64,
 }
 
 /// 프로젝트와 소속 에이전트 목록.

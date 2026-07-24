@@ -12,7 +12,6 @@ const base: WorkspaceFormInput = {
   command: "claude",
   branch: "feat/login",
   startPoint: "main",
-  worktreeMode: "new",
 };
 
 describe("requiresCommand", () => {
@@ -43,28 +42,9 @@ describe("canCreateWorkspace", () => {
     expect(canCreateWorkspace({ ...base, command: "" })).toBe(false);
   });
 
-  it("새 worktree는 브랜치와 분기 기준이 모두 필요하다", () => {
+  it("워크스페이스는 브랜치와 분기 기준이 모두 필요하다", () => {
     expect(canCreateWorkspace({ ...base, branch: "" })).toBe(false);
     expect(canCreateWorkspace({ ...base, startPoint: "" })).toBe(false);
-  });
-
-  it("worktree를 공유하면 브랜치·분기 기준이 없어도 제출할 수 있다", () => {
-    expect(
-      canCreateWorkspace({ ...base, worktreeMode: "agent-1", branch: "", startPoint: "" }),
-    ).toBe(true);
-  });
-
-  it("빈 터미널로 worktree를 공유하면 이름만으로 제출할 수 있다", () => {
-    expect(
-      canCreateWorkspace({
-        ...base,
-        kind: "terminal",
-        command: "",
-        worktreeMode: "agent-1",
-        branch: "",
-        startPoint: "",
-      }),
-    ).toBe(true);
   });
 });
 

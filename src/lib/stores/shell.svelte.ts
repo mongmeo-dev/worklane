@@ -22,6 +22,8 @@ export class ShellStore {
   #showPreview = $state(false);
   #worktreeRev = $state(0);
   #paletteOpen = $state(false);
+  // 현재 워크스페이스에서 활성화된 터미널 탭 id(null이면 첫 터미널).
+  #selectedTerminalId = $state<string | null>(null);
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -35,9 +37,11 @@ export class ShellStore {
   get showPreview(): boolean { return this.#showPreview; }
   get worktreeRev(): number { return this.#worktreeRev; }
   get paletteOpen(): boolean { return this.#paletteOpen; }
+  get selectedTerminalId(): string | null { return this.#selectedTerminalId; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
+    this.#selectedTerminalId = null;
     this.#openFilePath = null;
     this.#showEditor = false;
     this.#showPreview = false;
@@ -46,14 +50,23 @@ export class ShellStore {
     this.#paletteOpen = false;
   }
 
+  /** 워크스페이스 안에서 특정 터미널 탭을 활성화한다. */
+  selectTab(terminalId: string): void {
+    this.#selectedTerminalId = terminalId;
+    this.#showEditor = false;
+    this.#showPreview = false;
+  }
+
   selectTerminal(id: string): void {
     this.#selectedAgentId = id;
+    this.#selectedTerminalId = null;
     this.#showEditor = false;
     this.#showPreview = false;
   }
 
   goOverview(): void {
     this.#selectedAgentId = null;
+    this.#selectedTerminalId = null;
     this.#openFilePath = null;
     this.#showEditor = false;
     this.#showPreview = false;

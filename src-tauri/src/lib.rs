@@ -99,6 +99,9 @@ pub fn run() {
             commands::create_agent,
             commands::delete_agent,
             commands::agent_worktree_has_changes,
+            commands::create_agent_terminal,
+            commands::delete_agent_terminal,
+            commands::detect_session_processes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

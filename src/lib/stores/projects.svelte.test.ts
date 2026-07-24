@@ -8,6 +8,8 @@ vi.mock("$lib/ipc/projects", () => ({
   createAgent: vi.fn(),
   deleteAgent: vi.fn(),
   agentWorktreeHasChanges: vi.fn(),
+  createAgentTerminal: vi.fn(),
+  deleteAgentTerminal: vi.fn(),
 }));
 
 import * as ipc from "$lib/ipc/projects";
@@ -16,7 +18,8 @@ import { createProjectStore } from "./projects.svelte";
 const sampleProject = {
   id: "p1", name: "proj", path: "/tmp/p", createdAt: 1, updatedAt: 1,
   agents: [{ id: "a1", projectId: "p1", title: "t", kind: "codex" as const,
-    command: "codex", branch: "b", worktreePath: "/tmp/w", worktreeManaged: false }],
+    command: "codex", branch: "b", worktreePath: "/tmp/w", worktreeManaged: false,
+    terminals: [{ id: "t1", agentId: "a1", title: "", kind: "codex", command: "codex", position: 0, createdAt: 1 }] }],
 };
 
 describe("projectStore", () => {
@@ -69,6 +72,32 @@ describe("projectStore", () => {
     expect(created).toEqual(defaultAgent);
     expect(store.projects[0].agents).toHaveLength(1);
     expect(store.projects[0].agents[0].title).toBe("feature/root");
+  });
+
+  it("addTerminal()가 IPC로 만든 터미널을 워크스페이스에 붙인다", async () => {
+    const term = { id: "t2", agentId: "a1", title: "", kind: "terminal", command: "", position: 1, createdAt: 2 };
+    (ipc.listProjects as any).mockResolvedValue([sampleProject]);
+    (ipc.createAgentTerminal as any).mockResolvedValue(term);
+    const store = createProjectStore();
+    await store.load();
+
+    const created = await store.addTerminal("a1", "terminal", "", "");
+
+    expect(ipc.createAgentTerminal).toHaveBeenCalledWith("a1", "terminal", "", "");
+    expect(created).toEqual(term);
+    expect(store.projects[0].agents[0].terminals?.map((t) => t.id)).toEqual(["t1", "t2"]);
+  });
+
+  it("removeTerminal()가 해당 터미널만 목록에서 제거한다", async () => {
+    (ipc.listProjects as any).mockResolvedValue([sampleProject]);
+    (ipc.deleteAgentTerminal as any).mockResolvedValue(undefined);
+    const store = createProjectStore();
+    await store.load();
+
+    await store.removeTerminal("a1", "t1");
+
+    expect(ipc.deleteAgentTerminal).toHaveBeenCalledWith("t1");
+    expect(store.projects[0].agents[0].terminals).toHaveLength(0);
   });
 
 });

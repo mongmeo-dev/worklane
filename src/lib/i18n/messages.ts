@@ -335,10 +335,6 @@ export const en = {
   "agentDialog.command": "Run command",
   "agentDialog.commandOptional": "Run command (optional)",
   "agentDialog.commandPlaceholderShell": "Leave blank to open the default shell",
-  "agentDialog.worktreeNew": "Create new worktree",
-  "agentDialog.worktreeShare": "Share {branch}",
-  "agentDialog.worktreeExisting": "existing worktree",
-  "agentDialog.sharedNote": "Uses the same physical worktree as the selected agent.",
   "agentDialog.branch": "Branch",
   "agentDialog.branchPlaceholder": "e.g. feat/login",
   "agentDialog.startPoint": "Branch point (start-point)",
@@ -384,6 +380,8 @@ export const en = {
   "agentDetail.goTerminal": "Go to terminal",
   "agentDetail.terminal": "Terminal",
   "agentDetail.closeFileTab": "Close file tab",
+  "agentDetail.newTerminal": "New terminal",
+  "agentDetail.closeTerminal": "Close terminal",
   "agentDetail.preview": "Preview",
 
   // 파일 뷰어
@@ -763,10 +761,6 @@ export const ko: Record<MessageKey, string> = {
   "agentDialog.command": "실행 커맨드",
   "agentDialog.commandOptional": "실행 커맨드 (선택)",
   "agentDialog.commandPlaceholderShell": "비우면 기본 셸이 열립니다",
-  "agentDialog.worktreeNew": "새 worktree 만들기",
-  "agentDialog.worktreeShare": "{branch} 공유",
-  "agentDialog.worktreeExisting": "기존 worktree",
-  "agentDialog.sharedNote": "선택한 에이전트와 동일한 물리적 worktree를 사용합니다.",
   "agentDialog.branch": "브랜치",
   "agentDialog.branchPlaceholder": "예: feat/login",
   "agentDialog.startPoint": "분기 기준(start-point)",
@@ -810,6 +804,8 @@ export const ko: Record<MessageKey, string> = {
   "agentDetail.goTerminal": "터미널로 이동",
   "agentDetail.terminal": "터미널",
   "agentDetail.closeFileTab": "파일 탭 닫기",
+  "agentDetail.newTerminal": "새 터미널",
+  "agentDetail.closeTerminal": "터미널 닫기",
   "agentDetail.preview": "프리뷰",
 
   // 파일 뷰어

@@ -21,7 +21,6 @@
   let branch = $state("");
   let startPoint = $state("main");
   let worktreePath = $state("");
-  let worktreeMode = $state("new");
   let error = $state("");
 
   // kind 변경 시 command를 해당 기본값으로 자동 채움 (사용자가 이후 수정 가능).
@@ -33,8 +32,7 @@
   async function submit() {
     error = "";
     try {
-      const sharedAgent = project.agents.find((agent) => agent.id === worktreeMode);
-      const effectiveBranch = sharedAgent?.branch ?? branch.trim();
+      const effectiveBranch = branch.trim();
       const agent = await projectStore.addAgent({
         projectId: project.id,
         projectPath: project.path,
@@ -42,13 +40,12 @@
         kind,
         command: command.trim(),
         branch: effectiveBranch,
-        startPoint: sharedAgent?.branch ?? startPoint.trim(),
-        shareWorktree: Boolean(sharedAgent),
-        worktreePath: sharedAgent?.worktreePath ?? (worktreePath.trim() || undefined),
+        startPoint: startPoint.trim(),
+        worktreePath: worktreePath.trim() || undefined,
       });
       shell.selectAgent(agent.id);
       open = false;
-      title = ""; branch = ""; worktreePath = ""; worktreeMode = "new";
+      title = ""; branch = ""; worktreePath = "";
     } catch (e) {
       error = String(e);
     }
@@ -81,36 +78,23 @@
         <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : t("agentDialog.commandPlaceholderShell")} />
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label>worktree</Label>
-        <Select.Root type="single" value={worktreeMode} onValueChange={(value) => (worktreeMode = value)}>
-          <Select.Trigger>{worktreeMode === "new" ? t("agentDialog.worktreeNew") : t("agentDialog.worktreeShare", { branch: project.agents.find((agent) => agent.id === worktreeMode)?.branch ?? t("agentDialog.worktreeExisting") })}</Select.Trigger>
-          <Select.Content>
-            <Select.Item value="new">{t("agentDialog.worktreeNew")}</Select.Item>
-            {#each project.agents as existing (existing.id)}
-              <Select.Item value={existing.id}>{existing.branch} · {existing.title}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-        {#if worktreeMode !== "new"}<p class="text-[10px] text-accent-share">{t("agentDialog.sharedNote")}</p>{/if}
-      </div>
-      <div class="flex flex-col gap-1.5">
         <Label for="ag-branch">{t("agentDialog.branch")}</Label>
-        <Input id="ag-branch" bind:value={branch} placeholder={t("agentDialog.branchPlaceholder")} disabled={worktreeMode !== "new"} />
+        <Input id="ag-branch" bind:value={branch} placeholder={t("agentDialog.branchPlaceholder")} />
       </div>
       <div class="flex flex-col gap-1.5">
         <Label for="ag-start">{t("agentDialog.startPoint")}</Label>
-        <Input id="ag-start" bind:value={startPoint} placeholder={t("agentDialog.startPlaceholder")} disabled={worktreeMode !== "new"} />
+        <Input id="ag-start" bind:value={startPoint} placeholder={t("agentDialog.startPlaceholder")} />
       </div>
       <div class="flex flex-col gap-1.5">
         <Label for="ag-wt">{t("agentDialog.worktreePath")}</Label>
-        <Input id="ag-wt" bind:value={worktreePath} placeholder={t("agentDialog.worktreePathPlaceholder")} disabled={worktreeMode !== "new"} />
+        <Input id="ag-wt" bind:value={worktreePath} placeholder={t("agentDialog.worktreePathPlaceholder")} />
       </div>
       {#if error}
         <p class="text-xs text-destructive">{error}</p>
       {/if}
     </div>
     <Dialog.Footer>
-      <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint, worktreeMode })}>
+      <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint })}>
         {t("common.add")}
       </Button>
     </Dialog.Footer>

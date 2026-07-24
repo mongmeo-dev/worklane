@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Agent, Project } from "$lib/types";
   import type { OverviewFilter } from "$lib/stores/shell.svelte";
-  import { allAgents } from "$lib/shell/derived";
+  import { allAgents, representativeTerminalId } from "$lib/shell/derived";
   import { shell } from "$lib/stores/shell.svelte";
   import { sessionStatus } from "$lib/stores/sessions.svelte";
   import { terminalPool } from "$lib/terminal/pool";
@@ -122,7 +122,7 @@
       <div class="grid min-h-full auto-rows-[minmax(210px,1fr)] grid-cols-[repeat(auto-fit,minmax(245px,1fr))] gap-[13px]">
         {#each shownAgents as agent (agent.id)}
           {@const status = agent.status ?? "idle"}
-          {@const tail = previewOf(agent.id)}
+          {@const tail = previewOf(representativeTerminalId(agent))}
           <div
             class="flex min-h-[210px] cursor-pointer flex-col overflow-hidden rounded-xl border bg-tile p-3 transition-[transform,border-color,opacity] hover:-translate-y-0.5 hover:border-ring {tileClass(agent)}"
             onclick={() => shell.selectAgent(agent.id)}
@@ -133,14 +133,14 @@
             <div class="flex items-center gap-2">
               <StatusDot {status} size={7} />
               <h2 class="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{agent.title}</h2>
-              <span class="font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">{agentKindStore.labelOf(agent.kind)}</span>
+              <span class="font-mono text-[9.5px] font-medium uppercase tracking-wide text-muted-foreground">{agentKindStore.labelOf(agent.terminals?.[0]?.kind ?? agent.kind)}</span>
             </div>
             <div class="mt-1.5 flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground/70">
               <GitBranch class="size-3" />
               <span class="truncate">{agent.branch}</span>
             </div>
             <div class="mt-3 flex min-h-0 flex-1 items-end overflow-hidden rounded-lg border border-white/5 bg-terminal p-3 font-mono text-[10.5px] leading-[1.65] text-white/70">
-              <pre class="max-h-full w-full whitespace-pre-wrap">{tail || `$ ${agent.command}\n${t("overview.previewPlaceholder")}`}</pre>
+              <pre class="max-h-full w-full whitespace-pre-wrap">{tail || `$ ${agent.terminals?.[0]?.command ?? agent.command}\n${t("overview.previewPlaceholder")}`}</pre>
             </div>
             <footer class="mt-2.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
               {#if status === "blocked"}

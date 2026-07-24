@@ -37,3 +37,8 @@ export function resizePty(sessionId: string, rows: number, cols: number): Promis
 export function closeSession(sessionId: string): Promise<void> {
   return invoke("close_session", { sessionId });
 }
+
+/** 세션 프로세스 트리에서 실행 중인 CLI 이름 토큰을 수집한다(어떤 에이전트가 도는지 감지용). */
+export function detectSessionProcesses(sessionId: string): Promise<string[]> {
+  return invoke<string[]>("detect_session_processes", { sessionId });
+}

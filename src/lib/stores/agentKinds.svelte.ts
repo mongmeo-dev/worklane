@@ -33,6 +33,14 @@ function slugifyKindId(label: string): string {
   return base || `custom-${Date.now().toString(36)}`;
 }
 
+/** 실행 커맨드에서 감지에 쓸 프로세스 토큰을 뽑는다. 첫 토큰의 basename을 소문자로.
+ * 예: "codex --model o3" → "codex", "/usr/bin/claude" → "claude". */
+export function firstCommandToken(command: string): string {
+  const first = command.trim().split(/\s+/)[0] ?? "";
+  const base = first.split(/[/\\]/).pop() ?? first;
+  return base.toLowerCase();
+}
+
 function isAgentKindDef(v: unknown): v is AgentKindDef {
   if (typeof v !== "object" || v === null) return false;
   const o = v as Record<string, unknown>;
@@ -77,6 +85,18 @@ class AgentKindStore {
   defaultCommandOf(id: string): string {
     if (id === BLANK_TERMINAL_KIND) return "";
     return this.#kinds.find((k) => k.id === id)?.defaultCommand ?? "";
+  }
+
+  /** 세션 프로세스 트리에서 수집한 토큰으로 실제 실행 중인 에이전트 종류를 찾는다.
+   * 빈 터미널에서 사용자가 직접 `claude`를 띄운 경우도 감지된다. 없으면 null. */
+  detectKind(processTokens: string[]): string | null {
+    if (processTokens.length === 0) return null;
+    const present = new Set(processTokens.map((t) => t.toLowerCase()));
+    for (const kind of this.#kinds) {
+      const token = firstCommandToken(kind.defaultCommand);
+      if (token && present.has(token)) return kind.id;
+    }
+    return null;
   }
 
   /** 새 종류 추가. id는 label에서 파생하며 중복 시 접미사를 붙인다. */

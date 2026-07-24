@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Project } from "$lib/types";
-import { hasDefaultWorkspace, statusCounts, worktreeGroups } from "./derived";
+import type { Agent, Project } from "$lib/types";
+import {
+  aggregateStatus,
+  hasDefaultWorkspace,
+  representativeTerminalId,
+  statusCounts,
+  worktreeGroups,
+} from "./derived";
 
 const project: Project = {
   id: "project-1",
@@ -37,6 +43,27 @@ describe("shell 파생 데이터", () => {
       ],
     };
     expect(hasDefaultWorkspace(withDefault)).toBe(true);
+  });
+
+  it("워크스페이스 상태는 터미널 상태를 우선순위로 합친다", () => {
+    expect(aggregateStatus(["idle", "running", "blocked"])).toBe("blocked");
+    expect(aggregateStatus(["idle", "running", "done"])).toBe("running");
+    expect(aggregateStatus(["done", "idle"])).toBe("idle");
+    expect(aggregateStatus(["done", "done"])).toBe("done");
+    expect(aggregateStatus([undefined, undefined])).toBe("idle");
+    expect(aggregateStatus([])).toBe("idle");
+  });
+
+  it("대표 세션 id는 첫 터미널을 쓰고 없으면 워크스페이스 id로 폴백한다", () => {
+    const withTerminals = {
+      ...project.agents[0],
+      terminals: [
+        { id: "t1", agentId: "a1", title: "", kind: "codex", command: "codex", position: 0, createdAt: 1 },
+        { id: "t2", agentId: "a1", title: "", kind: "terminal", command: "", position: 1, createdAt: 2 },
+      ],
+    } satisfies Agent;
+    expect(representativeTerminalId(withTerminals)).toBe("t1");
+    expect(representativeTerminalId(project.agents[0])).toBe("a1");
   });
 
 });

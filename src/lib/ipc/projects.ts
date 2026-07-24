@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AgentKind, Agent, Project } from "$lib/types";
+import type { AgentKind, Agent, AgentTerminal, Project } from "$lib/types";
 
 export function listProjects(): Promise<Project[]> {
   return invoke<Project[]>("list_projects");
@@ -64,4 +64,19 @@ export function deleteAgent(id: string, removeWorktree: boolean, force: boolean)
 
 export function agentWorktreeHasChanges(id: string): Promise<boolean> {
   return invoke<boolean>("agent_worktree_has_changes", { id });
+}
+
+/** 워크스페이스에 새 터미널 탭을 추가한다. */
+export function createAgentTerminal(
+  agentId: string,
+  kind: AgentKind,
+  command: string,
+  title: string,
+): Promise<AgentTerminal> {
+  return invoke<AgentTerminal>("create_agent_terminal", { agentId, kind, command, title });
+}
+
+/** 워크스페이스의 터미널 탭을 삭제한다. */
+export function deleteAgentTerminal(id: string): Promise<void> {
+  return invoke("delete_agent_terminal", { id });
 }

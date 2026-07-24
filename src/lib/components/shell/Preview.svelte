@@ -11,7 +11,9 @@
   import { t } from "$lib/i18n";
 
   // AgentDetail이 {#key agent.id}로 감싸 에이전트별로 재마운트한다.
-  let { agent }: { agent: Agent } = $props();
+  // AgentDetail이 {#key agent.id}로 감싸 에이전트별로 재마운트한다.
+  // sessionId는 포트를 감지할 활성 터미널 세션이다(미지정 시 워크스페이스 id로 폴백).
+  let { agent, sessionId }: { agent: Agent; sessionId?: string } = $props();
 
   let url = $state(untrack(() => previewStore.get(agent.id)));
   let frameKey = $state(0);
@@ -38,7 +40,7 @@
   async function detect() {
     detecting = true;
     try {
-      ports = await detectPreviewPorts(agent.id);
+      ports = await detectPreviewPorts(sessionId ?? agent.id);
       portsOpen = true;
     } catch {
       ports = [];

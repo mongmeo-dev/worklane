@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { firstCommandToken } from "./agentKinds.svelte";
 
 const STORAGE_KEY = "settings:agent-kinds";
 
@@ -158,5 +159,29 @@ describe("agentKinds store", () => {
     const store = await freshStore();
     store.init();
     expect(store.cliKindIds).toEqual(["claude-code", "codex", "cursor", "gemini", "gajae-code"]);
+  });
+});
+
+describe("firstCommandToken", () => {
+  it("첫 토큰의 basename을 소문자로 뽑는다", () => {
+    expect(firstCommandToken("codex --model o3")).toBe("codex");
+    expect(firstCommandToken("/usr/bin/claude")).toBe("claude");
+    expect(firstCommandToken("  claude  ")).toBe("claude");
+    expect(firstCommandToken("")).toBe("");
+  });
+});
+
+describe("agentKindStore.detectKind", () => {
+  it("프로세스 토큰이 종류의 실행 커맨드와 맞으면 그 종류를 감지한다", async () => {
+    const store = await freshStore();
+    // 기본 제공 종류(claude-code→claude, codex→codex)가 감지 대상.
+    expect(store.detectKind(["zsh", "node", "claude"])).toBe("claude-code");
+    expect(store.detectKind(["zsh", "codex"])).toBe("codex");
+  });
+
+  it("맞는 커맨드가 없으면 null을 반환한다", async () => {
+    const store = await freshStore();
+    expect(store.detectKind(["zsh", "vim"])).toBeNull();
+    expect(store.detectKind([])).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use sysinfo::System;
+use sysinfo::{Pid, System};
 
 /// root pid의 자손(자기 자신 포함) pid 집합을 만든다.
 pub fn descendant_pids(root: u32) -> HashSet<u32> {
@@ -21,6 +21,41 @@ pub fn descendant_pids(root: u32) -> HashSet<u32> {
         }
     }
     set
+}
+
+/// 토큰을 소문자 basename으로 정규화해 중복 없이 추가한다.
+fn push_token(tokens: &mut Vec<String>, seen: &mut HashSet<String>, raw: &str) {
+    let token = raw.trim().to_lowercase();
+    if token.is_empty() {
+        return;
+    }
+    if seen.insert(token.clone()) {
+        tokens.push(token);
+    }
+}
+
+/// 세션 프로세스 트리(자기 자신 포함)에서 실행 파일/커맨드 토큰을 수집한다.
+/// tmux 등 멀티플렉서를 뚫고 실제로 어떤 CLI 에이전트가 도는지 감지하는 데 쓴다.
+pub fn descendant_process_tokens(root: u32) -> Vec<String> {
+    let pids = descendant_pids(root);
+    let system = System::new_all();
+    let mut tokens: Vec<String> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for pid in pids {
+        let Some(process) = system.process(Pid::from_u32(pid)) else {
+            continue;
+        };
+        push_token(&mut tokens, &mut seen, &process.name().to_string_lossy());
+        if let Some(name) = process.exe().and_then(|p| p.file_name()) {
+            push_token(&mut tokens, &mut seen, &name.to_string_lossy());
+        }
+        for arg in process.cmd() {
+            let arg = arg.to_string_lossy();
+            let base = arg.rsplit(['/', '\\']).next().unwrap_or(arg.as_ref());
+            push_token(&mut tokens, &mut seen, base);
+        }
+    }
+    tokens
 }
 
 /// lsof name 필드("*:5173", "127.0.0.1:5173", "[::1]:5173")에서 포트를 뽑는다.

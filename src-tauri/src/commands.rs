@@ -4,7 +4,7 @@ use tauri::ipc::Channel;
 use tauri::Manager;
 
 use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, Checkpoint, Event, Playbook, Project, Prompt, Task}, StoreState};
+use crate::store::{self, models::{Agent, AgentTerminal, Checkpoint, Event, Playbook, Project, Prompt, Task}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
 
@@ -782,36 +782,96 @@ pub fn create_agent(
 
     // 2) DB insert. 새로 만든 worktree만 실패 시 롤백하며, 재사용 경로는 건드리지 않는다.
     let now = now_ms() as i64;
-    let agent = Agent {
+    let mut agent = Agent {
         id: uuid::Uuid::new_v4().to_string(),
         project_id,
         title,
-        kind,
-        command,
+        kind: kind.clone(),
+        command: command.clone(),
         branch,
         worktree_path: created.clone(),
         worktree_managed: managed,
         group_id,
         prompt,
+        terminals: Vec::new(),
         created_at: now,
         updated_at: now,
     };
-    let inserted = match store.0.lock() {
-        Ok(conn) => store::repo::insert_agent(&conn, &agent),
+
+    // 에이전트와 첫 터미널을 한 트랜잭션으로 저장한다. 새로 만든 worktree만 실패 시 롤백한다.
+    let seeded = (|| -> Result<AgentTerminal, String> {
+        let mut conn = store.0.lock().map_err(|e| e.to_string())?;
+        let tx = conn.transaction().map_err(|e| e.to_string())?;
+        store::repo::insert_agent(&tx, &agent).map_err(|e| e.to_string())?;
+        let terminal = store::repo::insert_terminal(&tx, &agent.id, "", &kind, &command, now)
+            .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+        Ok(terminal)
+    })();
+    let terminal = match seeded {
+        Ok(terminal) => terminal,
         Err(error) => {
             if created_new {
                 let _ = git::remove_worktree(&project_path, &created, true);
             }
-            return Err(error.to_string());
+            return Err(error);
         }
     };
-    if let Err(e) = inserted {
-        if created_new {
-            let _ = git::remove_worktree(&project_path, &created, true);
-        }
-        return Err(e.to_string());
-    }
+    agent.terminals = vec![terminal];
     Ok(agent)
+}
+
+/// 워크스페이스에 새 터미널 탭을 추가한다(빈 터미널이면 실행 커맨드가 없어도 된다).
+#[tauri::command]
+pub fn create_agent_terminal(
+    store: tauri::State<'_, StoreState>,
+    agent_id: String,
+    kind: String,
+    command: String,
+    title: String,
+) -> Result<AgentTerminal, String> {
+    if command_required(&kind) && command.trim().is_empty() {
+        return Err("에이전트 종류와 실행 명령을 확인해 주세요.".into());
+    }
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::insert_terminal(
+        &conn,
+        &agent_id,
+        title.trim(),
+        kind.trim(),
+        command.trim(),
+        now_ms() as i64,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// 워크스페이스의 터미널 탭을 삭제한다.
+#[tauri::command]
+pub fn delete_agent_terminal(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+) -> Result<(), String> {
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_terminal(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// 세션 프로세스 트리에서 실행 중인 CLI 이름 토큰을 수집한다(어떤 에이전트가 도는지 감지용).
+#[tauri::command]
+pub async fn detect_session_processes(
+    state: tauri::State<'_, PtyState>,
+    session_id: String,
+) -> Result<Vec<String>, String> {
+    let session = state.0.get(&session_id).map(|r| r.value().clone());
+    let Some(session) = session else {
+        return Ok(Vec::new());
+    };
+    let pid = session.child.lock().map_err(|e| e.to_string())?.process_id();
+    let Some(pid) = pid else {
+        return Ok(Vec::new());
+    };
+    tauri::async_runtime::spawn_blocking(move || crate::ports::descendant_process_tokens(pid))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -910,6 +970,7 @@ mod shared_worktree_tests {
                 prompt: None,
                 created_at: 1,
                 updated_at: 1,
+                terminals: Vec::new(),
             },
         )
         .unwrap();

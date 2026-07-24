@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, Checkpoint, Event, Playbook, Project, Prompt, Task};
+use crate::store::models::{Agent, AgentTerminal, Checkpoint, Event, Playbook, Project, Prompt, Task};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -106,6 +106,25 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             PRAGMA user_version = 7;",
         )?;
     }
+    if version < 8 {
+        // 워크스페이스(=worktree) 안에서 크롬 탭처럼 여는 터미널 세션 목록.
+        // 주 터미널 개념이 없으므로 기존 에이전트도 첫 터미널로 시드한다.
+        conn.execute_batch(
+            "CREATE TABLE agent_terminals (
+                id TEXT PRIMARY KEY,
+                agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                command TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                created_at INTEGER NOT NULL
+            );
+            CREATE INDEX idx_agent_terminals_agent ON agent_terminals(agent_id, position);
+            INSERT INTO agent_terminals (id, agent_id, title, kind, command, position, created_at)
+                SELECT lower(hex(randomblob(16))), id, '', kind, command, 0, created_at FROM agents;
+            PRAGMA user_version = 8;",
+        )?;
+    }
     Ok(())
 }
 
@@ -123,6 +142,7 @@ fn row_to_agent(row: &rusqlite::Row) -> rusqlite::Result<Agent> {
         prompt: row.get("prompt")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
+        terminals: Vec::new(),
     })
 }
 
@@ -148,11 +168,21 @@ pub fn list_projects(conn: &Connection) -> rusqlite::Result<Vec<Project>> {
                 worktree_managed, group_id, prompt, created_at, updated_at
          FROM agents WHERE project_id = ?1 ORDER BY created_at",
     )?;
+    let mut tstmt = conn.prepare(
+        "SELECT id, agent_id, title, kind, command, position, created_at
+         FROM agent_terminals WHERE agent_id = ?1 ORDER BY position, created_at",
+    )?;
     let mut result = Vec::with_capacity(projects.len());
     for mut p in projects {
-        p.agents = astmt
+        let mut agents: Vec<Agent> = astmt
             .query_map(params![p.id], row_to_agent)?
             .collect::<rusqlite::Result<_>>()?;
+        for agent in agents.iter_mut() {
+            agent.terminals = tstmt
+                .query_map(params![agent.id], row_to_terminal)?
+                .collect::<rusqlite::Result<_>>()?;
+        }
+        p.agents = agents;
         result.push(p);
     }
     Ok(result)
@@ -193,6 +223,7 @@ fn build_default_agent(
         prompt: None,
         created_at: now,
         updated_at: now,
+        terminals: Vec::new(),
     }
 }
 
@@ -207,8 +238,10 @@ pub fn insert_project_with_default_agent(
 ) -> rusqlite::Result<Project> {
     let transaction = conn.transaction()?;
     let mut project = insert_project(&transaction, name, path, now)?;
-    let agent = build_default_agent(&project.id, kind, command, branch, path, now);
+    let mut agent = build_default_agent(&project.id, kind, command, branch, path, now);
     insert_agent(&transaction, &agent)?;
+    let terminal = insert_terminal(&transaction, &agent.id, "", kind, command, now)?;
+    agent.terminals = vec![terminal];
     transaction.commit()?;
     project.agents.push(agent);
     Ok(project)
@@ -224,8 +257,10 @@ pub fn insert_default_agent(
     path: &str,
     now: i64,
 ) -> rusqlite::Result<Agent> {
-    let agent = build_default_agent(project_id, kind, command, branch, path, now);
+    let mut agent = build_default_agent(project_id, kind, command, branch, path, now);
     insert_agent(conn, &agent)?;
+    let terminal = insert_terminal(conn, &agent.id, "", kind, command, now)?;
+    agent.terminals = vec![terminal];
     Ok(agent)
 }
 
@@ -315,6 +350,54 @@ pub fn delete_agent_with_worktree_transfer(
 
 pub fn delete_agent(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM agents WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+fn row_to_terminal(row: &rusqlite::Row) -> rusqlite::Result<AgentTerminal> {
+    Ok(AgentTerminal {
+        id: row.get("id")?,
+        agent_id: row.get("agent_id")?,
+        title: row.get("title")?,
+        kind: row.get("kind")?,
+        command: row.get("command")?,
+        position: row.get("position")?,
+        created_at: row.get("created_at")?,
+    })
+}
+
+/// 워크스페이스 맨 끝에 새 터미널 탭을 추가한다. position은 기존 최대+1.
+pub fn insert_terminal(
+    conn: &Connection,
+    agent_id: &str,
+    title: &str,
+    kind: &str,
+    command: &str,
+    now: i64,
+) -> rusqlite::Result<AgentTerminal> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position), -1) + 1 FROM agent_terminals WHERE agent_id = ?1",
+        params![agent_id],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO agent_terminals (id, agent_id, title, kind, command, position, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        params![id, agent_id, title, kind, command, position, now],
+    )?;
+    Ok(AgentTerminal {
+        id,
+        agent_id: agent_id.into(),
+        title: title.into(),
+        kind: kind.into(),
+        command: command.into(),
+        position,
+        created_at: now,
+    })
+}
+
+pub fn delete_terminal(conn: &Connection, id: &str) -> rusqlite::Result<()> {
+    conn.execute("DELETE FROM agent_terminals WHERE id = ?1", params![id])?;
     Ok(())
 }
 
@@ -695,6 +778,7 @@ mod tests {
             prompt: None,
             created_at: 1,
             updated_at: 1,
+            terminals: Vec::new(),
         }
     }
 
@@ -730,6 +814,31 @@ mod tests {
         assert_eq!(agent.branch, "feature/default-workspace");
         assert_eq!(agent.worktree_path, "/tmp/proj");
         assert!(!agent.worktree_managed);
+    }
+
+    #[test]
+    fn 기본_작업환경은_첫_터미널을_시드하고_추가삭제된다() {
+        let mut conn = mem();
+        let project =
+            insert_project_with_default_agent(&mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 10)
+                .unwrap();
+        let agent_id = project.agents[0].id.clone();
+
+        // 생성 시 첫 터미널이 kind/command로 시드된다.
+        assert_eq!(project.agents[0].terminals.len(), 1);
+        assert_eq!(project.agents[0].terminals[0].kind, "codex");
+        assert_eq!(project.agents[0].terminals[0].position, 0);
+
+        // 탭 추가: position이 증가하고 list_projects가 순서대로 로드한다.
+        let second = insert_terminal(&conn, &agent_id, "", "terminal", "", 11).unwrap();
+        assert_eq!(second.position, 1);
+        let loaded = list_projects(&conn).unwrap();
+        assert_eq!(loaded[0].agents[0].terminals.len(), 2);
+
+        // 탭 삭제: 남은 터미널만 로드된다.
+        delete_terminal(&conn, &second.id).unwrap();
+        let loaded = list_projects(&conn).unwrap();
+        assert_eq!(loaded[0].agents[0].terminals.len(), 1);
     }
 
     #[test]
