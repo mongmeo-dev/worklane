@@ -5,7 +5,14 @@ export const agentKindLabels: Record<AgentKind, string> = {
   codex: "Codex",
   cursor: "Cursor",
   gemini: "Gemini",
+  terminal: "빈 터미널",
 };
+
+/** 특정 CLI 에이전트 없이 기본 셸만 여는 "빈 터미널" 워크스페이스 종류. */
+export const BLANK_TERMINAL_KIND = "terminal" satisfies AgentKind;
+
+/** 실제 CLI 코딩 에이전트 종류(빈 터미널 제외). 팬아웃·기본 커맨드 등 에이전트 전용 화면에서 사용. */
+export const cliAgentKinds: AgentKind[] = ["claude-code", "codex", "cursor", "gemini"];
 
 export const statusLabels: Record<AgentStatus, string> = {
   running: "실행 중",
@@ -20,4 +27,5 @@ export const agentKindDefaults: Record<AgentKind, string> = {
   codex: "codex",
   cursor: "cursor-agent",
   gemini: "gemini",
+  terminal: "",
 };

@@ -8,6 +8,7 @@
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
   import { agentKindLabels, agentKindDefaults } from "$lib/data/labels";
+  import { canCreateWorkspace, requiresCommand } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
@@ -72,8 +73,8 @@
         </Select.Root>
       </div>
       <div class="flex flex-col gap-1.5">
-        <Label for="ag-cmd">실행 커맨드</Label>
-        <Input id="ag-cmd" bind:value={command} />
+        <Label for="ag-cmd">실행 커맨드{requiresCommand(kind) ? "" : " (선택)"}</Label>
+        <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : "비우면 기본 셸이 열립니다"} />
       </div>
       <div class="flex flex-col gap-1.5">
         <Label>worktree</Label>
@@ -105,7 +106,7 @@
       {/if}
     </div>
     <Dialog.Footer>
-      <Button onclick={submit} disabled={!title.trim() || (worktreeMode === "new" && (!branch.trim() || !startPoint.trim())) || !command.trim()}>
+      <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint, worktreeMode })}>
         추가
       </Button>
     </Dialog.Footer>

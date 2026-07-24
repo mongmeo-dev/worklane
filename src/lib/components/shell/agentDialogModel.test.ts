@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import { canCreateWorkspace, requiresCommand, type WorkspaceFormInput } from "./agentDialogModel";
+
+const base: WorkspaceFormInput = {
+  title: "로그인 리팩터링",
+  kind: "claude-code",
+  command: "claude",
+  branch: "feat/login",
+  startPoint: "main",
+  worktreeMode: "new",
+};
+
+describe("requiresCommand", () => {
+  it("CLI 에이전트 종류는 실행 커맨드가 필요하다", () => {
+    expect(requiresCommand("claude-code")).toBe(true);
+    expect(requiresCommand("codex")).toBe(true);
+  });
+
+  it("빈 터미널은 실행 커맨드가 필요 없다", () => {
+    expect(requiresCommand("terminal")).toBe(false);
+  });
+});
+
+describe("canCreateWorkspace", () => {
+  it("모든 필수값이 있으면 제출 가능하다", () => {
+    expect(canCreateWorkspace(base)).toBe(true);
+  });
+
+  it("작업 이름이 비면 제출할 수 없다", () => {
+    expect(canCreateWorkspace({ ...base, title: "   " })).toBe(false);
+  });
+
+  it("빈 터미널은 실행 커맨드가 비어도 제출할 수 있다", () => {
+    expect(canCreateWorkspace({ ...base, kind: "terminal", command: "" })).toBe(true);
+  });
+
+  it("CLI 에이전트는 실행 커맨드가 비면 제출할 수 없다", () => {
+    expect(canCreateWorkspace({ ...base, command: "" })).toBe(false);
+  });
+
+  it("새 worktree는 브랜치와 분기 기준이 모두 필요하다", () => {
+    expect(canCreateWorkspace({ ...base, branch: "" })).toBe(false);
+    expect(canCreateWorkspace({ ...base, startPoint: "" })).toBe(false);
+  });
+
+  it("worktree를 공유하면 브랜치·분기 기준이 없어도 제출할 수 있다", () => {
+    expect(
+      canCreateWorkspace({ ...base, worktreeMode: "agent-1", branch: "", startPoint: "" }),
+    ).toBe(true);
+  });
+
+  it("빈 터미널로 worktree를 공유하면 이름만으로 제출할 수 있다", () => {
+    expect(
+      canCreateWorkspace({
+        ...base,
+        kind: "terminal",
+        command: "",
+        worktreeMode: "agent-1",
+        branch: "",
+        startPoint: "",
+      }),
+    ).toBe(true);
+  });
+});

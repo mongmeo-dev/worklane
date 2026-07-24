@@ -9,7 +9,7 @@
   import { open as openDialog } from "@tauri-apps/plugin-dialog";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
-  import { agentKindDefaults, agentKindLabels } from "$lib/data/labels";
+  import { agentKindDefaults, agentKindLabels, cliAgentKinds } from "$lib/data/labels";
   import type { AgentKind } from "$lib/types";
 
   let { open = $bindable(false) }: { open?: boolean } = $props();
@@ -72,8 +72,8 @@
         >
           <Select.Trigger>{agentKindLabels[kind]}</Select.Trigger>
           <Select.Content>
-            {#each Object.keys(agentKindLabels) as value (value)}
-              <Select.Item value={value}>{agentKindLabels[value as AgentKind]}</Select.Item>
+            {#each cliAgentKinds as value (value)}
+              <Select.Item value={value}>{agentKindLabels[value]}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>

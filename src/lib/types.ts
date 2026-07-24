@@ -1,8 +1,8 @@
 /** 에이전트의 실행 상태. 3계층 하이브리드 트래킹으로 판별되는 값이다. */
 export type AgentStatus = "running" | "idle" | "blocked" | "done";
 
-/** 지원하는 CLI 코딩 에이전트 종류. */
-export type AgentKind = "claude-code" | "codex" | "cursor" | "gemini";
+/** 지원하는 CLI 코딩 에이전트 종류. "terminal"은 특정 에이전트 없이 기본 셸만 여는 빈 터미널. */
+export type AgentKind = "claude-code" | "codex" | "cursor" | "gemini" | "terminal";
 
 export interface Agent {
   id: string;

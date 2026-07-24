@@ -5,7 +5,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
-  import { agentKindDefaults, agentKindLabels } from "$lib/data/labels";
+  import { agentKindDefaults, agentKindLabels, cliAgentKinds } from "$lib/data/labels";
   import { fanoutBranch } from "$lib/fanout/model";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
@@ -54,7 +54,7 @@
     command: string;
   }
 
-  const kinds = Object.keys(agentKindLabels) as AgentKind[];
+  const kinds = cliAgentKinds;
   let title = $state("");
   let prompt = $state("");
   let startPoint = $state("main");

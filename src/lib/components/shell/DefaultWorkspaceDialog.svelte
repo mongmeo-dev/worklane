@@ -7,7 +7,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
-  import { agentKindLabels, agentKindDefaults } from "$lib/data/labels";
+  import { agentKindLabels, agentKindDefaults, cliAgentKinds } from "$lib/data/labels";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
 
@@ -52,8 +52,8 @@
         <Select.Root type="single" value={kind} onValueChange={onKindChange}>
           <Select.Trigger>{agentKindLabels[kind]}</Select.Trigger>
           <Select.Content>
-            {#each Object.keys(agentKindLabels) as k (k)}
-              <Select.Item value={k}>{agentKindLabels[k as AgentKind]}</Select.Item>
+            {#each cliAgentKinds as k (k)}
+              <Select.Item value={k}>{agentKindLabels[k]}</Select.Item>
             {/each}
           </Select.Content>
         </Select.Root>

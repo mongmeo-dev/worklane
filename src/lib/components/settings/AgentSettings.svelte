@@ -1,10 +1,9 @@
 <script lang="ts">
-  import type { AgentKind } from "$lib/types";
-  import { agentKindDefaults, agentKindLabels } from "$lib/data/labels";
+  import { agentKindDefaults, agentKindLabels, cliAgentKinds } from "$lib/data/labels";
   import Terminal from "@lucide/svelte/icons/terminal";
   import { autoCheckpoint } from "$lib/stores/autoCheckpoint.svelte";
 
-  const kinds = Object.keys(agentKindLabels) as AgentKind[];
+  const kinds = cliAgentKinds;
 </script>
 
 <div class="flex flex-col gap-5">
