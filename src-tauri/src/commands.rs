@@ -162,6 +162,25 @@ pub async fn run_verification(
         .map_err(|e| e.to_string())?
 }
 
+/// 에이전트 세션 프로세스 트리가 여는 LISTEN 포트를 감지한다(프리뷰 자동 연결용).
+#[tauri::command]
+pub async fn detect_preview_ports(
+    state: tauri::State<'_, PtyState>,
+    session_id: String,
+) -> Result<Vec<u16>, String> {
+    let session = state.0.get(&session_id).map(|r| r.value().clone());
+    let Some(session) = session else {
+        return Ok(Vec::new());
+    };
+    let pid = session.child.lock().map_err(|e| e.to_string())?.process_id();
+    let Some(pid) = pid else {
+        return Ok(Vec::new());
+    };
+    tauri::async_runtime::spawn_blocking(move || crate::ports::detect_ports(pid))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// 프롬프트 라이브러리를 나열한다.
 #[tauri::command]
 pub fn list_prompts(store: tauri::State<'_, StoreState>) -> Result<Vec<Prompt>, String> {

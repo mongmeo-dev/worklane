@@ -8,6 +8,7 @@ mod commands;
 mod store;
 mod external;
 mod verify;
+mod ports;
 
 use pty::PtyState;
 use tauri::Manager;
@@ -45,6 +46,7 @@ pub fn run() {
             commands::open_in_app,
             commands::github_issues,
             commands::run_verification,
+            commands::detect_preview_ports,
             commands::list_prompts,
             commands::create_prompt,
             commands::update_prompt,
