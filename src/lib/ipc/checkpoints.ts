@@ -21,9 +21,9 @@ export function listCheckpoints(agentId: string): Promise<Checkpoint[]> {
   return invoke<Checkpoint[]>("list_checkpoints", { agentId });
 }
 
-/** worktree를 체크포인트 스냅샷으로 되돌린다. */
-export function rollbackCheckpoint(worktreePath: string, sha: string): Promise<void> {
-  return invoke("rollback_checkpoint", { worktreePath, sha });
+/** worktree를 체크포인트 스냅샷으로 되돌린다. 되돌리기 전 상태는 자동 체크포인트로 저장된다. */
+export function rollbackCheckpoint(agentId: string, worktreePath: string, sha: string): Promise<void> {
+  return invoke("rollback_checkpoint", { agentId, worktreePath, sha });
 }
 
 export function deleteCheckpoint(worktreePath: string, id: string): Promise<void> {

@@ -265,13 +265,32 @@ pub fn list_checkpoints(
 }
 
 /// worktree를 지정한 체크포인트 스냅샷으로 되돌린다(추적 변경 기준).
+/// 되돌리기 전에 현재 상태를 "롤백 전 자동" 체크포인트로 저장해 취소 가능하게 한다.
 #[tauri::command]
 pub async fn rollback_checkpoint(
     store: tauri::State<'_, StoreState>,
+    agent_id: String,
     worktree_path: String,
     sha: String,
 ) -> Result<(), String> {
     let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+
+    // 되돌리기 전 현재 상태 자동 스냅샷(변경이 있을 때만).
+    let before = tauri::async_runtime::spawn_blocking({
+        let worktree_path = worktree_path.clone();
+        move || crate::git::snapshot_worktree(&worktree_path)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    if let Some(before_sha) = before {
+        let checkpoint = {
+            let conn = store.0.lock().map_err(|e| e.to_string())?;
+            store::repo::insert_checkpoint(&conn, &agent_id, "롤백 전 자동", &before_sha, now_ms() as i64)
+                .map_err(|e| e.to_string())?
+        };
+        crate::git::anchor_checkpoint(&worktree_path, &checkpoint.id, &before_sha)?;
+    }
+
     tauri::async_runtime::spawn_blocking(move || crate::git::restore_snapshot(&worktree_path, &sha))
         .await
         .map_err(|e| e.to_string())?

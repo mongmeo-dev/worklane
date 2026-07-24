@@ -69,9 +69,10 @@
     busy = true;
     error = null;
     try {
-      await rollbackCheckpoint(agent.worktreePath, cp.sha);
+      await rollbackCheckpoint(agent.id, agent.worktreePath, cp.sha);
       shell.bumpWorktree();
       pendingRollback = null;
+      await loadList();
     } catch (e) {
       error = reason(e);
     } finally {
