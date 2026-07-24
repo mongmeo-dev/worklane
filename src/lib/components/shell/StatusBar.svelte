@@ -6,6 +6,10 @@
   import { readSystemResources } from "$lib/ipc/system";
   import { shell } from "$lib/stores/shell.svelte";
   import { clampPercent, gaugeColorClass, gaugeTextClass, resourceLabel } from "$lib/usage/display";
+  import { overBudget } from "$lib/usage/budget";
+  import { budget } from "$lib/stores/budget.svelte";
+  import { sendAttentionNotification } from "$lib/ipc/notify";
+  import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
   import UsagePopover from "./UsagePopover.svelte";
 
   let root: HTMLElement;
@@ -31,6 +35,23 @@
     if (claude.status === "fulfilled") next[0] = claude.value;
     if (codex.status === "fulfilled") next[1] = codex.value;
     usage = next;
+    notifyBudgetCrossings(next);
+  }
+
+  const prevOver: Record<string, boolean> = {};
+
+  /** 예산 임계값을 새로 넘은 제공자에 대해서만 OS 알림을 보낸다. */
+  function notifyBudgetCrossings(list: UsageInfo[]) {
+    for (const info of list) {
+      const over = info.connected && overBudget(info.primaryPercent, budget.threshold);
+      if (over && !prevOver[info.provider] && info.primaryPercent !== null) {
+        void sendAttentionNotification(
+          `${info.fullName} 사용량 ${Math.round(info.primaryPercent)}%`,
+          `예산 임계값 ${budget.threshold}%를 넘었습니다.`,
+        );
+      }
+      prevOver[info.provider] = over;
+    }
   }
 
   async function initializeUsage() {
@@ -85,6 +106,9 @@
               <span class="block h-full rounded-full {gaugeColorClass(info.primaryPercent)}" style:width={`${clampPercent(info.primaryPercent)}%`}></span>
             </span>
             <span class="font-mono font-semibold {gaugeTextClass(info.primaryPercent)}">{Math.round(info.primaryPercent)}%</span>
+            {#if overBudget(info.primaryPercent, budget.threshold)}
+              <TriangleAlert class="size-3 text-status-blocked-fg" aria-label={`예산 ${budget.threshold}% 초과`} />
+            {/if}
             <span class="hidden max-w-28 truncate text-muted-foreground/70 2xl:inline">{info.primaryReset ?? "초기화 시점 미확인"}</span>
           {:else}
             <span class="rounded-full bg-muted px-1.5 py-0.5 text-[8.5px] text-muted-foreground">연동 안 됨</span>
