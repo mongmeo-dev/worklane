@@ -149,6 +149,14 @@ pub async fn github_issues(repo_path: String) -> Result<Vec<crate::git::GithubIs
         .map_err(|e| e.to_string())?
 }
 
+/// Linear에서 내게 할당된 미완료 이슈를 조회한다.
+#[tauri::command]
+pub async fn linear_issues(api_key: String) -> Result<Vec<crate::linear::LinearIssue>, String> {
+    tauri::async_runtime::spawn_blocking(move || crate::linear::list_linear_issues(&api_key))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// 현재 브랜치 PR의 상태(CI 체크 포함)를 조회한다. PR이 없으면 null.
 #[tauri::command]
 pub async fn git_pr_status(

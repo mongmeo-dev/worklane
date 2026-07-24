@@ -9,6 +9,7 @@ mod store;
 mod external;
 mod verify;
 mod ports;
+mod linear;
 
 use pty::PtyState;
 use tauri::Manager;
@@ -45,6 +46,7 @@ pub fn run() {
             commands::git_open_pull_request,
             commands::open_in_app,
             commands::github_issues,
+            commands::linear_issues,
             commands::run_verification,
             commands::git_pr_status,
             commands::git_pr_merge,
