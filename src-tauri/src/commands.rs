@@ -128,6 +128,19 @@ pub async fn git_open_pull_request(
         .map_err(|e| e.to_string())?
 }
 
+/// worktree 경로를 외부 에디터 또는 파일 매니저로 연다.
+#[tauri::command]
+pub async fn open_in_app(
+    store: tauri::State<'_, StoreState>,
+    worktree_path: String,
+    app: String,
+) -> Result<(), String> {
+    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
+    tauri::async_runtime::spawn_blocking(move || crate::external::open_in_app(&worktree_path, &app))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 pub async fn list_worktree_files(
     store: tauri::State<'_, StoreState>,

@@ -6,6 +6,7 @@ mod pty;
 mod git;
 mod commands;
 mod store;
+mod external;
 
 use pty::PtyState;
 use tauri::Manager;
@@ -40,6 +41,7 @@ pub fn run() {
             commands::git_commit_all,
             commands::git_push,
             commands::git_open_pull_request,
+            commands::open_in_app,
             commands::list_worktree_files,
             commands::read_worktree_file,
             commands::git_file_diff,

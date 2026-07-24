@@ -7,6 +7,7 @@
   import StatusDot from "./StatusDot.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import Terminal from "./Terminal.svelte";
+  import OpenExternal from "./OpenExternal.svelte";
   import FileViewer from "./FileViewer.svelte";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import GitBranch from "@lucide/svelte/icons/git-branch";
@@ -34,15 +35,16 @@
     {#if sharedAgents.length > 1}
       <span class="rounded-full bg-accent-share/10 px-2 py-0.5 text-[10px] font-semibold text-accent-share">공유 worktree · {sharedAgents.length} 에이전트</span>
     {/if}
-    {#if group && group.members.length > 1}
-      <button type="button" class="ml-auto flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent" onclick={() => shell.openCompare(group.groupId)}>
-        <GitFork class="size-3" />비교 · {group.members.length}
-      </button>
+    <div class="ml-auto flex items-center gap-2.5">
+      <OpenExternal worktreePath={agent.worktreePath} />
+      {#if group && group.members.length > 1}
+        <button type="button" class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent" onclick={() => shell.openCompare(group.groupId)}>
+          <GitFork class="size-3" />비교 · {group.members.length}
+        </button>
+      {/if}
       <span class="text-[10.5px] text-muted-foreground">{agent.lastActivity ?? "대기 중"}</span>
-    {:else}
-      <span class="ml-auto text-[10.5px] text-muted-foreground">{agent.lastActivity ?? "대기 중"}</span>
-    {/if}
-    <StatusBadge {status} />
+      <StatusBadge {status} />
+    </div>
   </header>
 
   {#if status === "blocked"}
