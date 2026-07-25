@@ -26,6 +26,14 @@ pub struct Agent {
     pub updated_at: i64,
 }
 
+/// 에이전트 제목 변경의 좁은 응답 DTO. 워크스페이스/터미널 상태는 포함하지 않는다.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentTitlePatch {
+    pub id: String,
+    pub title: String,
+    pub updated_at: i64,
+}
 /// 워크스페이스(=worktree) 안에서 크롬 탭처럼 여는 터미널 세션 한 건.
 /// 각 탭은 독립 PTY 세션이며, 주입한 커맨드로 어떤 에이전트가 도는지 추적한다.
 #[derive(Debug, Clone, Serialize, Deserialize)]

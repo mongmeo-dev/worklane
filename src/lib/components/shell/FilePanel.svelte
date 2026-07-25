@@ -10,12 +10,15 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import ReviewActions from "./ReviewActions.svelte";
+  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { fileContextActions, folderContextActions } from "./filePanelContextActions";
 
   let { agent, sharedCount = 1 }: { agent: Agent; sharedCount?: number } = $props();
 
   let files = $state<FileEntry[]>([]);
   let loading = $state(true);
-  let error = $state<string | null>(null);
+  let error = $state(false);
+  let loadGeneration = 0;
   const tree = $derived(fileTree(files));
   const totals = $derived(fileTotals(files));
 
@@ -30,15 +33,19 @@
   }
 
   async function load() {
+    const generation = ++loadGeneration;
     loading = true;
-    error = null;
+    error = false;
     try {
-      files = await listWorktreeFiles(agent.worktreePath);
-    } catch (reason) {
-      error = reason instanceof Error ? reason.message : String(reason);
+      const nextFiles = await listWorktreeFiles(agent.worktreePath);
+      if (generation !== loadGeneration) return;
+      files = nextFiles;
+    } catch {
+      if (generation !== loadGeneration) return;
+      error = true;
       files = [];
     } finally {
-      loading = false;
+      if (generation === loadGeneration) loading = false;
     }
   }
 
@@ -47,6 +54,32 @@
     if (change === "deleted") return "bg-diff-remove";
     if (change === "modified") return "bg-accent-share";
     return "bg-muted-foreground/30";
+  }
+  function openFolderContextMenu(event: MouseEvent, path: string, isExpanded: boolean) {
+    event.preventDefault();
+    openContextMenu({
+      point: { x: event.clientX, y: event.clientY },
+      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+      ...folderContextActions({
+        worktreePath: agent.worktreePath,
+        path,
+        expanded: isExpanded,
+        onToggle: () => toggleGroup(path),
+      }),
+    });
+  }
+
+  function openFileContextMenu(event: MouseEvent, path: string) {
+    event.preventDefault();
+    openContextMenu({
+      point: { x: event.clientX, y: event.clientY },
+      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+      ...fileContextActions({
+        worktreePath: agent.worktreePath,
+        path,
+        onOpen: () => shell.openFile(path),
+      }),
+    });
   }
 
   $effect(() => {
@@ -65,6 +98,7 @@
       style="padding-left: {depth * 12 + 6}px"
       aria-expanded={open}
       onclick={() => toggleGroup(node.path)}
+      oncontextmenu={(event) => openFolderContextMenu(event, node.path, open)}
     >
       <ChevronRight class="size-3 shrink-0 text-muted-foreground transition-transform {open ? 'rotate-90' : ''}" />
       <Folder class="size-3 shrink-0 text-muted-foreground" />
@@ -84,6 +118,7 @@
       class="flex h-7 w-full items-center gap-2 rounded-[7px] pr-2 text-left transition-colors {shell.openFilePath === node.path ? 'bg-sidebar-accent ring-1 ring-inset ring-sidebar-ring' : 'hover:bg-sidebar-accent/60'}"
       style="padding-left: {depth * 12 + 10}px"
       onclick={() => shell.openFile(node.path)}
+      oncontextmenu={(event) => openFileContextMenu(event, node.path)}
     >
       <span class="size-[7px] shrink-0 rounded-full {markerClass(node.change)}"></span>
       <span class="min-w-0 flex-1 truncate text-[11px] {node.change === 'none' ? 'text-muted-foreground' : 'font-medium text-foreground'}">{node.name}</span>
@@ -112,10 +147,10 @@
   <ScrollArea class="min-h-0 flex-1">
     <div class="p-2">
       {#if loading}
-        <p class="px-2 py-4 text-xs text-muted-foreground">{t("filePanel.loading")}</p>
+        <p role="status" aria-live="polite" class="px-2 py-4 text-xs text-muted-foreground">{t("filePanel.loading")}</p>
       {:else if error}
-        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
-          <p>{error}</p>
+        <div role="alert" class="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+          <p>{t("filePanel.loadError")}</p>
           <button type="button" class="mt-2 font-semibold underline" onclick={load}>{t("common.retry")}</button>
         </div>
       {:else if files.length === 0}

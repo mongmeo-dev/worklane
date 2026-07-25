@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { AgentKind, Agent, AgentTerminal, Project } from "$lib/types";
+export interface AgentTitlePatch {
+  id: string;
+  title: string;
+  updatedAt: number;
+}
 
 export function listProjects(): Promise<Project[]> {
   return invoke<Project[]>("list_projects");
@@ -14,8 +19,8 @@ export function createProject(
   return invoke<Project>("create_project_with_default_agent", { name, path, kind, command });
 }
 
-export function deleteProject(id: string): Promise<void> {
-  return invoke("delete_project", { id });
+export function deleteProject(id: string): Promise<string[]> {
+  return invoke<string[]>("delete_project", { id });
 }
 
 export function createDefaultAgent(
@@ -58,8 +63,11 @@ export function createAgent(opts: CreateAgentOptions): Promise<Agent> {
   });
 }
 
-export function deleteAgent(id: string, removeWorktree: boolean, force: boolean): Promise<void> {
-  return invoke("delete_agent", { id, removeWorktree, force });
+export function deleteAgent(id: string, removeWorktree: boolean, force: boolean): Promise<string[]> {
+  return invoke<string[]>("delete_agent", { id, removeWorktree, force });
+}
+export function patchAgentTitle(id: string, title: string): Promise<AgentTitlePatch> {
+  return invoke<AgentTitlePatch>("update_agent_title", { id, title });
 }
 
 export function agentWorktreeHasChanges(id: string): Promise<boolean> {

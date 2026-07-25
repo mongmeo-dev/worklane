@@ -31,6 +31,18 @@ export function markInjected(sessionId: string): void {
     // 영속 실패는 무시(메모리 캐시로만 중복 방지).
   }
 }
+/** 세션 삭제 시 해당 세션의 메모리 및 영속 주입 완료 표시를 제거한다. */
+export function forgetInjection(sessionId: string): void {
+  const set = load();
+  if (!set.delete(sessionId)) return;
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+    }
+  } catch {
+    // 영속 실패는 무시(메모리 캐시에서만 제거).
+  }
+}
 
 /** 테스트용: 메모리 캐시를 비운다. */
 export function resetInjectionCache(): void {

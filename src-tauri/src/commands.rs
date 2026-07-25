@@ -3,10 +3,16 @@ use std::path::PathBuf;
 use tauri::ipc::Channel;
 use tauri::Manager;
 
-use crate::pty::{self, PtyOutput, PtyState};
-use crate::store::{self, models::{Agent, AgentTerminal, Checkpoint, Event, Playbook, Project, Prompt, Task}, StoreState};
 use crate::git;
 use crate::pty::now_ms;
+use crate::pty::{self, PtyOutput, PtyState};
+use crate::store::{
+    self,
+    models::{
+        Agent, AgentTerminal, AgentTitlePatch, Checkpoint, Event, Playbook, Project, Prompt, Task,
+    },
+    StoreState,
+};
 
 /// 세션의 상태파일 디렉토리 경로를 계산한다. (app_data_dir/hooks/<session_id>)
 fn hook_dir_for(app: &tauri::AppHandle, session_id: &str) -> Result<PathBuf, String> {
@@ -64,10 +70,7 @@ pub fn resize_pty(
 }
 
 #[tauri::command]
-pub fn close_session(
-    state: tauri::State<'_, PtyState>,
-    session_id: String,
-) -> Result<(), String> {
+pub fn close_session(state: tauri::State<'_, PtyState>, session_id: String) -> Result<(), String> {
     pty::close(&state, &session_id)
 }
 
@@ -128,17 +131,41 @@ pub async fn git_open_pull_request(
         .map_err(|e| e.to_string())?
 }
 
-/// worktree 경로를 외부 에디터 또는 파일 매니저로 연다.
+/// Opens a registered project/agent directory or reveals a verified relative entry.
 #[tauri::command]
 pub async fn open_in_app(
     store: tauri::State<'_, StoreState>,
     worktree_path: String,
     app: String,
+    intent: Option<String>,
+    relative_path: Option<String>,
 ) -> Result<(), String> {
-    let worktree_path = registered_worktree_path(&store, &worktree_path)?;
-    tauri::async_runtime::spawn_blocking(move || crate::external::open_in_app(&worktree_path, &app))
-        .await
-        .map_err(|e| e.to_string())?
+    let intent =
+        crate::external::ExternalIntent::parse(intent.as_deref().unwrap_or("openDirectory"))?;
+    let editor = crate::external::editor_binary(&app).is_some();
+
+    if editor
+        && relative_path
+            .as_deref()
+            .is_some_and(|path| !path.is_empty())
+    {
+        return Err("에디터는 등록된 에이전트 루트만 열 수 있습니다.".into());
+    }
+
+    let root = if editor {
+        PathBuf::from(registered_worktree_path(&store, &worktree_path)?)
+    } else {
+        registered_external_root(&store, &worktree_path)?
+    };
+    let root_identity = crate::path_policy::capture_path_identity(&root)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::path_policy::verify_path_identity(&root, &root_identity)?;
+        let resolved = crate::path_policy::resolve_in_root(&root, relative_path.as_deref())?;
+        crate::external::open_in_app(&resolved, &app, intent)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// 저장소의 열린 GitHub 이슈를 조회한다.
@@ -222,9 +249,11 @@ pub async fn run_verification(
     command: String,
 ) -> Result<crate::verify::VerifyResult, String> {
     let worktree_path = registered_worktree_path(&store, &worktree_path)?;
-    tauri::async_runtime::spawn_blocking(move || crate::verify::run_verification(&worktree_path, &command))
-        .await
-        .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::verify::run_verification(&worktree_path, &command)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// 에이전트 세션 프로세스 트리가 여는 LISTEN 포트를 감지한다(프리뷰 자동 연결용).
@@ -237,7 +266,11 @@ pub async fn detect_preview_ports(
     let Some(session) = session else {
         return Ok(Vec::new());
     };
-    let pid = session.child.lock().map_err(|e| e.to_string())?.process_id();
+    let pid = session
+        .child
+        .lock()
+        .map_err(|e| e.to_string())?
+        .process_id();
     let Some(pid) = pid else {
         return Ok(Vec::new());
     };
@@ -265,7 +298,8 @@ pub fn create_prompt(
         return Err("프롬프트 제목을 입력하세요.".into());
     }
     let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::insert_prompt(&conn, title, body.trim(), now_ms() as i64).map_err(|e| e.to_string())
+    store::repo::insert_prompt(&conn, title, body.trim(), now_ms() as i64)
+        .map_err(|e| e.to_string())
 }
 
 /// 프롬프트를 수정한다.
@@ -309,7 +343,11 @@ pub async fn create_checkpoint(
     .map_err(|e| e.to_string())??;
     let sha = sha.ok_or_else(|| "저장할 변경이 없습니다.".to_string())?;
 
-    let label = if label.trim().is_empty() { "체크포인트".to_string() } else { label.trim().to_string() };
+    let label = if label.trim().is_empty() {
+        "체크포인트".to_string()
+    } else {
+        label.trim().to_string()
+    };
     let checkpoint = {
         let conn = store.0.lock().map_err(|e| e.to_string())?;
         store::repo::insert_checkpoint(&conn, &agent_id, &label, &sha, now_ms() as i64)
@@ -350,8 +388,14 @@ pub async fn rollback_checkpoint(
     if let Some(before_sha) = before {
         let checkpoint = {
             let conn = store.0.lock().map_err(|e| e.to_string())?;
-            store::repo::insert_checkpoint(&conn, &agent_id, "롤백 전 자동", &before_sha, now_ms() as i64)
-                .map_err(|e| e.to_string())?
+            store::repo::insert_checkpoint(
+                &conn,
+                &agent_id,
+                "롤백 전 자동",
+                &before_sha,
+                now_ms() as i64,
+            )
+            .map_err(|e| e.to_string())?
         };
         crate::git::anchor_checkpoint(&worktree_path, &checkpoint.id, &before_sha)?;
     }
@@ -394,8 +438,14 @@ pub fn create_task(
         return Err("태스크 제목을 입력하세요.".into());
     }
     let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::insert_task(&conn, project_id.as_deref(), title, notes.trim(), now_ms() as i64)
-        .map_err(|e| e.to_string())
+    store::repo::insert_task(
+        &conn,
+        project_id.as_deref(),
+        title,
+        notes.trim(),
+        now_ms() as i64,
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// 태스크의 제목/메모를 수정한다.
@@ -480,8 +530,15 @@ pub fn create_playbook(
         return Err("플레이북 이름을 입력하세요.".into());
     }
     let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::insert_playbook(&conn, name, prompt.trim(), base.trim(), &members, now_ms() as i64)
-        .map_err(|e| e.to_string())
+    store::repo::insert_playbook(
+        &conn,
+        name,
+        prompt.trim(),
+        base.trim(),
+        &members,
+        now_ms() as i64,
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// 팬아웃 플레이북을 삭제한다.
@@ -509,11 +566,9 @@ pub async fn read_worktree_file(
     rel_path: String,
 ) -> Result<crate::files::FileContent, String> {
     let worktree_path = registered_worktree_path(&store, &worktree_path)?;
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::files::read_file(&worktree_path, &rel_path)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || crate::files::read_file(&worktree_path, &rel_path))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -568,9 +623,7 @@ pub fn list_system_fonts() -> Result<Vec<String>, String> {
     use font_kit::source::SystemSource;
 
     let source = SystemSource::new();
-    let mut names = source
-        .all_families()
-        .map_err(|e| e.to_string())?;
+    let mut names = source.all_families().map_err(|e| e.to_string())?;
     names.sort();
     names.dedup();
     Ok(names)
@@ -689,7 +742,7 @@ pub fn create_default_agent(
 pub fn delete_project(
     store: tauri::State<'_, StoreState>,
     id: String,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     // 1) 짧게 락을 잡고 대상 프로젝트+에이전트 조회 후 즉시 락 해제.
     let target = {
         let conn = store.0.lock().map_err(|e| e.to_string())?;
@@ -722,9 +775,9 @@ pub fn delete_project(
         }
     }
 
-    // 3) 다시 짧게 락을 잡고 프로젝트 삭제(DB).
-    let conn = store.0.lock().map_err(|e| e.to_string())?;
-    store::repo::delete_project(&conn, &id).map_err(|e| e.to_string())
+    // 3) 다시 짧게 락을 잡고 프로젝트 삭제(DB)와 실제 삭제된 터미널 ID를 한 트랜잭션으로 조회한다.
+    let mut conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::delete_project_with_terminal_ids(&mut conn, &id).map_err(|e| e.to_string())
 }
 
 /// 작업 이름을 확정한다. 비어 있으면 브랜치 이름을 기본값으로 사용한다.
@@ -763,8 +816,13 @@ pub fn create_agent(
     let wt_path = match worktree_path {
         Some(p) if !p.trim().is_empty() => p,
         _ => {
-            let base = app.path().app_data_dir().map_err(|e| e.to_string())?
-                .join("worktrees").join(&project_id).join(&branch);
+            let base = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| e.to_string())?
+                .join("worktrees")
+                .join(&project_id)
+                .join(&branch);
             base.to_string_lossy().into_owned()
         }
     };
@@ -821,6 +879,23 @@ pub fn create_agent(
     Ok(agent)
 }
 
+/// 에이전트 제목만 변경한다. 워크스페이스와 터미널 구성은 반환하거나 수정하지 않는다.
+#[tauri::command]
+pub fn update_agent_title(
+    store: tauri::State<'_, StoreState>,
+    id: String,
+    title: String,
+) -> Result<AgentTitlePatch, String> {
+    let title = title.trim();
+    if title.is_empty() {
+        return Err("AGENT_TITLE_REQUIRED".into());
+    }
+
+    let conn = store.0.lock().map_err(|e| e.to_string())?;
+    store::repo::update_agent_title(&conn, &id, title, now_ms() as i64)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "AGENT_NOT_FOUND".into())
+}
 /// 워크스페이스에 새 터미널 탭을 추가한다(빈 터미널이면 실행 커맨드가 없어도 된다).
 #[tauri::command]
 pub fn create_agent_terminal(
@@ -865,7 +940,11 @@ pub async fn detect_session_processes(
     let Some(session) = session else {
         return Ok(Vec::new());
     };
-    let pid = session.child.lock().map_err(|e| e.to_string())?.process_id();
+    let pid = session
+        .child
+        .lock()
+        .map_err(|e| e.to_string())?
+        .process_id();
     let Some(pid) = pid else {
         return Ok(Vec::new());
     };
@@ -892,18 +971,15 @@ pub fn delete_agent(
     id: String,
     remove_worktree: bool,
     force: bool,
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     // 1) 짧게 락을 잡고 대상과 현재 참조 수를 함께 조회한 뒤 즉시 락 해제.
     let target = {
         let conn = store.0.lock().map_err(|e| e.to_string())?;
         let agent = store::repo::get_agent(&conn, &id).map_err(|e| e.to_string())?;
         match agent {
             Some(agent) => {
-                let references = store::repo::count_agents_by_worktree(
-                    &conn,
-                    &agent.worktree_path,
-                )
-                .map_err(|e| e.to_string())?;
+                let references = store::repo::count_agents_by_worktree(&conn, &agent.worktree_path)
+                    .map_err(|e| e.to_string())?;
                 Some((agent, references))
             }
             None => None,
@@ -923,7 +999,7 @@ pub fn delete_agent(
     match &target {
         Some((agent, _)) => store::repo::delete_agent_with_worktree_transfer(&mut conn, agent)
             .map_err(|e| e.to_string()),
-        None => Ok(()),
+        None => Ok(Vec::new()),
     }
 }
 
@@ -935,6 +1011,7 @@ fn should_manage_worktree(explicit_path: bool, reused: bool) -> bool {
     !explicit_path && !reused
 }
 
+/// Resolves an exact, canonical agent worktree root registered in the database.
 fn registered_worktree_path(store: &StoreState, worktree_path: &str) -> Result<String, String> {
     let canonical = std::fs::canonicalize(worktree_path).map_err(|error| error.to_string())?;
     let canonical = canonical.to_string_lossy().into_owned();
@@ -945,6 +1022,25 @@ fn registered_worktree_path(store: &StoreState, worktree_path: &str) -> Result<S
         return Err("등록되지 않은 worktree 경로 접근 거부".into());
     }
     Ok(canonical)
+}
+
+/// Resolves a project or agent root whose database string exactly matches the caller input.
+fn registered_external_root(store: &StoreState, root_path: &str) -> Result<PathBuf, String> {
+    let conn = store.0.lock().map_err(|error| error.to_string())?;
+    let registered = store::repo::list_projects(&conn)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .flat_map(|project| {
+            std::iter::once(project.path)
+                .chain(project.agents.into_iter().map(|agent| agent.worktree_path))
+        })
+        .any(|path| path == root_path);
+
+    if !registered {
+        return Err("등록되지 않은 프로젝트 또는 worktree 경로 접근 거부".into());
+    }
+
+    std::fs::canonicalize(root_path).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -976,6 +1072,13 @@ mod shared_worktree_tests {
         .unwrap();
         StoreState(std::sync::Mutex::new(conn))
     }
+    fn store_with_project(project_path: &str) -> StoreState {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        store::repo::migrate(&conn).unwrap();
+        store::repo::insert_project(&conn, "테스트", project_path, 1).unwrap();
+        StoreState(std::sync::Mutex::new(conn))
+    }
+
 
     #[test]
     fn 마지막_관리_참조만_worktree를_제거한다() {
@@ -1021,12 +1124,31 @@ mod shared_worktree_tests {
 
         std::fs::remove_dir_all(directory).unwrap();
     }
+    #[test]
+    fn 외부_열기는_등록된_문자열과_정확히_일치해야_한다() {
+        let directory = std::env::temp_dir().join(format!("등록경로-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let canonical = std::fs::canonicalize(&directory).unwrap();
+        let canonical_text = canonical.to_string_lossy().into_owned();
+        let store = store_with_project(&canonical_text);
+
+        assert_eq!(
+            registered_external_root(&store, &canonical_text).unwrap(),
+            canonical
+        );
+        assert!(registered_external_root(&store, &format!("{canonical_text}/.")).is_err());
+
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn 작업_이름이_비면_브랜치_이름을_기본값으로_쓴다() {
         assert_eq!(resolve_agent_title("", "feat/login"), "feat/login");
         assert_eq!(resolve_agent_title("   ", "feat/login"), "feat/login");
-        assert_eq!(resolve_agent_title("로그인 리팩터링", "feat/login"), "로그인 리팩터링");
+        assert_eq!(
+            resolve_agent_title("로그인 리팩터링", "feat/login"),
+            "로그인 리팩터링"
+        );
         assert_eq!(resolve_agent_title("  로그인  ", "feat/login"), "로그인");
     }
 }

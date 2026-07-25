@@ -36,6 +36,9 @@ tokio = { version = "1", features = ["rt", "macros", "time", "net", "sync", "io-
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
 futures-util = { version = "0.3", default-features = false, features = ["std", "sink"] }
 log = "0.4"
+[target.'cfg(target_os = "linux")'.dependencies]
+url = "2.5"
+zbus = { version = "5.18", features = ["blocking-api"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"

@@ -10,6 +10,10 @@
   import { agentDetection } from "$lib/stores/agentDetection.svelte";
   import { BLANK_TERMINAL_KIND } from "$lib/data/labels";
   import { t } from "$lib/i18n";
+  import { previewStore } from "$lib/stores/preview.svelte";
+  import { createPreviewContextActions } from "$lib/preview/contextActions";
+  import { createContextMenuTrigger } from "$lib/context-menu/trigger";
+  import { createFileTabContextActions } from "./agentDetailContextActions";
   import StatusDot from "./StatusDot.svelte";
   import StatusBadge from "./StatusBadge.svelte";
   import Terminal from "./Terminal.svelte";
@@ -38,6 +42,16 @@
     terminals.find((tm) => tm.id === shell.selectedTerminalId) ?? terminals[0],
   );
   const showTerminal = $derived(!shell.showEditor && !shell.showPreview);
+  const previewContextMenu = createContextMenuTrigger(() =>
+    createPreviewContextActions(previewStore.snapshot(agent.id)).menu,
+  );
+  const fileTabContextMenu = createContextMenuTrigger(() =>
+    createFileTabContextActions({
+      worktreePath: agent.worktreePath,
+      path: shell.openFilePath ?? "",
+      onClose: () => shell.closeFile(),
+    }),
+  );
 
   let pickerOpen = $state(false);
 
@@ -162,21 +176,24 @@
     </div>
     {#if shell.openFilePath}
       <div class="flex items-center border-b-2 {shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}">
-        <button type="button" class="max-w-44 truncate py-1 pl-3 text-[11.5px] font-medium" onclick={() => shell.openFile(shell.openFilePath!)}>{shell.openFilePath.split("/").at(-1)}</button>
+        <button type="button" class="max-w-44 truncate py-1 pl-3 text-[11.5px] font-medium" onclick={() => shell.openFile(shell.openFilePath!)} oncontextmenu={fileTabContextMenu.oncontextmenu}>{shell.openFilePath.split("/").at(-1)}</button>
         <button type="button" aria-label={t("agentDetail.closeFileTab")} class="mx-1 rounded p-1 hover:bg-muted" onclick={() => shell.closeFile()}><X class="size-3" /></button>
       </div>
     {/if}
     <button
       type="button"
+      role="tab"
+      aria-selected={shell.showPreview}
       class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shell.showPreview ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
       onclick={() => shell.showPreviewPane()}
+      oncontextmenu={previewContextMenu.oncontextmenu}
     >{t("agentDetail.preview")}</button>
   </div>
 
   <div class="min-h-0 flex-1 overflow-hidden rounded-xl border {status === 'blocked' && showTerminal ? 'border-status-blocked/30 shadow-[0_0_20px_color-mix(in_oklch,var(--status-blocked)_8%,transparent)]' : ''}">
     {#if shell.showPreview}
       {#key agent.id}
-        <Preview {agent} sessionId={activeTerminal?.id ?? agent.id} />
+        <Preview {agent} sessionId={activeTerminal?.id} />
       {/key}
     {:else if shell.showEditor && shell.openFilePath}
       <FileViewer {agent} path={shell.openFilePath} sharedCount={sharedAgents.length} />

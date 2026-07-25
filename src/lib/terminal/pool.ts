@@ -8,6 +8,8 @@ import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
 import { sessionStatus } from "$lib/stores/sessions.svelte";
 import { injectionDone, markInjected } from "$lib/terminal/promptInjection";
 import { registerSessionDisposer } from "$lib/terminal/session-lifecycle";
+import { TerminalContextActions } from "$lib/terminal/contextActions";
+import { actionErrors } from "$lib/stores/actionErrors.svelte";
 
 // 시드 프롬프트 자동 주입: 출력이 잦아든 뒤(=CLI 입력 대기) 1회 전송한다.
 const INJECT_IDLE_MS = 900;
@@ -66,8 +68,13 @@ export class PooledTerminal {
   // 마지막으로 PTY에 통지한 크기. 값이 실제로 바뀔 때만 resize를 보낸다.
   private lastRows = 0;
   private lastCols = 0;
-  private injectArmed = false;
+  private injectionState: "armed" | "in-flight" | "injected-or-failed" =
+    "injected-or-failed";
   private injectTimer?: ReturnType<typeof setTimeout>;
+  private injectGeneration = 0;
+  private fontRaf?: number;
+  private disposed = false;
+  private generation = 0;
 
   private constructor(
     sessionId: string,
@@ -124,24 +131,40 @@ export class PooledTerminal {
     const instance = new PooledTerminal(sessionId, initialPrompt, term, fit, container);
 
     // 한글 IME 우회 애드온(Kova 방식): 확정된 텍스트만 PTY로 보낸다.
-    const ime = new HangulImeAddon((data) => instance.writeBytes(data));
+    const ime = new HangulImeAddon((data) => instance.writeInteractiveBytes(data));
     term.loadAddon(ime);
 
     // 시드 프롬프트가 있고 아직 주입 전이면 자동 주입을 무장한다(세션당 1회).
-    instance.injectArmed = Boolean(initialPrompt?.trim()) && !injectionDone(sessionId);
+    instance.injectionState =
+      initialPrompt?.trim() && !injectionDone(sessionId) ? "armed" : "injected-or-failed";
 
-    await createSession({
-      sessionId,
-      cmd,
-      cwd,
-      rows: term.rows,
-      cols: term.cols,
-      onOutput: (o) => {
-        const bytes = new Uint8Array(o.bytes);
-        term.write(bytes, () => sessionStatus.noteOutput(sessionId));
-        instance.scheduleInjection();
-      },
-    });
+    try {
+      await createSession({
+        sessionId,
+        cmd,
+        cwd,
+        rows: term.rows,
+        cols: term.cols,
+        onOutput: (o) => {
+          if (instance.disposed) return;
+          const generation = instance.generation;
+          const bytes = new Uint8Array(o.bytes);
+          term.write(bytes, () => {
+            if (instance.disposed || instance.generation !== generation) return;
+            sessionStatus.noteOutput(sessionId);
+          });
+          instance.scheduleInjection();
+        },
+      });
+    } catch (reason) {
+      instance.disposeLocal();
+      try {
+        await closeSession(sessionId);
+      } catch (closeReason) {
+        actionErrors.report(closeReason);
+      }
+      throw reason;
+    }
 
     // PTY는 이 크기로 생성됐으므로 기준값으로 기록한다.
     instance.lastRows = term.rows;
@@ -153,35 +176,78 @@ export class PooledTerminal {
     term.onData((data) => {
       // 조합 중 xterm이 흘리는 자모는 무시한다. 확정 문자는 애드온이 전송한다.
       if (ime.isComposing()) return;
-      instance.writeBytes(data);
+      instance.writeInteractiveBytes(data);
     });
 
     return instance;
   }
 
-  private writeBytes(data: string): void {
-    writeToPty(this.sessionId, new TextEncoder().encode(data));
+  private writeInteractiveBytes(data: string): void {
+    this.cancelInjection();
+    this.writeBytes(data);
+  }
+
+  private writeBytes(data: string, onSuccess?: () => void): void {
+    if (this.disposed) return;
+    void writeToPty(this.sessionId, new TextEncoder().encode(data))
+      .then(() => {
+        if (!this.disposed) onSuccess?.();
+      })
+      .catch((reason: unknown) => actionErrors.report(reason));
+  }
+
+  private cancelInjection(): void {
+    this.injectionState = "injected-or-failed";
+    this.injectGeneration++;
+    clearTimeout(this.injectTimer);
+    this.injectTimer = undefined;
   }
 
   // 출력 이벤트마다 호출: idle이 INJECT_IDLE_MS 지속되면 시드 프롬프트를 1회 전송한다.
   private scheduleInjection(): void {
-    if (!this.injectArmed) return;
+    if (this.disposed || this.injectionState !== "armed") return;
     clearTimeout(this.injectTimer);
+    const generation = this.injectGeneration;
     this.injectTimer = setTimeout(() => {
-      if (!this.injectArmed) return;
-      this.injectArmed = false;
-      markInjected(this.sessionId);
-      this.writeBytes(`${this.initialPrompt!.trim()}\r`);
+      this.injectTimer = undefined;
+      if (
+        this.disposed
+        || this.injectionState !== "armed"
+        || this.injectGeneration !== generation
+      ) return;
+
+      // write 전에 claim해, pending write 중의 output이 두 번째 timer/write를 만들지 못하게 한다.
+      this.injectionState = "in-flight";
+      void writeToPty(
+        this.sessionId,
+        new TextEncoder().encode(`${this.initialPrompt!.trim()}\r`),
+      )
+        .then(() => {
+          if (
+            this.disposed
+            || this.injectionState !== "in-flight"
+            || this.injectGeneration !== generation
+          ) return;
+          this.injectionState = "injected-or-failed";
+          markInjected(this.sessionId);
+        })
+        .catch((reason: unknown) => {
+          this.injectionState = "injected-or-failed";
+          actionErrors.report(reason);
+        });
     }, INJECT_IDLE_MS);
   }
 
   /** 현재 컨테이너 크기에 맞춰 fit하고, 행·열이 바뀐 경우에만 PTY에 통지한다. */
   fitAndResize(): void {
+    if (this.disposed) return;
     this.fit.fit();
-    if (this.term.rows === this.lastRows && this.term.cols === this.lastCols) return;
+    if (this.disposed || (this.term.rows === this.lastRows && this.term.cols === this.lastCols)) return;
     this.lastRows = this.term.rows;
     this.lastCols = this.term.cols;
-    resizePty(this.sessionId, this.term.rows, this.term.cols);
+    void resizePty(this.sessionId, this.term.rows, this.term.cols).catch((reason: unknown) =>
+      actionErrors.report(reason),
+    );
   }
 
   /**
@@ -189,8 +255,9 @@ export class PooledTerminal {
    * detach 중 WebGL 컨텍스트 소실로 DOM 렌더러로 폴백된 경우에도 내용이 보이게 한다.
    */
   remount(): void {
+    if (this.disposed) return;
     this.fitAndResize();
-    if (this.term.rows > 0) this.term.refresh(0, this.term.rows - 1);
+    if (!this.disposed && this.term.rows > 0) this.term.refresh(0, this.term.rows - 1);
   }
 
   /**
@@ -199,6 +266,7 @@ export class PooledTerminal {
    * 원시 스트림을 정규식으로 걷어내는 방식과 달리 TUI 에이전트에서도 깨지지 않는다.
    */
   snapshot(maxLines = 7): string {
+    if (this.disposed) return "";
     const buf = this.term.buffer.active;
     let end = buf.length - 1;
     while (end >= 0 && (buf.getLine(end)?.translateToString(true).trim() ?? "") === "") end--;
@@ -214,16 +282,49 @@ export class PooledTerminal {
    * 새 폰트의 셀 폭 재측정이 반영된 다음 프레임에 fit/resize 해 행·열을 다시 계산한다.
    */
   async applyFont(family: string, size: number): Promise<void> {
+    if (this.disposed) return;
     this.term.options.fontFamily = withFallback(family);
     this.term.options.fontSize = size;
     await ensureFontLoaded(family, size);
-    requestAnimationFrame(() => this.fitAndResize());
+    if (this.disposed) return;
+    if (this.fontRaf !== undefined) cancelAnimationFrame(this.fontRaf);
+    this.fontRaf = requestAnimationFrame(() => {
+      this.fontRaf = undefined;
+      this.fitAndResize();
+    });
   }
+  /**
+   * Captures the current selection for a menu that belongs to this exact xterm
+   * instance. The resolver is supplied by the mounted viewport, so actions
+   * cannot be redirected after that viewport has gone away.
+   */
+  contextActions(resolveTerminal: () => Terminal | undefined): TerminalContextActions {
+    const generation = this.generation;
+    return new TerminalContextActions(
+      this.term,
+      () =>
+        !this.disposed && this.generation === generation && resolveTerminal() === this.term
+          ? this.term
+          : undefined,
+      () => this.cancelInjection(),
+    );
+  }
+
 
   /** 세션을 완전히 종료한다(에이전트 삭제 시). PTY를 죽이고 xterm을 파괴한다. */
   dispose(): void {
-    clearTimeout(this.injectTimer);
-    closeSession(this.sessionId).catch(() => {});
+    if (this.disposed) return;
+    this.disposeLocal();
+    void closeSession(this.sessionId).catch((reason: unknown) => actionErrors.report(reason));
+  }
+
+  private disposeLocal(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.generation++;
+    this.cancelInjection();
+    if (this.fontRaf !== undefined) cancelAnimationFrame(this.fontRaf);
+    this.fontRaf = undefined;
     this.term.dispose();
     this.container.remove();
   }

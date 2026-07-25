@@ -1,5 +1,7 @@
+use crate::store::models::{
+    Agent, AgentTerminal, AgentTitlePatch, Checkpoint, Event, Playbook, Project, Prompt, Task,
+};
 use rusqlite::{params, Connection};
-use crate::store::models::{Agent, AgentTerminal, Checkpoint, Event, Playbook, Project, Prompt, Task};
 
 /// 스키마 마이그레이션. user_version PRAGMA로 버전을 관리한다.
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
@@ -188,14 +190,26 @@ pub fn list_projects(conn: &Connection) -> rusqlite::Result<Vec<Project>> {
     Ok(result)
 }
 
-pub fn insert_project(conn: &Connection, name: &str, path: &str, now: i64) -> rusqlite::Result<Project> {
+pub fn insert_project(
+    conn: &Connection,
+    name: &str,
+    path: &str,
+    now: i64,
+) -> rusqlite::Result<Project> {
     let id = uuid::Uuid::new_v4().to_string();
     conn.execute(
         "INSERT INTO projects (id, name, path, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?4)",
         params![id, name, path, now],
     )?;
-    Ok(Project { id, name: name.into(), path: path.into(), created_at: now, updated_at: now, agents: Vec::new() })
+    Ok(Project {
+        id,
+        name: name.into(),
+        path: path.into(),
+        created_at: now,
+        updated_at: now,
+        agents: Vec::new(),
+    })
 }
 
 /// 기본 작업환경 에이전트는 프로젝트 저장소 본체(메인 워킹트리)에서 동작하는 특수 에이전트다.
@@ -282,14 +296,46 @@ pub fn delete_project(conn: &Connection, id: &str) -> rusqlite::Result<()> {
     conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
     Ok(())
 }
+pub fn delete_project_with_terminal_ids(
+    conn: &mut Connection,
+    id: &str,
+) -> rusqlite::Result<Vec<String>> {
+    let transaction = conn.transaction()?;
+    let terminal_ids = {
+        let mut stmt = transaction.prepare(
+            "SELECT agent_terminals.id
+             FROM agent_terminals
+             JOIN agents ON agents.id = agent_terminals.agent_id
+             WHERE agents.project_id = ?1",
+        )?;
+        let rows = stmt.query_map(params![id], |row| row.get(0))?;
+        rows.collect::<rusqlite::Result<Vec<String>>>()?
+    };
+    delete_project(&transaction, id)?;
+    transaction.commit()?;
+    Ok(terminal_ids)
+}
+
 
 pub fn insert_agent(conn: &Connection, a: &Agent) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO agents (id, project_id, title, kind, command, branch,
             worktree_path, worktree_managed, group_id, prompt, created_at, updated_at)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
-        params![a.id, a.project_id, a.title, a.kind, a.command, a.branch,
-            a.worktree_path, a.worktree_managed as i64, a.group_id, a.prompt, a.created_at, a.updated_at],
+        params![
+            a.id,
+            a.project_id,
+            a.title,
+            a.kind,
+            a.command,
+            a.branch,
+            a.worktree_path,
+            a.worktree_managed as i64,
+            a.group_id,
+            a.prompt,
+            a.created_at,
+            a.updated_at
+        ],
     )?;
     Ok(())
 }
@@ -304,6 +350,22 @@ pub fn get_agent(conn: &Connection, id: &str) -> rusqlite::Result<Option<Agent>>
         Some(r) => Ok(Some(r?)),
         None => Ok(None),
     }
+}
+pub fn update_agent_title(
+    conn: &Connection,
+    id: &str,
+    title: &str,
+    updated_at: i64,
+) -> rusqlite::Result<Option<AgentTitlePatch>> {
+    let changed = conn.execute(
+        "UPDATE agents SET title = ?2, updated_at = ?3 WHERE id = ?1",
+        params![id, title, updated_at],
+    )?;
+    Ok((changed > 0).then(|| AgentTitlePatch {
+        id: id.into(),
+        title: title.into(),
+        updated_at,
+    }))
 }
 
 /// 주어진 worktree_path를 사용하는 에이전트 수를 반환한다.
@@ -338,14 +400,20 @@ pub fn transfer_worktree_management(
 pub fn delete_agent_with_worktree_transfer(
     conn: &mut Connection,
     agent: &Agent,
-) -> rusqlite::Result<()> {
+) -> rusqlite::Result<Vec<String>> {
     let transaction = conn.transaction()?;
+    let terminal_ids = {
+        let mut stmt = transaction.prepare("SELECT id FROM agent_terminals WHERE agent_id = ?1")?;
+        let rows = stmt.query_map(params![&agent.id], |row| row.get(0))?;
+        rows.collect::<rusqlite::Result<Vec<String>>>()?
+    };
     let references = count_agents_by_worktree(&transaction, &agent.worktree_path)?;
     if agent.worktree_managed && references > 1 {
         transfer_worktree_management(&transaction, &agent.worktree_path, &agent.id)?;
     }
     delete_agent(&transaction, &agent.id)?;
-    transaction.commit()
+    transaction.commit()?;
+    Ok(terminal_ids)
 }
 
 pub fn delete_agent(conn: &Connection, id: &str) -> rusqlite::Result<()> {
@@ -421,17 +489,34 @@ pub fn list_prompts(conn: &Connection) -> rusqlite::Result<Vec<Prompt>> {
 }
 
 /// 프롬프트를 새로 저장한다.
-pub fn insert_prompt(conn: &Connection, title: &str, body: &str, now: i64) -> rusqlite::Result<Prompt> {
+pub fn insert_prompt(
+    conn: &Connection,
+    title: &str,
+    body: &str,
+    now: i64,
+) -> rusqlite::Result<Prompt> {
     let id = uuid::Uuid::new_v4().to_string();
     conn.execute(
         "INSERT INTO prompts (id, title, body, created_at, updated_at) VALUES (?1,?2,?3,?4,?4)",
         params![id, title, body, now],
     )?;
-    Ok(Prompt { id, title: title.into(), body: body.into(), created_at: now, updated_at: now })
+    Ok(Prompt {
+        id,
+        title: title.into(),
+        body: body.into(),
+        created_at: now,
+        updated_at: now,
+    })
 }
 
 /// 프롬프트의 제목/본문을 갱신한다.
-pub fn update_prompt(conn: &Connection, id: &str, title: &str, body: &str, now: i64) -> rusqlite::Result<()> {
+pub fn update_prompt(
+    conn: &Connection,
+    id: &str,
+    title: &str,
+    body: &str,
+    now: i64,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE prompts SET title = ?2, body = ?3, updated_at = ?4 WHERE id = ?1",
         params![id, title, body, now],
@@ -545,7 +630,13 @@ pub fn insert_task(
 }
 
 /// 태스크의 제목/메모를 수정한다.
-pub fn update_task(conn: &Connection, id: &str, title: &str, notes: &str, now: i64) -> rusqlite::Result<()> {
+pub fn update_task(
+    conn: &Connection,
+    id: &str,
+    title: &str,
+    notes: &str,
+    now: i64,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE tasks SET title = ?2, notes = ?3, updated_at = ?4 WHERE id = ?1",
         params![id, title, notes, now],
@@ -554,7 +645,12 @@ pub fn update_task(conn: &Connection, id: &str, title: &str, notes: &str, now: i
 }
 
 /// 태스크 상태를 바꾼다.
-pub fn set_task_status(conn: &Connection, id: &str, status: &str, now: i64) -> rusqlite::Result<()> {
+pub fn set_task_status(
+    conn: &Connection,
+    id: &str,
+    status: &str,
+    now: i64,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE tasks SET status = ?2, updated_at = ?3 WHERE id = ?1",
         params![id, status, now],
@@ -697,14 +793,23 @@ mod tests {
     fn 체크포인트_저장_조회_삭제_라운드트립() {
         let mut conn = mem();
         let project = insert_project_with_default_agent(
-            &mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 1,
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            1,
         )
         .unwrap();
         let agent_id = &project.agents[0].id;
 
         let cp = insert_checkpoint(&conn, agent_id, "작업 전", "deadbeef", 10).unwrap();
         assert_eq!(list_checkpoints(&conn, agent_id).unwrap().len(), 1);
-        assert_eq!(list_checkpoints(&conn, agent_id).unwrap()[0].sha, "deadbeef");
+        assert_eq!(
+            list_checkpoints(&conn, agent_id).unwrap()[0].sha,
+            "deadbeef"
+        );
         assert_eq!(cp.label, "작업 전");
 
         delete_checkpoint(&conn, &cp.id).unwrap();
@@ -732,7 +837,13 @@ mod tests {
     fn 이벤트_기록과_최신순_조회() {
         let mut conn = mem();
         let project = insert_project_with_default_agent(
-            &mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 1,
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            1,
         )
         .unwrap();
         let agent_id = &project.agents[0].id;
@@ -819,9 +930,16 @@ mod tests {
     #[test]
     fn 기본_작업환경은_첫_터미널을_시드하고_추가삭제된다() {
         let mut conn = mem();
-        let project =
-            insert_project_with_default_agent(&mut conn, "proj", "/tmp/proj", "codex", "codex", "main", 10)
-                .unwrap();
+        let project = insert_project_with_default_agent(
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            10,
+        )
+        .unwrap();
         let agent_id = project.agents[0].id.clone();
 
         // 생성 시 첫 터미널이 kind/command로 시드된다.
@@ -839,6 +957,85 @@ mod tests {
         delete_terminal(&conn, &second.id).unwrap();
         let loaded = list_projects(&conn).unwrap();
         assert_eq!(loaded[0].agents[0].terminals.len(), 1);
+    }
+    #[test]
+    fn 에이전트_제목_patch는_호출자가_trim한_값만_행에_갱신하고_터미널은_보존한다() {
+        let mut conn = mem();
+        let project = insert_project_with_default_agent(
+            &mut conn,
+            "proj",
+            "/tmp/proj",
+            "codex",
+            "codex",
+            "main",
+            10,
+        )
+        .unwrap();
+        let agent_id = project.agents[0].id.clone();
+        let second = insert_terminal(&conn, &agent_id, "shell", "terminal", "", 11).unwrap();
+        let before = list_projects(&conn).unwrap()[0].agents[0]
+            .terminals
+            .iter()
+            .map(|terminal| {
+                (
+                    terminal.id.clone(),
+                    terminal.title.clone(),
+                    terminal.kind.clone(),
+                    terminal.command.clone(),
+                    terminal.position,
+                    terminal.created_at,
+                )
+            })
+            .collect::<Vec<_>>();
+
+        // commands::update_agent_title가 trim/빈 값 검증을 끝낸 뒤 repo에 전달한다.
+        let patch = update_agent_title(&conn, &agent_id, "renamed", 20)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(patch.id, agent_id);
+        assert_eq!(patch.title, "renamed");
+        assert_eq!(patch.updated_at, 20);
+        let agent = get_agent(&conn, &agent_id).unwrap().unwrap();
+        assert_eq!(agent.title, "renamed");
+        assert_eq!(agent.updated_at, 20);
+        let after = list_projects(&conn).unwrap()[0].agents[0]
+            .terminals
+            .iter()
+            .map(|terminal| {
+                (
+                    terminal.id.clone(),
+                    terminal.title.clone(),
+                    terminal.kind.clone(),
+                    terminal.command.clone(),
+                    terminal.position,
+                    terminal.created_at,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(after.len(), 2);
+        assert_eq!(after, before);
+        assert_eq!(after[1].0, second.id);
+        assert_eq!(after[1].1, "shell");
+
+        assert!(update_agent_title(&conn, "missing", "renamed", 30)
+            .unwrap()
+            .is_none());
+        let after_missing = list_projects(&conn).unwrap()[0].agents[0]
+            .terminals
+            .iter()
+            .map(|terminal| {
+                (
+                    terminal.id.clone(),
+                    terminal.title.clone(),
+                    terminal.kind.clone(),
+                    terminal.command.clone(),
+                    terminal.position,
+                    terminal.created_at,
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(after_missing, after);
     }
 
     #[test]
@@ -865,11 +1062,12 @@ mod tests {
 
     #[test]
     fn delete_project_cascades_agents() {
-        let conn = mem();
+        let mut conn = mem();
         let p = insert_project(&conn, "proj", "/tmp/proj", 10).unwrap();
         let a = sample_agent(&p.id);
         insert_agent(&conn, &a).unwrap();
-        delete_project(&conn, &p.id).unwrap();
+        let terminal = insert_terminal(&conn, &a.id, "", "codex", "codex", 10).unwrap();
+        assert_eq!(delete_project_with_terminal_ids(&mut conn, &p.id).unwrap(), vec![terminal.id]);
         assert!(get_agent(&conn, &a.id).unwrap().is_none());
         assert_eq!(list_projects(&conn).unwrap().len(), 0);
     }
@@ -903,7 +1101,12 @@ mod tests {
         insert_agent(&conn, &next).unwrap();
 
         assert!(transfer_worktree_management(&conn, "/tmp/shared", &owner.id).unwrap());
-        assert!(get_agent(&conn, &next.id).unwrap().unwrap().worktree_managed);
+        assert!(
+            get_agent(&conn, &next.id)
+                .unwrap()
+                .unwrap()
+                .worktree_managed
+        );
     }
 
     #[test]
@@ -919,10 +1122,19 @@ mod tests {
         insert_agent(&conn, &owner).unwrap();
         insert_agent(&conn, &next).unwrap();
 
-        delete_agent_with_worktree_transfer(&mut conn, &owner).unwrap();
+        let terminal = insert_terminal(&conn, &owner.id, "", "codex", "codex", 10).unwrap();
+        assert_eq!(
+            delete_agent_with_worktree_transfer(&mut conn, &owner).unwrap(),
+            vec![terminal.id]
+        );
 
         assert!(get_agent(&conn, &owner.id).unwrap().is_none());
-        assert!(get_agent(&conn, &next.id).unwrap().unwrap().worktree_managed);
+        assert!(
+            get_agent(&conn, &next.id)
+                .unwrap()
+                .unwrap()
+                .worktree_managed
+        );
     }
     #[test]
     fn 기존_프로젝트에_기본_작업환경을_다시_추가한다() {
@@ -931,9 +1143,16 @@ mod tests {
 
         assert!(!project_has_worktree_agent(&conn, &project.id, "/tmp/proj").unwrap());
 
-        let agent =
-            insert_default_agent(&conn, &project.id, "codex", "codex", "fix/root", "/tmp/proj", 20)
-                .unwrap();
+        let agent = insert_default_agent(
+            &conn,
+            &project.id,
+            "codex",
+            "codex",
+            "fix/root",
+            "/tmp/proj",
+            20,
+        )
+        .unwrap();
 
         assert_eq!(agent.title, "fix/root");
         assert_eq!(agent.branch, "fix/root");
@@ -952,5 +1171,4 @@ mod tests {
         assert!(project_has_worktree_agent(&conn, &first.id, "/tmp/proj").unwrap());
         assert!(!project_has_worktree_agent(&conn, &second.id, "/tmp/proj").unwrap());
     }
-
 }

@@ -1,24 +1,31 @@
+mod commands;
+mod external;
+mod files;
+mod git;
+mod hooks;
+mod linear;
+mod path_policy;
+mod ports;
+mod pty;
 mod status;
+mod store;
 mod system;
 mod usage;
-mod files;
-mod pty;
-mod hooks;
-mod git;
-mod commands;
-mod store;
-mod external;
 mod verify;
-mod ports;
-mod linear;
 mod webhook;
 
+mod preview_context_bridge;
 use pty::PtyState;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .plugin(
+            tauri::plugin::Builder::<_, ()>::new("preview-context-menu")
+                .js_init_script_on_all_frames(preview_context_bridge::INIT_SCRIPT)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init());
@@ -38,8 +45,11 @@ pub fn run() {
             status::poller::spawn_poller(app.handle().clone(), map);
 
             // 저장소 초기화
-            let db_path = app.path().app_data_dir()
-                .expect("app_data_dir 없음").join("workspace.db");
+            let db_path = app
+                .path()
+                .app_data_dir()
+                .expect("app_data_dir 없음")
+                .join("workspace.db");
             std::fs::create_dir_all(db_path.parent().unwrap()).ok();
             let conn = store::open(&db_path).expect("DB 열기 실패");
             app.manage(store::StoreState(std::sync::Mutex::new(conn)));
@@ -99,6 +109,7 @@ pub fn run() {
             commands::create_agent,
             commands::delete_agent,
             commands::agent_worktree_has_changes,
+            commands::update_agent_title,
             commands::create_agent_terminal,
             commands::delete_agent_terminal,
             commands::detect_session_processes,

@@ -3,6 +3,10 @@
   import "@xterm/xterm/css/xterm.css";
   import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
   import { terminalPool, type PooledTerminal } from "$lib/terminal/pool";
+  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { t } from "$lib/i18n";
+  import { actionErrors } from "$lib/stores/actionErrors.svelte";
+  import { agentDetection } from "$lib/stores/agentDetection.svelte";
 
   interface Props {
     sessionId: string;
@@ -32,18 +36,76 @@
     settleTimer = setTimeout(() => handle?.fitAndResize(), SETTLE_MS);
   }
 
-  onMount(async () => {
-    // 풀에서 살아있는 터미널을 얻는다. 재마운트면 기존 인스턴스가 그대로 반환돼
-    // 버퍼(스크롤백)와 실행 중인 프로세스가 보존된다. 최초면 새로 생성한다.
-    const instance = await terminalPool.acquire({ sessionId, cmd, cwd, initialPrompt });
-    if (destroyed) return; // 생성 대기 중 언마운트된 경우: 붙이지 않는다(풀에 유지).
-    handle = instance;
-    el.appendChild(instance.container);
-    instance.remount();
+  function resolveMountedTerminal(instance: PooledTerminal) {
+    return !destroyed && handle === instance && instance.container.parentElement === el
+      ? instance.term
+      : undefined;
+  }
 
-    ro = new ResizeObserver(scheduleResize);
-    ro.observe(el);
+  function isolateRightClick(event: MouseEvent): void {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function openTerminalContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const instance = handle;
+    if (!instance) return;
+
+    const actions = instance.contextActions(() => resolveMountedTerminal(instance));
+    openContextMenu({
+      point: { x: event.clientX, y: event.clientY },
+      ariaLabel: t("contextMenu.terminal"),
+      items: [
+        ...(actions.hasSelection
+          ? [
+              {
+                type: "action" as const,
+                id: "terminal-copy",
+                label: t("contextMenu.copy"),
+                onSelect: () => actions.copy(),
+              },
+            ]
+          : []),
+        {
+          type: "action" as const,
+          id: "terminal-paste",
+          label: t("contextMenu.paste"),
+          onSelect: () => actions.paste(),
+        },
+        {
+          type: "action" as const,
+          id: "terminal-select-all",
+          label: t("contextMenu.selectAll"),
+          onSelect: actions.selectAll.bind(actions),
+        },
+      ],
+    });
+  }
+
+  onMount(async () => {
+    agentDetection.activate(sessionId);
+    el.addEventListener("mousedown", isolateRightClick, true);
+    el.addEventListener("contextmenu", openTerminalContextMenu, true);
+    try {
+      // 풀에서 살아있는 터미널을 얻는다. 재마운트면 기존 인스턴스가 그대로 반환돼
+      // 버퍼(스크롤백)와 실행 중인 프로세스가 보존된다. 최초면 새로 생성한다.
+      const instance = await terminalPool.acquire({ sessionId, cmd, cwd, initialPrompt });
+      if (destroyed) return; // 생성 대기 중 언마운트된 경우: 붙이지 않는다(풀에 유지).
+      handle = instance;
+      el.appendChild(instance.container);
+      instance.remount();
+
+      ro = new ResizeObserver(scheduleResize);
+      ro.observe(el);
+    } catch (reason) {
+      agentDetection.deactivate(sessionId);
+      actionErrors.report(reason);
+    }
   });
+
 
   // 설정 store 변경 시 실행 중인 터미널에 즉시 반영한다.
   $effect(() => {
@@ -53,7 +115,10 @@
   });
 
   onDestroy(() => {
+    agentDetection.deactivate(sessionId);
     destroyed = true;
+    el.removeEventListener("mousedown", isolateRightClick, true);
+    el.removeEventListener("contextmenu", openTerminalContextMenu, true);
     ro?.disconnect();
     clearTimeout(settleTimer);
     // 세션은 풀이 소유하므로 종료하지 않는다. 컨테이너만 뷰포트에서 분리한다.

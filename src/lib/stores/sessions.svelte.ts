@@ -6,12 +6,27 @@ class SessionStatusStore {
   private map = $state<Record<string, AgentStatus>>({});
   private rev = $state<Record<string, number>>({});
   private startPromise: Promise<void> | null = null;
+  // 삭제된 세션은 뒤늦은 status/output 이벤트가 도착해도 되살리지 않는다.
+  private forgotten = new Set<string>();
 
   get(id: string): AgentStatus | undefined {
     return this.map[id];
   }
 
   set(id: string, status: AgentStatus): void {
+    this.forgotten.delete(id);
+    this.map[id] = status;
+  }
+
+  /** 세션이 삭제되면 런타임 상태와 출력 리비전을 함께 제거한다. */
+  forget(id: string): void {
+    this.forgotten.add(id);
+    delete this.map[id];
+    delete this.rev[id];
+  }
+
+  private setFromEvent(id: string, status: AgentStatus): void {
+    if (this.forgotten.has(id)) return;
     this.map[id] = status;
   }
 
@@ -22,16 +37,22 @@ class SessionStatusStore {
 
   /** 출력 청크마다 호출: 미리보기 구독자를 깨우는 리비전만 올린다(버퍼는 xterm이 소유). */
   noteOutput(id: string): void {
+    if (this.forgotten.has(id)) return;
     this.rev[id] = (this.rev[id] ?? 0) + 1;
   }
 
   /** status-changed 이벤트 구독을 시작한다 (앱 마운트 시 1회, 멱등). */
-  async start(): Promise<void> {
+  start(): Promise<void> {
     if (this.startPromise) return this.startPromise;
-    this.startPromise = listenStatus((e) => {
-      this.map[e.sessionId] = e.status;
+
+    const starting = listenStatus((e) => {
+      this.setFromEvent(e.sessionId, e.status);
     }).then(() => {});
-    return this.startPromise;
+    this.startPromise = starting;
+    void starting.catch(() => {
+      if (this.startPromise === starting) this.startPromise = null;
+    });
+    return starting;
   }
 }
 

@@ -24,6 +24,8 @@
   import CommandPalette from "$lib/components/shell/CommandPalette.svelte";
   import UpdateBanner from "$lib/components/shell/UpdateBanner.svelte";
   import StatusBar from "$lib/components/shell/StatusBar.svelte";
+  import ContextMenuHost from "$lib/components/context-menu/ContextMenuHost.svelte";
+  import ActionErrorRegion from "$lib/components/context-menu/ActionErrorRegion.svelte";
 
   const STORAGE_KEY = "shell:sidebar-size";
 
@@ -54,6 +56,10 @@
   function persistSize(size: number) {
     localStorage.setItem(STORAGE_KEY, String(size));
   }
+  function preventNativeContextMenu(event: MouseEvent) {
+    if (event.isTrusted) event.preventDefault();
+  }
+
 
   onMount(() => {
     sessionStatus.start();
@@ -92,7 +98,7 @@
   });
 </script>
 
-<div class="flex h-screen w-screen flex-col overflow-hidden text-sm">
+<div class="flex h-screen w-screen flex-col overflow-hidden text-sm" oncontextmenucapture={preventNativeContextMenu}>
   <TitleBar projects={projectStore.projects} showRightToggle={Boolean(selectedAgent)} onNewAgent={() => (newAgentOpen = true)} onFanout={() => composer.openFanout()} onTasks={() => (taskBoardOpen = true)} />
   <div class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal" class="h-full w-full">
@@ -132,4 +138,6 @@
       seed={composer.seed}
     />
   {/if}
+  <ContextMenuHost />
+  <ActionErrorRegion />
 </div>

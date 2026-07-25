@@ -5978,7 +5978,9 @@ dependencies = [
  "time",
  "tokio",
  "tokio-tungstenite",
+ "url",
  "uuid",
+ "zbus",
 ]
 
 [[package]]

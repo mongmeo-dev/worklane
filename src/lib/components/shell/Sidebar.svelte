@@ -22,6 +22,10 @@
   import DefaultWorkspaceDialog from "./DefaultWorkspaceDialog.svelte";
   import DeleteAgentDialog from "./DeleteAgentDialog.svelte";
   import DeleteProjectDialog from "./DeleteProjectDialog.svelte";
+  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { projectContextActions, workspaceContextActions } from "./sidebarContextActions";
+  import RenameAgentDialog from "./RenameAgentDialog.svelte";
+  import { actionErrors } from "$lib/stores/actionErrors.svelte";
 
   let { projects }: { projects: Project[] } = $props();
 
@@ -34,6 +38,8 @@
   let deleteDialogOpen = $state(false);
   let deleteProjectTarget = $state<Project | null>(null);
   let deleteProjectDialogOpen = $state(false);
+  let renameAgentTarget = $state<Agent | null>(null);
+  let renameAgentDialogOpen = $state(false);
 
   function openAgentDialog(project: Project) {
     agentDialogFor = project;
@@ -45,18 +51,57 @@
       try {
         await projectStore.removeAgent(agent.id, agent.worktreeManaged, false);
         return;
-      } catch {
-        // 안전 제거 실패는 확인 다이얼로그로 전환한다.
+      } catch (reason) {
+        if (reason === "WORKTREE_DIRTY") {
+          deleteAgentTarget = agent;
+          deleteDialogOpen = true;
+        } else {
+          actionErrors.report(reason);
+        }
+        return;
       }
     }
     deleteAgentTarget = agent;
     deleteDialogOpen = true;
+  }
+  function openProjectContextMenu(event: MouseEvent, project: Project) {
+    event.preventDefault();
+    openContextMenu({
+      point: { x: event.clientX, y: event.clientY },
+      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+      ...projectContextActions({
+        project,
+        onAddWorkspace: () => openAgentDialog(project),
+        onDelete: () => {
+          deleteProjectTarget = project;
+          deleteProjectDialogOpen = true;
+        },
+      }),
+    });
+  }
+
+  function openWorkspaceContextMenu(event: MouseEvent, agent: Agent) {
+    event.preventDefault();
+    openContextMenu({
+      point: { x: event.clientX, y: event.clientY },
+      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
+      ...workspaceContextActions({
+        agent,
+        onSelect: () => shell.selectAgent(agent.id),
+        onRename: () => {
+          renameAgentTarget = agent;
+          renameAgentDialogOpen = true;
+        },
+        onDelete: () => void requestDeleteAgent(agent),
+      }),
+    });
   }
 
   $effect(() => { if (!agentDialogOpen) agentDialogFor = null; });
   $effect(() => { if (!defaultWorkspaceDialogOpen) defaultWorkspaceFor = null; });
   $effect(() => { if (!deleteDialogOpen) deleteAgentTarget = null; });
   $effect(() => { if (!deleteProjectDialogOpen) deleteProjectTarget = null; });
+  $effect(() => { if (!renameAgentDialogOpen) renameAgentTarget = null; });
 </script>
 
 <aside class="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground">
@@ -81,11 +126,18 @@
       {#each projects as project (project.id)}
         <section class="rounded-xl border border-sidebar-border bg-card/80 p-1.5">
           <div class="flex items-center gap-1.5 px-1.5 py-1.5">
-            <Folder class="size-3.5 shrink-0 text-muted-foreground" />
-            <div class="min-w-0 flex-1">
-              <h2 class="truncate text-[12.5px] font-semibold">{project.name}</h2>
-              <p class="truncate font-mono text-[9.5px] text-muted-foreground/70">{projectPathLabel(project.path)}</p>
-            </div>
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left"
+              aria-label={project.name}
+              oncontextmenu={(event) => openProjectContextMenu(event, project)}
+            >
+              <Folder class="size-3.5 shrink-0 text-muted-foreground" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-[12.5px] font-semibold">{project.name}</span>
+                <span class="block truncate font-mono text-[9.5px] text-muted-foreground/70">{projectPathLabel(project.path)}</span>
+              </span>
+            </button>
             <button type="button" class="rounded-md p-1 hover:bg-sidebar-accent" aria-label={t("sidebar.addAgentTo", { project: project.name })} onclick={() => openAgentDialog(project)}>
               <Plus class="size-3.5 text-muted-foreground" />
             </button>
@@ -118,7 +170,7 @@
                   {#each group.agents as agent (agent.id)}
                     {@const status = agent.status ?? "idle"}
                     <div class="group relative">
-                      <button type="button" class={agentRowClasses(status, shell.selectedAgentId === agent.id)} onclick={() => shell.selectAgent(agent.id)}>
+                      <button type="button" class={agentRowClasses(status, shell.selectedAgentId === agent.id)} onclick={() => shell.selectAgent(agent.id)} oncontextmenu={(event) => openWorkspaceContextMenu(event, agent)}>
                         <span class="flex w-full items-center gap-2">
                           <StatusDot {status} />
                           <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{agent.title}</span>
@@ -130,7 +182,7 @@
                           <span class="ml-auto shrink-0 pr-1">{agent.lastActivity ?? t("common.waitingActivity")}</span>
                         </span>
                       </button>
-                      <button type="button" class="absolute right-1 top-7 hidden rounded p-1 group-hover:block hover:bg-destructive/10" aria-label={t("sidebar.deleteAgent", { agent: agent.title })} onclick={() => requestDeleteAgent(agent)}>
+                      <button type="button" class="absolute right-1 top-7 hidden rounded p-1 group-hover:block group-focus-within:block hover:bg-destructive/10" aria-label={t("sidebar.deleteAgent", { agent: agent.title })} onclick={() => requestDeleteAgent(agent)}>
                         <Trash class="size-3 text-muted-foreground" />
                       </button>
                     </div>
@@ -155,3 +207,4 @@
 {#if defaultWorkspaceFor}<DefaultWorkspaceDialog bind:open={defaultWorkspaceDialogOpen} project={defaultWorkspaceFor} />{/if}
 {#if deleteAgentTarget}<DeleteAgentDialog bind:open={deleteDialogOpen} agent={deleteAgentTarget} />{/if}
 {#if deleteProjectTarget}<DeleteProjectDialog bind:open={deleteProjectDialogOpen} project={deleteProjectTarget} />{/if}
+{#if renameAgentTarget}<RenameAgentDialog bind:open={renameAgentDialogOpen} agent={renameAgentTarget} />{/if}
