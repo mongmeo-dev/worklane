@@ -10,7 +10,8 @@ export function parsePreviewUrl(value: string): string | null {
 
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:" ? url : null;
+    const appOrigin = typeof window === "undefined" ? null : window.location.origin;
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.origin !== appOrigin ? url : null;
   } catch {
     return null;
   }

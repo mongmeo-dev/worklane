@@ -176,7 +176,7 @@
     </div>
     {#if shell.openFilePath}
       <div class="flex items-center border-b-2 {shell.showEditor ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground'}">
-        <button type="button" class="max-w-44 truncate py-1 pl-3 text-[11.5px] font-medium" onclick={() => shell.openFile(shell.openFilePath!)} oncontextmenu={fileTabContextMenu.oncontextmenu}>{shell.openFilePath.split("/").at(-1)}</button>
+        <button type="button" class="max-w-44 truncate py-1 pl-3 text-[11.5px] font-medium" onclick={() => shell.openFile(shell.openFilePath!)} oncontextmenu={fileTabContextMenu.oncontextmenu} onkeydown={fileTabContextMenu.onkeydown}>{shell.openFilePath.split("/").at(-1)}</button>
         <button type="button" aria-label={t("agentDetail.closeFileTab")} class="mx-1 rounded p-1 hover:bg-muted" onclick={() => shell.closeFile()}><X class="size-3" /></button>
       </div>
     {/if}
@@ -187,6 +187,7 @@
       class="border-b-2 px-3 pb-2 pt-1 text-[11.5px] font-medium {shell.showPreview ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}"
       onclick={() => shell.showPreviewPane()}
       oncontextmenu={previewContextMenu.oncontextmenu}
+      onkeydown={previewContextMenu.onkeydown}
     >{t("agentDetail.preview")}</button>
   </div>
 

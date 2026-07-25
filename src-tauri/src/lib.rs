@@ -66,6 +66,7 @@ pub fn run() {
             commands::git_push,
             commands::git_open_pull_request,
             commands::open_in_app,
+            external::preflight_external_path,
             commands::github_issues,
             commands::linear_issues,
             commands::send_webhook,

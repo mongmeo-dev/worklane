@@ -7,6 +7,14 @@ describe("previewStore", () => {
     localStorage.clear();
     vi.resetModules();
   });
+  it("rejects the parent app origin while preserving other http and https preview URLs", async () => {
+    const { parsePreviewUrl } = await import("./preview.svelte");
+
+    expect(parsePreviewUrl(`${window.location.origin}/nested/preview`)).toBeNull();
+    expect(parsePreviewUrl("http://preview.test/nested/route")).toBe("http://preview.test/nested/route");
+    expect(parsePreviewUrl("https://preview.test/nested/route")).toBe("https://preview.test/nested/route");
+    expect(parsePreviewUrl("tauri://localhost")).toBeNull();
+  });
 
   it("keeps draft edits separate from persisted URL until persist", async () => {
     const { previewStore } = await import("./preview.svelte");

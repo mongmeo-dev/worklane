@@ -10,7 +10,8 @@
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import ReviewActions from "./ReviewActions.svelte";
-  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { preflightExternalPath } from "$lib/ipc/external";
+  import { openContextMenuFromKeyboard, openContextMenuFromPointer } from "$lib/context-menu/trigger";
   import { fileContextActions, folderContextActions } from "./filePanelContextActions";
 
   let { agent, sharedCount = 1 }: { agent: Agent; sharedCount?: number } = $props();
@@ -55,31 +56,47 @@
     if (change === "modified") return "bg-accent-share";
     return "bg-muted-foreground/30";
   }
-  function openFolderContextMenu(event: MouseEvent, path: string, isExpanded: boolean) {
-    event.preventDefault();
-    openContextMenu({
-      point: { x: event.clientX, y: event.clientY },
-      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
-      ...folderContextActions({
-        worktreePath: agent.worktreePath,
+  function folderContextMenu(path: string, isExpanded: boolean) {
+    const worktreePath = agent.worktreePath;
+    return async () => {
+      const externalTarget = await preflightExternalPath(worktreePath, path);
+      return folderContextActions({
+        worktreePath,
         path,
         expanded: isExpanded,
         onToggle: () => toggleGroup(path),
-      }),
-    });
+        externalTarget,
+      });
+    };
+  }
+
+  function fileContextMenu(path: string) {
+    const worktreePath = agent.worktreePath;
+    return async () => {
+      const externalTarget = await preflightExternalPath(worktreePath, path);
+      return fileContextActions({
+        worktreePath,
+        path,
+        onOpen: () => shell.openFile(path),
+        externalTarget,
+      });
+    };
+  }
+
+  function openFolderContextMenu(event: MouseEvent, path: string, isExpanded: boolean) {
+    openContextMenuFromPointer(event, folderContextMenu(path, isExpanded));
+  }
+
+  function openFolderContextMenuFromKeyboard(event: KeyboardEvent, path: string, isExpanded: boolean) {
+    openContextMenuFromKeyboard(event, folderContextMenu(path, isExpanded));
   }
 
   function openFileContextMenu(event: MouseEvent, path: string) {
-    event.preventDefault();
-    openContextMenu({
-      point: { x: event.clientX, y: event.clientY },
-      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
-      ...fileContextActions({
-        worktreePath: agent.worktreePath,
-        path,
-        onOpen: () => shell.openFile(path),
-      }),
-    });
+    openContextMenuFromPointer(event, fileContextMenu(path));
+  }
+
+  function openFileContextMenuFromKeyboard(event: KeyboardEvent, path: string) {
+    openContextMenuFromKeyboard(event, fileContextMenu(path));
   }
 
   $effect(() => {
@@ -99,6 +116,7 @@
       aria-expanded={open}
       onclick={() => toggleGroup(node.path)}
       oncontextmenu={(event) => openFolderContextMenu(event, node.path, open)}
+      onkeydown={(event) => openFolderContextMenuFromKeyboard(event, node.path, open)}
     >
       <ChevronRight class="size-3 shrink-0 text-muted-foreground transition-transform {open ? 'rotate-90' : ''}" />
       <Folder class="size-3 shrink-0 text-muted-foreground" />
@@ -119,6 +137,7 @@
       style="padding-left: {depth * 12 + 10}px"
       onclick={() => shell.openFile(node.path)}
       oncontextmenu={(event) => openFileContextMenu(event, node.path)}
+      onkeydown={(event) => openFileContextMenuFromKeyboard(event, node.path)}
     >
       <span class="size-[7px] shrink-0 rounded-full {markerClass(node.change)}"></span>
       <span class="min-w-0 flex-1 truncate text-[11px] {node.change === 'none' ? 'text-muted-foreground' : 'font-medium text-foreground'}">{node.name}</span>

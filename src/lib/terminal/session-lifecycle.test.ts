@@ -5,16 +5,16 @@ import { registerSessionDisposer, releaseSession } from "./session-lifecycle";
 describe("session-lifecycle", () => {
   it("등록 후 release하면 종료 함수를 호출한다", () => {
     const dispose = vi.fn();
-    registerSessionDisposer("a", dispose);
+    expect(registerSessionDisposer("a", dispose)).toBe(false);
     releaseSession("a");
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 
-  it("등록 전 release는 no-op이고, 이후 등록 시 즉시 정리한다(생성 도중 삭제 경합)", () => {
+  it("등록 전 release는 no-op이고, 이후 등록은 late release를 보고하며 즉시 정리한다", () => {
     const dispose = vi.fn();
     releaseSession("b"); // 터미널이 아직 생성 중인 상태에서 삭제 요청
     expect(dispose).not.toHaveBeenCalled();
-    registerSessionDisposer("b", dispose);
+    expect(registerSessionDisposer("b", dispose)).toBe(true);
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 

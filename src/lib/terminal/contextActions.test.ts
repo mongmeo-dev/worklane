@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Terminal } from "@xterm/xterm";
 import * as pty from "$lib/ipc/pty";
 import { actionErrors } from "$lib/stores/actionErrors.svelte";
-import { PooledTerminal } from "./pool";
+import { PooledTerminal, terminalPool } from "./pool";
 
 vi.mock("@xterm/xterm", () => ({
   Terminal: class {
@@ -47,19 +47,21 @@ vi.mock("$lib/stores/terminalSettings.svelte", () => ({
   terminalSettings: { fontFamily: "monospace", fontSize: 14 },
 }));
 vi.mock("$lib/stores/sessions.svelte", () => ({
-  sessionStatus: { noteOutput: vi.fn() },
+  sessionStatus: { noteOutput: vi.fn(), forget: vi.fn() },
+}));
+vi.mock("$lib/stores/agentDetection.svelte", () => ({
+  agentDetection: { deactivate: vi.fn(), forget: vi.fn() },
 }));
 vi.mock("$lib/terminal/promptInjection", () => ({
   injectionDone: vi.fn(() => false),
   markInjected: vi.fn(),
-}));
-vi.mock("$lib/terminal/session-lifecycle", () => ({
-  registerSessionDisposer: vi.fn(),
+  forgetInjection: vi.fn(),
 }));
 vi.mock("$lib/stores/actionErrors.svelte", () => ({
   actionErrors: { report: vi.fn() },
 }));
 import { TerminalContextActions } from "./contextActions";
+import { cleanupSessionRuntime } from "./session-runtime";
 
 function terminal(selection = ""): Terminal {
   return {
@@ -164,6 +166,26 @@ describe("TerminalContextActions", () => {
     expect((mounted.focus as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
     expect((mounted.selectAll as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
   });
+  it("reports an unavailable visible terminal action without rerouting it", async () => {
+    const mounted = terminal("selection");
+    const replacement = terminal();
+    const { writeText } = clipboard(vi.fn().mockResolvedValue("paste me"));
+    const actions = new TerminalContextActions(mounted, () => replacement);
+
+    await actions.copy();
+    await actions.paste();
+    actions.focus();
+    actions.selectAll();
+
+    expect(writeText).not.toHaveBeenCalled();
+    expect((replacement.paste as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect((replacement.focus as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect((replacement.selectAll as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(actionErrors.report).toHaveBeenCalledTimes(4);
+    expect(actionErrors.report).toHaveBeenLastCalledWith(
+      expect.objectContaining({ message: "Terminal is unavailable." }),
+    );
+  });
 });
 
 describe("PooledTerminal", () => {
@@ -229,6 +251,31 @@ describe("PooledTerminal", () => {
     expect(actionErrors.report).toHaveBeenCalledWith(writeError);
   });
 
+  it("re-closes a session released before deferred creation registers its disposer", async () => {
+    let resolveCreate!: () => void;
+    let resolveFirstClose!: () => void;
+    const lateCloseError = new Error("late close failed");
+    (pty.createSession as any).mockImplementation(
+      () => new Promise<void>((resolve) => { resolveCreate = resolve; }),
+    );
+    (pty.closeSession as any)
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { resolveFirstClose = resolve; }))
+      .mockRejectedValueOnce(lateCloseError);
+
+    const acquiring = terminalPool.acquire({ sessionId: "late-release", cmd: "agent", cwd: "/tmp" });
+    await vi.waitFor(() => expect(pty.createSession).toHaveBeenCalledTimes(1));
+    cleanupSessionRuntime("late-release");
+    await vi.waitFor(() => expect(pty.closeSession).toHaveBeenCalledTimes(1));
+
+    resolveFirstClose();
+    await Promise.resolve();
+    resolveCreate();
+
+    const instance = await acquiring;
+    expect(instance.snapshot()).toBe("");
+    await vi.waitFor(() => expect(pty.closeSession).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(actionErrors.report).toHaveBeenCalledWith(lateCloseError));
+  });
   it("awaits rollback close, reports its failure, and preserves the create failure", async () => {
     const createError = new Error("create failed");
     const closeError = new Error("close failed");

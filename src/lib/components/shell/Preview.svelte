@@ -211,7 +211,7 @@
           title={t("preview.frameTitle", { title: agent.title })}
           class="size-full border-0"
           role="document"
-          sandbox="allow-scripts allow-forms allow-popups"
+          sandbox="allow-scripts allow-forms allow-popups allow-same-origin"
           referrerpolicy="no-referrer"
           onload={onFrameLoad}
         ></iframe>

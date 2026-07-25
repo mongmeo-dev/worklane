@@ -241,7 +241,7 @@ describe("projectStore", () => {
     expect(store.projects).toEqual([]);
   });
 
-  it("delete 중 완료된 terminal 추가는 owner를 되살리지 않고 runtime을 정리한다", async () => {
+  it("delete 성공 전 완료된 terminal 추가는 local owner에 붙이고 authoritative ID로 정리한다", async () => {
     let resolveDelete!: (ids: string[]) => void;
     const terminal = { id: "t2", agentId: "a1", title: "", kind: "terminal" as const, command: "", position: 1, createdAt: 2 };
     (ipc.listProjects as any).mockResolvedValue([sampleProject]);
@@ -252,11 +252,29 @@ describe("projectStore", () => {
 
     const deletion = store.removeAgent("a1", true, false);
     await store.addTerminal("a1", "terminal", "", "");
+
+    expect(store.projects[0].agents[0].terminals?.map((item) => item.id)).toEqual(["t1", "t2"]);
+    expect(runtime.cleanupSessionRuntime).not.toHaveBeenCalled();
     resolveDelete(["t1", "t2"]);
     await deletion;
 
     expect(store.projects[0].agents).toEqual([]);
     expect(runtime.cleanupSessionRuntime).toHaveBeenCalledWith("t2");
+  });
+  it("delete 실패 중 완료된 terminal 추가는 local state에 남긴다", async () => {
+    const terminal = { id: "t2", agentId: "a1", title: "", kind: "terminal" as const, command: "", position: 1, createdAt: 2 };
+    (ipc.listProjects as any).mockResolvedValue([sampleProject]);
+    (ipc.deleteAgent as any).mockRejectedValue(new Error("delete failed"));
+    (ipc.createAgentTerminal as any).mockResolvedValue(terminal);
+    const store = createProjectStore();
+    await store.load();
+
+    const deletion = store.removeAgent("a1", true, false);
+    await store.addTerminal("a1", "terminal", "", "");
+
+    await expect(deletion).rejects.toThrow("delete failed");
+    expect(store.projects[0].agents[0].terminals?.map((item) => item.id)).toEqual(["t1", "t2"]);
+    expect(runtime.cleanupSessionRuntime).not.toHaveBeenCalled();
   });
   it("keeps the deletion guard until overlapping deletion operations settle", async () => {
     let resolveProjectDelete!: (ids: string[]) => void;
@@ -278,8 +296,8 @@ describe("projectStore", () => {
 
     resolveTerminal(terminal);
     await addition;
-    expect(runtime.cleanupSessionRuntime).toHaveBeenCalledWith("t2");
-    expect(store.projects[0].agents[0].terminals?.map((item) => item.id)).toEqual(["t1"]);
+    expect(runtime.cleanupSessionRuntime).not.toHaveBeenCalledWith("t2");
+    expect(store.projects[0].agents[0].terminals?.map((item) => item.id)).toEqual(["t1", "t2"]);
 
     resolveProjectDelete(["t1", "t2"]);
     await projectDeletion;

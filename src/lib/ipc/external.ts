@@ -3,6 +3,16 @@ import { invoke } from "@tauri-apps/api/core";
 export type ExternalApp = "vscode" | "cursor" | "zed" | "finder";
 
 export type ExternalIntent = "openDirectory" | "revealEntry";
+export type ExternalPathPreflight =
+  | { disposition: "exact" }
+  | { disposition: "nearestParent"; nearestParent: string };
+
+export function preflightExternalPath(
+  worktreePath: string,
+  relativePath: string,
+): Promise<ExternalPathPreflight> {
+  return invoke("preflight_external_path", { worktreePath, relativePath });
+}
 
 export function openDirectory(worktreePath: string, relativePath?: string): Promise<void> {
   return openInApp(worktreePath, "finder", "openDirectory", relativePath);

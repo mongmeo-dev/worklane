@@ -14,16 +14,35 @@ pub const INIT_SCRIPT: &str = r#"
     if (token && frame.contentWindow) frame.contentWindow.postMessage({ type: INIT, token }, "*");
   }
 
-  function localPoint(event) {
-    if (event instanceof MouseEvent) return { x: event.clientX, y: event.clientY };
-    const target = event.target instanceof Element ? event.target : document.documentElement;
+  function keyboardPoint(event) {
+    const target = document.activeElement instanceof Element
+      ? document.activeElement
+      : event.target instanceof Element
+        ? event.target
+        : document.documentElement;
     const rect = target.getBoundingClientRect();
-    return { x: rect.left, y: rect.bottom };
+    const viewport = window.visualViewport;
+    const left = Number.isFinite(viewport?.offsetLeft) ? viewport.offsetLeft : 0;
+    const top = Number.isFinite(viewport?.offsetTop) ? viewport.offsetTop : 0;
+    const width = Number.isFinite(viewport?.width) && viewport.width > 0
+      ? viewport.width
+      : Math.max(document.documentElement.clientWidth, window.innerWidth, 1);
+    const height = Number.isFinite(viewport?.height) && viewport.height > 0
+      ? viewport.height
+      : Math.max(document.documentElement.clientHeight, window.innerHeight, 1);
+    const right = left + Math.max(width - 1, 0);
+    const bottom = top + Math.max(height - 1, 0);
+    return {
+      x: Math.min(Math.max(Number.isFinite(rect.left) ? rect.left : left, left), right),
+      y: Math.min(Math.max(Number.isFinite(rect.bottom) ? rect.bottom : top, top), bottom),
+    };
   }
 
   function report(event) {
     if (!token || window.parent === window) return;
-    const point = localPoint(event);
+    const point = event instanceof MouseEvent
+      ? { x: event.clientX, y: event.clientY }
+      : keyboardPoint(event);
     window.parent.postMessage({ type: CONTEXT, token, x: point.x, y: point.y }, "*");
   }
 

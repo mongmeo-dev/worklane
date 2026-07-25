@@ -22,7 +22,7 @@
   import DefaultWorkspaceDialog from "./DefaultWorkspaceDialog.svelte";
   import DeleteAgentDialog from "./DeleteAgentDialog.svelte";
   import DeleteProjectDialog from "./DeleteProjectDialog.svelte";
-  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { createContextMenuTrigger } from "$lib/context-menu/trigger";
   import { projectContextActions, workspaceContextActions } from "./sidebarContextActions";
   import RenameAgentDialog from "./RenameAgentDialog.svelte";
   import { actionErrors } from "$lib/stores/actionErrors.svelte";
@@ -64,38 +64,6 @@
     deleteAgentTarget = agent;
     deleteDialogOpen = true;
   }
-  function openProjectContextMenu(event: MouseEvent, project: Project) {
-    event.preventDefault();
-    openContextMenu({
-      point: { x: event.clientX, y: event.clientY },
-      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
-      ...projectContextActions({
-        project,
-        onAddWorkspace: () => openAgentDialog(project),
-        onDelete: () => {
-          deleteProjectTarget = project;
-          deleteProjectDialogOpen = true;
-        },
-      }),
-    });
-  }
-
-  function openWorkspaceContextMenu(event: MouseEvent, agent: Agent) {
-    event.preventDefault();
-    openContextMenu({
-      point: { x: event.clientX, y: event.clientY },
-      origin: event.currentTarget instanceof HTMLElement ? event.currentTarget : null,
-      ...workspaceContextActions({
-        agent,
-        onSelect: () => shell.selectAgent(agent.id),
-        onRename: () => {
-          renameAgentTarget = agent;
-          renameAgentDialogOpen = true;
-        },
-        onDelete: () => void requestDeleteAgent(agent),
-      }),
-    });
-  }
 
   $effect(() => { if (!agentDialogOpen) agentDialogFor = null; });
   $effect(() => { if (!defaultWorkspaceDialogOpen) defaultWorkspaceFor = null; });
@@ -124,13 +92,22 @@
       </button>
 
       {#each projects as project (project.id)}
+        {@const projectContextMenuTrigger = createContextMenuTrigger(() => projectContextActions({
+          project,
+          onAddWorkspace: () => openAgentDialog(project),
+          onDelete: () => {
+            deleteProjectTarget = project;
+            deleteProjectDialogOpen = true;
+          },
+        }))}
         <section class="rounded-xl border border-sidebar-border bg-card/80 p-1.5">
           <div class="flex items-center gap-1.5 px-1.5 py-1.5">
             <button
               type="button"
               class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md text-left"
               aria-label={project.name}
-              oncontextmenu={(event) => openProjectContextMenu(event, project)}
+              oncontextmenu={projectContextMenuTrigger.oncontextmenu}
+              onkeydown={projectContextMenuTrigger.onkeydown}
             >
               <Folder class="size-3.5 shrink-0 text-muted-foreground" />
               <span class="min-w-0 flex-1">
@@ -169,8 +146,17 @@
                 <div class="flex flex-col gap-1">
                   {#each group.agents as agent (agent.id)}
                     {@const status = agent.status ?? "idle"}
+                    {@const workspaceContextMenuTrigger = createContextMenuTrigger(() => workspaceContextActions({
+                      agent,
+                      onSelect: () => shell.selectAgent(agent.id),
+                      onRename: () => {
+                        renameAgentTarget = agent;
+                        renameAgentDialogOpen = true;
+                      },
+                      onDelete: () => void requestDeleteAgent(agent),
+                    }))}
                     <div class="group relative">
-                      <button type="button" class={agentRowClasses(status, shell.selectedAgentId === agent.id)} onclick={() => shell.selectAgent(agent.id)} oncontextmenu={(event) => openWorkspaceContextMenu(event, agent)}>
+                      <button type="button" class={agentRowClasses(status, shell.selectedAgentId === agent.id)} onclick={() => shell.selectAgent(agent.id)} oncontextmenu={workspaceContextMenuTrigger.oncontextmenu} onkeydown={workspaceContextMenuTrigger.onkeydown}>
                         <span class="flex w-full items-center gap-2">
                           <StatusDot {status} />
                           <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{agent.title}</span>

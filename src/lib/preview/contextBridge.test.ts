@@ -96,6 +96,20 @@ describe("preview context bridge", () => {
     expect(open).not.toHaveBeenCalled();
     bridge.destroy();
   });
+  it("rejects non-finite direct and nested coordinates before opening the parent-owned menu", () => {
+    const source = { postMessage: vi.fn() };
+    const open = vi.fn();
+    const bridge = createPreviewContextBridge({ open, createToken: () => "token" });
+    const frame = previewFrame(source, { left: 10, top: 20, width: 100, height: 100 });
+
+    bridge.setFrame(frame);
+    bridge.issueToken();
+    dispatchFrom(source, { type: "worklane:preview-context", token: "token", x: Number.NaN, y: 10 });
+    dispatchFrom(source, { type: "worklane:preview-context-relay", token: "token", x: 10, y: Number.POSITIVE_INFINITY });
+
+    expect(open).not.toHaveBeenCalled();
+    bridge.destroy();
+  });
 
   it("uses the iframe content-box offset and scale instead of accepting app-chrome coordinates", () => {
     const source = { postMessage: vi.fn() };

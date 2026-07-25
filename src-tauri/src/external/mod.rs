@@ -1,7 +1,75 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use serde::Serialize;
+use tauri::State;
+
 use crate::path_policy::ResolvedPath;
+use crate::store::{self, StoreState};
+
+/// The result of validating an external file-manager target without opening it.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "disposition", rename_all = "camelCase")]
+pub enum ExternalPathPreflight {
+    Exact,
+    NearestParent {
+        #[serde(rename = "nearestParent")]
+        nearest_parent: String,
+    },
+}
+
+/// Validates a registered root and relative path without spawning an external application.
+#[tauri::command]
+pub async fn preflight_external_path(
+    store: State<'_, StoreState>,
+    worktree_path: String,
+    relative_path: String,
+) -> Result<ExternalPathPreflight, String> {
+    let root = registered_external_root(&store, &worktree_path)?;
+    let root_identity = crate::path_policy::capture_path_identity(&root)?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::path_policy::verify_path_identity(&root, &root_identity)?;
+        let resolved = crate::path_policy::resolve_in_root(&root, Some(&relative_path))?;
+        resolved.verify_unchanged()?;
+
+        if resolved.exists {
+            Ok(ExternalPathPreflight::Exact)
+        } else {
+            let nearest_parent = resolved
+                .fallback_directory
+                .strip_prefix(&root)
+                .map_err(|_| "등록 루트 밖의 경로 접근이 거부되었습니다.".to_string())?;
+            let nearest_parent = if nearest_parent.as_os_str().is_empty() {
+                ".".into()
+            } else {
+                nearest_parent.to_string_lossy().into_owned()
+            };
+            Ok(ExternalPathPreflight::NearestParent { nearest_parent })
+        }
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+/// Resolves a project or agent root whose database string exactly matches the caller input.
+fn registered_external_root(store: &StoreState, root_path: &str) -> Result<PathBuf, String> {
+    let conn = store.0.lock().map_err(|error| error.to_string())?;
+    let registered = store::repo::list_projects(&conn)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .flat_map(|project| {
+            std::iter::once(project.path)
+                .chain(project.agents.into_iter().map(|agent| agent.worktree_path))
+        })
+        .any(|path| path == root_path);
+
+    if !registered {
+        return Err("등록되지 않은 프로젝트 또는 worktree 경로 접근 거부".into());
+    }
+
+    std::fs::canonicalize(root_path).map_err(|error| error.to_string())
+}
 #[cfg(target_os = "linux")]
 use std::time::Duration;
 
@@ -268,5 +336,22 @@ mod tests {
     fn 파인더와_알수없는_대상은_에디터가_아니다() {
         assert_eq!(editor_binary("finder"), None);
         assert_eq!(editor_binary("nope"), None);
+    }
+    #[test]
+    fn external_path_preflight_직렬화는_typescript_계약을_따른다() {
+        assert_eq!(
+            serde_json::to_value(ExternalPathPreflight::Exact).unwrap(),
+            serde_json::json!({ "disposition": "exact" })
+        );
+        assert_eq!(
+            serde_json::to_value(ExternalPathPreflight::NearestParent {
+                nearest_parent: "src".into(),
+            })
+            .unwrap(),
+            serde_json::json!({
+                "disposition": "nearestParent",
+                "nearestParent": "src",
+            })
+        );
     }
 }

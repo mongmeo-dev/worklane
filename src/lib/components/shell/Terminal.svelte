@@ -3,10 +3,11 @@
   import "@xterm/xterm/css/xterm.css";
   import { terminalSettings } from "$lib/stores/terminalSettings.svelte";
   import { terminalPool, type PooledTerminal } from "$lib/terminal/pool";
-  import { openContextMenu } from "$lib/stores/contextMenu.svelte";
+  import { closeContextMenu, contextMenu } from "$lib/stores/contextMenu.svelte";
   import { t } from "$lib/i18n";
   import { actionErrors } from "$lib/stores/actionErrors.svelte";
   import { agentDetection } from "$lib/stores/agentDetection.svelte";
+  import { createContextMenuTrigger } from "$lib/context-menu/trigger";
 
   interface Props {
     sessionId: string;
@@ -21,8 +22,12 @@
   let el: HTMLDivElement;
   let handle: PooledTerminal | undefined;
   let ro: ResizeObserver | undefined;
+  let terminalObserver: MutationObserver | undefined;
   let destroyed = false;
   let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  let keyboardOrigin: HTMLTextAreaElement | undefined;
+  let terminalMenuGeneration: number | undefined;
+  let terminalMenuOrigin: HTMLElement | undefined;
 
   // fit()은 xterm 버퍼를 새 폭으로 reflow하고, 이어지는 PTY resize는 zsh가
   // SIGWINCH로 프롬프트를 다시 그리게 한다. 드래그처럼 크기가 연속으로 바뀌면
@@ -42,21 +47,14 @@
       : undefined;
   }
 
-  function isolateRightClick(event: MouseEvent): void {
-    if (event.button !== 2) return;
-    event.preventDefault();
-    event.stopPropagation();
-  }
+  const terminalContextMenu = createContextMenuTrigger(terminalContextMenuModel);
 
-  function openTerminalContextMenu(event: MouseEvent): void {
-    event.preventDefault();
-    event.stopPropagation();
+  function terminalContextMenuModel() {
     const instance = handle;
-    if (!instance) return;
+    if (!instance) return { ariaLabel: t("contextMenu.terminal"), items: [] };
 
     const actions = instance.contextActions(() => resolveMountedTerminal(instance));
-    openContextMenu({
-      point: { x: event.clientX, y: event.clientY },
+    return {
       ariaLabel: t("contextMenu.terminal"),
       items: [
         ...(actions.hasSelection
@@ -82,13 +80,72 @@
           onSelect: actions.selectAll.bind(actions),
         },
       ],
-    });
+    };
+  }
+
+  function isolateRightClick(event: MouseEvent): void {
+    if (event.button !== 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function rememberTerminalMenu(origin: HTMLElement): void {
+    const menu = contextMenu.snapshot();
+    if (!menu || menu.origin !== origin) return;
+    terminalMenuGeneration = menu.generation;
+    terminalMenuOrigin = origin;
+  }
+
+  function openTerminalContextMenu(event: MouseEvent): void {
+    if (!handle) return;
+    event.stopPropagation();
+    terminalContextMenu.oncontextmenu(event);
+    rememberTerminalMenu(el);
+  }
+
+  function openTerminalTextareaContextMenu(event: MouseEvent): void {
+    if (!handle) return;
+    event.stopPropagation();
+    terminalContextMenu.oncontextmenu(event);
+    if (keyboardOrigin) rememberTerminalMenu(keyboardOrigin);
+  }
+
+  function openTerminalKeyboardContextMenu(event: KeyboardEvent): void {
+    if (event.isComposing || (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10"))) return;
+    terminalContextMenu.onkeydown(event);
+    event.stopPropagation();
+    if (keyboardOrigin) rememberTerminalMenu(keyboardOrigin);
+  }
+
+  function attachKeyboardOrigin(instance: PooledTerminal): void {
+    keyboardOrigin = instance.container.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea") ?? undefined;
+    keyboardOrigin?.addEventListener("contextmenu", openTerminalTextareaContextMenu, true);
+    keyboardOrigin?.addEventListener("keydown", openTerminalKeyboardContextMenu, true);
+  }
+
+  function detachKeyboardOrigin(): void {
+    keyboardOrigin?.removeEventListener("contextmenu", openTerminalTextareaContextMenu, true);
+    keyboardOrigin?.removeEventListener("keydown", openTerminalKeyboardContextMenu, true);
+    keyboardOrigin = undefined;
+  }
+
+  function deactivateTerminalMenu(): void {
+    if (
+      terminalMenuGeneration !== undefined &&
+      terminalMenuOrigin &&
+      contextMenu.isCurrent(terminalMenuGeneration) &&
+      contextMenu.origin === terminalMenuOrigin
+    ) {
+      closeContextMenu(terminalMenuGeneration, "deactivation");
+    }
+    terminalMenuGeneration = undefined;
+    terminalMenuOrigin = undefined;
   }
 
   onMount(async () => {
     agentDetection.activate(sessionId);
     el.addEventListener("mousedown", isolateRightClick, true);
-    el.addEventListener("contextmenu", openTerminalContextMenu, true);
+    el.addEventListener("contextmenu", openTerminalContextMenu);
     try {
       // 풀에서 살아있는 터미널을 얻는다. 재마운트면 기존 인스턴스가 그대로 반환돼
       // 버퍼(스크롤백)와 실행 중인 프로세스가 보존된다. 최초면 새로 생성한다.
@@ -97,6 +154,11 @@
       handle = instance;
       el.appendChild(instance.container);
       instance.remount();
+      attachKeyboardOrigin(instance);
+      terminalObserver = new MutationObserver(() => {
+        if (handle === instance && instance.container.parentElement !== el) deactivateTerminalMenu();
+      });
+      terminalObserver.observe(el, { childList: true });
 
       ro = new ResizeObserver(scheduleResize);
       ro.observe(el);
@@ -117,9 +179,12 @@
   onDestroy(() => {
     agentDetection.deactivate(sessionId);
     destroyed = true;
+    detachKeyboardOrigin();
+    deactivateTerminalMenu();
     el.removeEventListener("mousedown", isolateRightClick, true);
-    el.removeEventListener("contextmenu", openTerminalContextMenu, true);
+    el.removeEventListener("contextmenu", openTerminalContextMenu);
     ro?.disconnect();
+    terminalObserver?.disconnect();
     clearTimeout(settleTimer);
     // 세션은 풀이 소유하므로 종료하지 않는다. 컨테이너만 뷰포트에서 분리한다.
     if (handle && handle.container.parentElement === el) {

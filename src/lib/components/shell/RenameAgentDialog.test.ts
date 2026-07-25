@@ -59,6 +59,69 @@ describe("RenameAgentDialog", () => {
     target = undefined;
     vi.mocked(projectStore.patchAgentTitle).mockReset();
   });
+  it("resets the current title and focuses and selects it when opened", async () => {
+    const props = proxy({ open: false, agent: { ...agent, title: "Updated title" } });
+    target = document.createElement("div");
+    document.body.appendChild(target);
+    const instance = mount(RenameAgentDialog, { target, props });
+    cleanup = () => unmount(instance);
+    await settle();
+
+    props.open = true;
+    await settle();
+
+    const input = document.querySelector<HTMLInputElement>("#rename-agent-title");
+    expect(input?.value).toBe("Updated title");
+    expect(document.activeElement).toBe(input);
+    expect(input?.selectionStart).toBe(0);
+    expect(input?.selectionEnd).toBe("Updated title".length);
+  });
+
+  it("closes without saving when cancelled or dismissed with Escape", async () => {
+    const props = proxy({ open: true, agent: { ...agent } });
+    target = document.createElement("div");
+    document.body.appendChild(target);
+    const instance = mount(RenameAgentDialog, { target, props });
+    cleanup = () => unmount(instance);
+    await settle();
+
+    const cancel = document.querySelector<HTMLButtonElement>("[data-slot=dialog-footer] button[type=button]");
+    expect(cancel).toBeDefined();
+    cancel?.click();
+    await settle();
+    expect(props.open).toBe(false);
+    expect(projectStore.patchAgentTitle).not.toHaveBeenCalled();
+
+    props.open = true;
+    await settle();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    await settle();
+
+    expect(props.open).toBe(false);
+    expect(projectStore.patchAgentTitle).not.toHaveBeenCalled();
+  });
+
+  it("trims the title and submits only once when Enter submits repeatedly", async () => {
+    const rename = deferred<void>();
+    vi.mocked(projectStore.patchAgentTitle).mockReturnValue(rename.promise);
+
+    const props = proxy({ open: true, agent: { ...agent } });
+    target = document.createElement("div");
+    document.body.appendChild(target);
+    const instance = mount(RenameAgentDialog, { target, props });
+    cleanup = () => unmount(instance);
+    await settle();
+
+    submitTitle("  Renamed title  ");
+    submitTitle("  Renamed title  ");
+    await settle();
+
+    expect(projectStore.patchAgentTitle).toHaveBeenCalledTimes(1);
+    expect(projectStore.patchAgentTitle).toHaveBeenCalledWith(agent.id, "Renamed title");
+
+    rename.resolve();
+    await settle();
+  });
 
   it("does not let a stale successful rename close a reopened dialog", async () => {
     const first = deferred<void>();

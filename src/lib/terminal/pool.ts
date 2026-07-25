@@ -311,11 +311,9 @@ export class PooledTerminal {
   }
 
 
-  /** 세션을 완전히 종료한다(에이전트 삭제 시). PTY를 죽이고 xterm을 파괴한다. */
+  /** xterm과 로컬 리소스만 파괴한다. PTY 종료는 session runtime이 담당한다. */
   dispose(): void {
-    if (this.disposed) return;
     this.disposeLocal();
-    void closeSession(this.sessionId).catch((reason: unknown) => actionErrors.report(reason));
   }
 
   private disposeLocal(): void {
@@ -353,10 +351,13 @@ class TerminalPool {
       const instance = await p;
       this.instances.set(opts.sessionId, instance);
       // 에이전트 삭제 시(releaseSession) 세션을 종료하도록 등록한다.
-      registerSessionDisposer(opts.sessionId, () => {
+      const releasedWhileCreating = registerSessionDisposer(opts.sessionId, () => {
         this.instances.delete(opts.sessionId);
         instance.dispose();
       });
+      if (releasedWhileCreating) {
+        void closeSession(opts.sessionId).catch((reason: unknown) => actionErrors.report(reason));
+      }
       return instance;
     } finally {
       this.pending.delete(opts.sessionId);

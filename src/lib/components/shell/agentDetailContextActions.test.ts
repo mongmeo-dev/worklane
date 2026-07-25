@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { absoluteFilePath, createFileTabContextActions } from "./agentDetailContextActions";
+import agentDetailTemplate from "./AgentDetail.svelte?raw";
+import terminalTemplate from "./Terminal.svelte?raw";
 
 describe("file tab context actions", () => {
   it("orders copy and close actions without invoking either while opening the menu", () => {
@@ -29,5 +31,28 @@ describe("file tab context actions", () => {
     expect(absoluteFilePath("C:\\work\\project\\", "/src/lib/file.ts")).toBe(
       "C:\\work\\project\\src\\lib\\file.ts",
     );
+  });
+});
+describe("agent detail tab context-menu keyboard wiring", () => {
+  it("binds the shared trigger key handler only to file and preview tabs", () => {
+    expect(agentDetailTemplate).toMatch(
+      /oncontextmenu=\{fileTabContextMenu\.oncontextmenu\} onkeydown=\{fileTabContextMenu\.onkeydown\}/,
+    );
+    expect(agentDetailTemplate).toMatch(
+      /oncontextmenu=\{previewContextMenu\.oncontextmenu\}\s+onkeydown=\{previewContextMenu\.onkeydown\}/,
+    );
+    const terminalTabs = agentDetailTemplate.match(
+      /\{#each terminals as term \(term\.id\)\}([\s\S]*?)\{\/each\}/,
+    );
+    expect(terminalTabs?.[1]).not.toContain("oncontextmenu=");
+  });
+  it("uses the xterm textarea as the terminal keyboard trigger origin", () => {
+    expect(terminalTemplate).toContain(
+      'querySelector<HTMLTextAreaElement>(".xterm-helper-textarea")',
+    );
+    expect(terminalTemplate).toContain(
+      'keyboardOrigin?.addEventListener("keydown", openTerminalKeyboardContextMenu, true)',
+    );
+    expect(terminalTemplate).toContain("terminalContextMenu.onkeydown(event)");
   });
 });

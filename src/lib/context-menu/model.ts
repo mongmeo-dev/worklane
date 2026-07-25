@@ -1,3 +1,7 @@
+export type ContextMenuModality = "pointer" | "keyboard";
+
+export type ContextMenuCloseReason = "action" | "escape" | "outside" | "replacement" | "deactivation" | "tab";
+
 export type ContextMenuAction = {
   type: "action";
   id: string;
@@ -35,6 +39,7 @@ export type ContextMenuPoint = {
 export type OpenContextMenuOptions = ContextMenuModel & {
   point: ContextMenuPoint;
   origin?: HTMLElement | null;
+  modality?: ContextMenuModality;
 };
 
 export type ContextMenuSnapshot = Readonly<{
@@ -42,6 +47,7 @@ export type ContextMenuSnapshot = Readonly<{
   model: ContextMenuModel;
   point: ContextMenuPoint;
   origin: HTMLElement | null;
+  modality: ContextMenuModality;
 }>;
 
 export function snapshotContextMenuModel(model: ContextMenuModel): ContextMenuModel {

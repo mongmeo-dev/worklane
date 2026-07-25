@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -15,6 +16,7 @@
   let previousAgentId = $state("");
   let previousOpen = $state(open);
   let operationGeneration = 0;
+  let titleInput = $state<HTMLInputElement | null>(null);
 
   $effect(() => {
     const agentChanged = agent.id !== previousAgentId;
@@ -27,6 +29,16 @@
       error = false;
       previousAgentId = agent.id;
       previousOpen = open;
+
+      if (open) {
+        const generation = operationGeneration;
+        void tick().then(() => {
+          if (open && generation === operationGeneration) {
+            titleInput?.focus();
+            titleInput?.select();
+          }
+        });
+      }
     }
   });
 
@@ -61,12 +73,13 @@
     <form class="flex flex-col gap-3 py-2" onsubmit={(event) => { event.preventDefault(); void submit(); }}>
       <div class="flex flex-col gap-1.5">
         <Label for="rename-agent-title">{t("renameAgent.name")}</Label>
-        <Input id="rename-agent-title" bind:value={title} placeholder={t("renameAgent.namePlaceholder")} disabled={submitting} aria-invalid={error} aria-describedby={error ? "rename-agent-error" : undefined} />
+        <Input id="rename-agent-title" bind:ref={titleInput} bind:value={title} placeholder={t("renameAgent.namePlaceholder")} disabled={submitting} aria-invalid={error} aria-describedby={error ? "rename-agent-error" : undefined} />
       </div>
       {#if error}
         <p id="rename-agent-error" role="alert" class="text-xs text-destructive">{t("renameAgent.error")}</p>
       {/if}
       <Dialog.Footer>
+        <Button type="button" variant="ghost" onclick={() => (open = false)}>{t("common.cancel")}</Button>
         <Button type="submit" disabled={!title.trim() || submitting}>
           {submitting ? t("renameAgent.saving") : t("common.save")}
         </Button>

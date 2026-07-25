@@ -56,9 +56,6 @@
   function persistSize(size: number) {
     localStorage.setItem(STORAGE_KEY, String(size));
   }
-  function preventNativeContextMenu(event: MouseEvent) {
-    if (event.isTrusted) event.preventDefault();
-  }
 
 
   onMount(() => {
@@ -91,14 +88,20 @@
       }
     };
     window.addEventListener("keydown", onKeydown);
+    const onContextMenu = (event: MouseEvent) => {
+      if (event.isTrusted) event.preventDefault();
+    };
+    document.addEventListener("contextmenu", onContextMenu, true);
+
     return () => {
+      document.removeEventListener("contextmenu", onContextMenu, true);
       window.removeEventListener("keydown", onKeydown);
       updater.stop();
     };
   });
 </script>
 
-<div class="flex h-screen w-screen flex-col overflow-hidden text-sm" oncontextmenucapture={preventNativeContextMenu}>
+<div class="flex h-screen w-screen flex-col overflow-hidden text-sm">
   <TitleBar projects={projectStore.projects} showRightToggle={Boolean(selectedAgent)} onNewAgent={() => (newAgentOpen = true)} onFanout={() => composer.openFanout()} onTasks={() => (taskBoardOpen = true)} />
   <div class="min-h-0 flex-1">
     <Resizable.PaneGroup direction="horizontal" class="h-full w-full">

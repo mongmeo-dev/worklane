@@ -153,7 +153,7 @@ export function createProjectStore() {
     ): Promise<AgentTerminal> {
       const terminal = await ipc.createAgentTerminal(agentId, kind, command, title);
       const ownerExists = projects.some((project) => project.agents.some((agent) => agent.id === agentId));
-      if (deletingAgentIds.has(agentId) || !ownerExists) {
+      if (!ownerExists) {
         cleanupSessionRuntime(terminal.id);
         return terminal;
       }

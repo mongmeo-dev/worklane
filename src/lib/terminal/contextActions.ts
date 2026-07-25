@@ -1,4 +1,5 @@
 import type { Terminal } from "@xterm/xterm";
+import { actionErrors } from "$lib/stores/actionErrors.svelte";
 
 /**
  * A context-menu action set bound to the terminal that was mounted when the
@@ -20,12 +21,12 @@ export class TerminalContextActions {
   }
 
   async copy(): Promise<void> {
-    if (!this.hasSelection || !this.isCurrent()) return;
+    if (!this.hasSelection || !this.currentTerminal()) return;
     await navigator.clipboard.writeText(this.selection);
   }
 
   async paste(): Promise<void> {
-    if (!this.isCurrent()) return;
+    if (!this.currentTerminal()) return;
     this.beforePaste?.();
     const text = await navigator.clipboard.readText();
     if (!text) return;
@@ -45,11 +46,9 @@ export class TerminalContextActions {
     this.currentTerminal()?.focus();
   }
 
-  private isCurrent(): boolean {
-    return this.resolveTerminal() === this.terminal;
-  }
-
   private currentTerminal(): Terminal | undefined {
-    return this.isCurrent() ? this.terminal : undefined;
+    if (this.resolveTerminal() === this.terminal) return this.terminal;
+    actionErrors.report(new Error("Terminal is unavailable."));
+    return undefined;
   }
 }

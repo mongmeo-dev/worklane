@@ -1,9 +1,21 @@
 import type { ContextMenuModel } from "$lib/context-menu/model";
 import { t } from "$lib/i18n";
-import { openDirectory, revealEntry } from "$lib/ipc/external";
+import {
+  openDirectory,
+  revealEntry,
+  type ExternalPathPreflight,
+} from "$lib/ipc/external";
 
 function copyPath(path: string): Promise<void> {
   return navigator.clipboard.writeText(path);
+}
+function externalActionLabel(
+  exactKey: "contextMenu.openFileManager" | "contextMenu.revealInFileManager",
+  target?: ExternalPathPreflight,
+): string {
+  return target?.disposition === "nearestParent"
+    ? t("contextMenu.openNearestParent", { path: target.nearestParent })
+    : t(exactKey);
 }
 
 export function folderContextActions({
@@ -11,11 +23,13 @@ export function folderContextActions({
   path,
   expanded,
   onToggle,
+  externalTarget,
 }: {
   worktreePath: string;
   path: string;
   expanded: boolean;
   onToggle: () => void;
+  externalTarget?: ExternalPathPreflight;
 }): ContextMenuModel {
   return {
     ariaLabel: t("contextMenu.folder"),
@@ -29,7 +43,7 @@ export function folderContextActions({
       {
         type: "action",
         id: "reveal",
-        label: t("contextMenu.openFileManager"),
+        label: externalActionLabel("contextMenu.openFileManager", externalTarget),
         onSelect: () => openDirectory(worktreePath, path),
       },
       { type: "separator" },
@@ -42,10 +56,12 @@ export function fileContextActions({
   worktreePath,
   path,
   onOpen,
+  externalTarget,
 }: {
   worktreePath: string;
   path: string;
   onOpen: () => void;
+  externalTarget?: ExternalPathPreflight;
 }): ContextMenuModel {
   return {
     ariaLabel: t("contextMenu.file"),
@@ -54,7 +70,7 @@ export function fileContextActions({
       {
         type: "action",
         id: "reveal",
-        label: t("contextMenu.revealInFileManager"),
+        label: externalActionLabel("contextMenu.revealInFileManager", externalTarget),
         onSelect: () => revealEntry(worktreePath, path),
       },
       { type: "separator" },
