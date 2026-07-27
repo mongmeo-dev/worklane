@@ -67,6 +67,10 @@
 * 문서는 코드나 고유명사 등 불가피한 경우를 제외하고 반드시 한글로 작성한다.
 * 별도의 worktree에서 작업 중 수정이 의도된 문서가 git ignore 대상인 경우, git으로 전파되지 않으므로 반드시 main worktree에도 동일하게 반영한다.
 * 다른 task를 진행함에 있어서도 참조해야 하는 문서의 경우 이 문서에 링크한다.
+* 참조 문서
+  * [`docs/backlog.md`](docs/backlog.md) — 구현 완료 후 미룬 개선 항목
+  * [`docs/release.md`](docs/release.md) — 릴리스/자동 업데이트 절차
+  * [`docs/ux-audit/README.md`](docs/ux-audit/README.md) — Orca/Superset 대비 사용성 감사 종합(레인 A~H). UI/UX 개선 작업 착수 전 반드시 확인한다.
 
 ## Execution Rule
 
