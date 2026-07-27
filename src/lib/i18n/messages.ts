@@ -46,6 +46,13 @@ export const en = {
   "renameAgent.error": "Could not rename workspace.",
   "actionError.unknown": "Action failed.",
   "actionError.dismiss": "Dismiss",
+  "actionError.withReason": "Action failed: {reason}",
+  "actionError.WORKTREE_DIRTY": "This workspace has uncommitted changes. Review them or confirm force deletion.",
+  "actionError.SESSION_CLOSED": "This terminal session has ended. Reopen the workspace and retry.",
+  "actionError.SESSION_NOT_FOUND": "This terminal session no longer exists. Reopen the workspace and retry.",
+  "actionError.AGENT_NOT_FOUND": "This workspace no longer exists. Refresh the project and retry.",
+  "actionError.AGENT_TITLE_REQUIRED": "Enter a workspace name and retry.",
+  "actionError.INVALID_EXECUTABLE": "The executable is invalid. Check the command and retry.",
 
   // 상태
   "status.running": "Running",
@@ -516,6 +523,13 @@ export const ko: Record<MessageKey, string> = {
   "renameAgent.error": "워크스페이스 이름을 변경할 수 없습니다.",
   "actionError.unknown": "작업에 실패했습니다.",
   "actionError.dismiss": "닫기",
+  "actionError.withReason": "작업에 실패했습니다: {reason}",
+  "actionError.WORKTREE_DIRTY": "이 워크스페이스에 커밋하지 않은 변경이 있습니다. 변경을 검토하거나 강제 삭제를 확인하세요.",
+  "actionError.SESSION_CLOSED": "터미널 세션이 종료되었습니다. 워크스페이스를 다시 열고 재시도하세요.",
+  "actionError.SESSION_NOT_FOUND": "터미널 세션이 더 이상 존재하지 않습니다. 워크스페이스를 다시 열고 재시도하세요.",
+  "actionError.AGENT_NOT_FOUND": "워크스페이스가 더 이상 존재하지 않습니다. 프로젝트를 새로고침하고 재시도하세요.",
+  "actionError.AGENT_TITLE_REQUIRED": "워크스페이스 이름을 입력한 뒤 재시도하세요.",
+  "actionError.INVALID_EXECUTABLE": "실행 파일이 올바르지 않습니다. 명령을 확인하고 재시도하세요.",
 
   // 상태
   "status.running": "실행 중",
