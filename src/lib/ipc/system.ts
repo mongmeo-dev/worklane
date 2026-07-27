@@ -9,3 +9,12 @@ export interface SystemResources {
 export function readSystemResources(): Promise<SystemResources> {
   return invoke<SystemResources>("read_system_resources");
 }
+
+export interface CommandPreflight {
+  executable: string;
+  available: boolean;
+}
+
+export function preflightCommand(executable: string): Promise<CommandPreflight> {
+  return invoke<CommandPreflight>("preflight_command", { executable });
+}

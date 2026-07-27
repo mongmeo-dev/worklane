@@ -9,6 +9,7 @@
   let { counts }: { counts: StatusCounts } = $props();
 
   const chips: { status: AgentStatus; filter: OverviewFilter; className: string }[] = [
+    { status: "failed", filter: "failed", className: "text-destructive border-destructive/30 bg-destructive/10" },
     { status: "running", filter: "running", className: "text-status-running-fg border-status-running/25 bg-status-running/10" },
     { status: "blocked", filter: "blocked", className: "text-status-blocked-fg border-status-blocked/30 bg-status-blocked/10" },
     { status: "idle", filter: "all", className: "text-status-idle border-status-idle/25 bg-status-idle/10" },

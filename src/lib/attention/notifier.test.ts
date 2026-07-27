@@ -14,6 +14,7 @@ describe("shouldNotify", () => {
   it("blocked/done으로 새로 진입하면 알린다", () => {
     expect(shouldNotify("running", "blocked")).toBe(true);
     expect(shouldNotify("running", "done")).toBe(true);
+    expect(shouldNotify("running", "failed")).toBe(true);
     expect(shouldNotify("idle", "blocked")).toBe(true);
   });
 
@@ -35,5 +36,11 @@ describe("attentionNotification", () => {
     const msg = attentionNotification("done", { agentTitle: "빌드", projectName: "API" });
     expect(msg.title).toBe("빌드 · 완료");
     expect(msg.body).toContain("API");
+  });
+
+  it("실패 메시지를 만든다", () => {
+    const msg = attentionNotification("failed", { agentTitle: "빌드", projectName: "API" });
+    expect(msg.title).toBe("빌드 · 실패");
+    expect(msg.body).toContain("오류");
   });
 });

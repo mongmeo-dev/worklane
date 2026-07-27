@@ -52,6 +52,7 @@ export const en = {
   "status.idle": "Idle",
   "status.blocked": "Waiting",
   "status.done": "Done",
+  "status.failed": "Failed",
 
   // 터미널
   "terminal.hint": "esc to stop · ⌥⏎ newline",
@@ -72,6 +73,7 @@ export const en = {
   "overview.filter.running": "Running",
   "overview.filter.blocked": "Waiting",
   "overview.filter.done": "Done",
+  "overview.filter.failed": "Failed",
   "overview.previewPlaceholder": "Recent output appears when you open the session.",
   "overview.empty": "No agents to show.",
   "overview.showAll": "Show all agents",
@@ -79,6 +81,7 @@ export const en = {
   "overview.action.blocked": "Respond →",
   "overview.action.idle": "Resume →",
   "overview.action.done": "Review changes →",
+  "overview.action.failed": "Inspect failure →",
 
   // 타이틀바
   "titleBar.leftPanel.close": "Collapse left panel",
@@ -108,6 +111,7 @@ export const en = {
   "attention.inboxAria": "Attention inbox",
   "attention.heading": "Needs attention",
   "attention.allProjects": "All projects",
+  "attention.failedCount": "Failed {count}",
   "attention.blockedCount": "Waiting {count}",
   "attention.doneCount": "Done {count}",
   "attention.empty": "No agents need attention right now.",
@@ -368,6 +372,10 @@ export const en = {
   "agentDialog.branchPlaceholder": "e.g. feat/login",
   "agentDialog.startPoint": "Branch point (start-point)",
   "agentDialog.startPlaceholder": "e.g. main",
+  "agentDialog.commandChecking": "Checking {command}…",
+  "agentDialog.commandAvailable": "{command} is installed",
+  "agentDialog.commandUnavailable": "{command} was not found. Install it or change the command.",
+  "agentDialog.commandCheckFailed": "Could not check {command}.",
   "agentDialog.worktreePath": "Worktree path (auto-generated if blank)",
   "agentDialog.worktreePathPlaceholder": "Optional",
 
@@ -448,10 +456,12 @@ export const en = {
   "openExternal.aria": "Open in external app",
 
   // 알림
+  "notify.failed": "Failed",
   "notify.blocked": "Waiting",
   "notify.done": "Done",
   "notify.blockedBody": "An agent in {project} is waiting for input.",
   "notify.doneBody": "An agent in {project} finished its task.",
+  "notify.failedBody": "An agent in {project} exited with an error.",
 
   // 에이전트 종류
   "agentKind.terminal": "Blank terminal",
@@ -512,6 +522,7 @@ export const ko: Record<MessageKey, string> = {
   "status.idle": "대기",
   "status.blocked": "입력 대기",
   "status.done": "완료",
+  "status.failed": "실패",
 
   // 터미널
   "terminal.hint": "esc 중단 · ⌥⏎ 줄바꿈",
@@ -532,6 +543,7 @@ export const ko: Record<MessageKey, string> = {
   "overview.filter.running": "실행 중",
   "overview.filter.blocked": "입력 대기",
   "overview.filter.done": "완료",
+  "overview.filter.failed": "실패",
   "overview.previewPlaceholder": "세션을 열면 최근 출력이 표시됩니다.",
   "overview.empty": "표시할 에이전트가 없습니다.",
   "overview.showAll": "전체 에이전트 보기",
@@ -539,6 +551,7 @@ export const ko: Record<MessageKey, string> = {
   "overview.action.blocked": "응답하기 →",
   "overview.action.idle": "재개 →",
   "overview.action.done": "변경 검토 →",
+  "overview.action.failed": "실패 확인 →",
 
   // 타이틀바
   "titleBar.leftPanel.close": "왼쪽 패널 닫기",
@@ -568,6 +581,7 @@ export const ko: Record<MessageKey, string> = {
   "attention.inboxAria": "주의 필요 인박스",
   "attention.heading": "주의 필요",
   "attention.allProjects": "전체 프로젝트",
+  "attention.failedCount": "실패 {count}",
   "attention.blockedCount": "입력 {count}",
   "attention.doneCount": "완료 {count}",
   "attention.empty": "지금 주의가 필요한 에이전트가 없습니다.",
@@ -825,6 +839,10 @@ export const ko: Record<MessageKey, string> = {
   "agentDialog.branchPlaceholder": "예: feat/login",
   "agentDialog.startPoint": "분기 기준(start-point)",
   "agentDialog.startPlaceholder": "예: main",
+  "agentDialog.commandChecking": "{command} 확인 중…",
+  "agentDialog.commandAvailable": "{command} 설치됨",
+  "agentDialog.commandUnavailable": "{command}을(를) 찾을 수 없습니다. 설치하거나 명령을 변경하세요.",
+  "agentDialog.commandCheckFailed": "{command}을(를) 확인할 수 없습니다.",
   "agentDialog.worktreePath": "worktree 경로 (비우면 자동 생성)",
   "agentDialog.worktreePathPlaceholder": "선택 사항",
 
@@ -903,10 +921,12 @@ export const ko: Record<MessageKey, string> = {
   "openExternal.aria": "외부 앱으로 열기",
 
   // 알림
+  "notify.failed": "실패",
   "notify.blocked": "입력 대기",
   "notify.done": "완료",
   "notify.blockedBody": "{project} 에이전트가 입력을 기다립니다.",
   "notify.doneBody": "{project} 에이전트가 작업을 마쳤습니다.",
+  "notify.failedBody": "{project} 에이전트가 오류로 종료되었습니다.",
 
   // 에이전트 종류
   "agentKind.terminal": "빈 터미널",

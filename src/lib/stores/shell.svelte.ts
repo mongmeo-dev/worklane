@@ -1,4 +1,4 @@
-export type OverviewFilter = "all" | "running" | "blocked" | "done";
+export type OverviewFilter = "all" | "running" | "blocked" | "done" | "failed";
 
 const LEFT_KEY = "shell:left-open";
 const RIGHT_KEY = "shell:right-open";

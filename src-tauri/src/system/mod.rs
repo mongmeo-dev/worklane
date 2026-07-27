@@ -12,6 +12,53 @@ pub struct SystemResources {
     pub ram_total_gb: f32,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandPreflight {
+    pub executable: String,
+    pub available: bool,
+}
+
+/// PTY와 같은 로그인·인터랙티브 셸 환경에서 실행 파일을 찾는다.
+#[cfg(unix)]
+pub fn preflight_command(executable: String) -> CommandPreflight {
+    let shell = std::env::var("SHELL")
+        .ok()
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "/bin/zsh".to_string());
+    let available = std::process::Command::new(shell)
+        .args([
+            "-l",
+            "-i",
+            "-c",
+            "command -v \"$WORKLANE_EXECUTABLE\" >/dev/null 2>&1",
+        ])
+        .env("WORKLANE_EXECUTABLE", &executable)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+    CommandPreflight {
+        executable,
+        available,
+    }
+}
+
+#[cfg(windows)]
+pub fn preflight_command(executable: String) -> CommandPreflight {
+    let available = std::process::Command::new("where.exe")
+        .arg(&executable)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+    CommandPreflight {
+        executable,
+        available,
+    }
+}
+
 struct MonitorInner {
     system: System,
     last_refresh: Instant,
@@ -94,5 +141,12 @@ mod tests {
             assert!((0.0..=100.0).contains(&resources.cpu_percent));
             assert!(resources.ram_used_gb <= resources.ram_total_gb + 1.0);
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn 명령_프리플라이트는_설치_여부를_구분한다() {
+        assert!(preflight_command("sh".into()).available);
+        assert!(!preflight_command("worklane-command-that-does-not-exist".into()).available);
     }
 }

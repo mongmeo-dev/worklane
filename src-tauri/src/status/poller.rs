@@ -39,13 +39,13 @@ pub fn spawn_poller(app: tauri::AppHandle, state: Arc<DashMap<String, Arc<Sessio
             for (sid, session) in sessions {
                 live_ids.insert(sid.clone());
 
-                let alive = session.is_alive();
+                let (alive, exit_code) = session.process_state();
                 let last_out = session.last_output_ms.load(Ordering::Relaxed);
                 let (hook_status, hook_fresh) = session.read_hook(now, HOOK_STALE_MS);
 
                 let inputs = StatusInputs {
                     process_alive: alive,
-                    exit_code: None,
+                    exit_code,
                     ms_since_last_output: now.saturating_sub(last_out),
                     hook_status,
                     hook_fresh,

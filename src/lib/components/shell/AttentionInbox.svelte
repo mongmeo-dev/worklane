@@ -55,6 +55,7 @@
         <span class="text-[10px] text-muted-foreground">{t("attention.allProjects")}</span>
         {#if counts.total > 0}
           <span class="ml-auto flex items-center gap-2 font-mono text-[10px]">
+            {#if counts.failed > 0}<span class="text-destructive">{t("attention.failedCount", { count: counts.failed })}</span>{/if}
             {#if counts.blocked > 0}<span class="text-status-blocked-fg">{t("attention.blockedCount", { count: counts.blocked })}</span>{/if}
             {#if counts.done > 0}<span class="text-status-done-fg">{t("attention.doneCount", { count: counts.done })}</span>{/if}
           </span>
@@ -71,17 +72,21 @@
                 onclick={() => select(item.agentId)}
               >
                 <span
-                  class="mt-1 size-1.5 shrink-0 rounded-full {item.status === 'blocked'
-                    ? 'bg-status-blocked status-ring-anim animate-[status-ring-pulse_1.8s_ease-out_infinite]'
-                    : 'bg-status-done'}"
+                  class="mt-1 size-1.5 shrink-0 rounded-full {item.status === 'failed'
+                    ? 'bg-destructive'
+                    : item.status === 'blocked'
+                      ? 'bg-status-blocked status-ring-anim animate-[status-ring-pulse_1.8s_ease-out_infinite]'
+                      : 'bg-status-done'}"
                 ></span>
                 <span class="min-w-0 flex-1">
                   <span class="flex items-center gap-1.5">
                     <span class="min-w-0 flex-1 truncate text-[12px] font-semibold">{item.agentTitle}</span>
                     <span
-                      class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold {item.status === 'blocked'
-                        ? 'bg-status-blocked text-status-blocked-on'
-                        : 'bg-status-done/10 text-status-done-fg'}"
+                      class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold {item.status === 'failed'
+                        ? 'bg-destructive/10 text-destructive'
+                        : item.status === 'blocked'
+                          ? 'bg-status-blocked text-status-blocked-on'
+                          : 'bg-status-done/10 text-status-done-fg'}"
                     >{statusLabel(item.status)}</span>
                   </span>
                   <span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">

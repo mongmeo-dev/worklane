@@ -18,4 +18,7 @@ describe("dotClasses", () => {
   it("done은 done 배경", () => {
     expect(dotClasses("done")).toContain("bg-status-done");
   });
+  it("failed는 오류 배경", () => {
+    expect(dotClasses("failed")).toContain("bg-destructive");
+  });
 });

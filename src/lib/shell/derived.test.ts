@@ -23,7 +23,7 @@ const project: Project = {
 
 describe("shell 파생 데이터", () => {
   it("상태별 에이전트 수를 센다", () => {
-    expect(statusCounts([project])).toEqual({ running: 1, blocked: 1, idle: 0, done: 1 });
+    expect(statusCounts([project])).toEqual({ running: 1, blocked: 1, idle: 0, done: 1, failed: 0 });
   });
 
   it("같은 worktreePath를 공유 그룹으로 묶는다", () => {
@@ -47,6 +47,7 @@ describe("shell 파생 데이터", () => {
 
   it("워크스페이스 상태는 터미널 상태를 우선순위로 합친다", () => {
     expect(aggregateStatus(["idle", "running", "blocked"])).toBe("blocked");
+    expect(aggregateStatus(["blocked", "failed", "running"])).toBe("failed");
     expect(aggregateStatus(["idle", "running", "done"])).toBe("running");
     expect(aggregateStatus(["done", "idle"])).toBe("idle");
     expect(aggregateStatus(["done", "done"])).toBe("done");

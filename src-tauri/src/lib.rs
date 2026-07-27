@@ -98,6 +98,7 @@ pub fn run() {
             commands::read_worktree_file,
             commands::git_file_diff,
             commands::read_system_resources,
+            commands::preflight_command,
             commands::read_codex_usage,
             commands::read_claude_usage,
             commands::install_claude_statusline,

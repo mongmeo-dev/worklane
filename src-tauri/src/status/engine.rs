@@ -3,9 +3,13 @@ use crate::status::inputs::{AgentStatus, HookStatus, StatusInputs, IDLE_THRESHOL
 /// 세 신호를 종합해 최종 상태를 판정하는 순수 함수.
 /// 우선순위: 프로세스 종료(최우선 게이트) > 신선한 훅 > 출력 무변화.
 pub fn reduce(inputs: &StatusInputs) -> AgentStatus {
-    // ① 프로세스가 죽었으면 무조건 Done
+    // ① 프로세스가 종료됐으면 종료 코드로 성공/실패를 구분한다.
     if !inputs.process_alive {
-        return AgentStatus::Done;
+        return if inputs.exit_code == Some(0) {
+            AgentStatus::Done
+        } else {
+            AgentStatus::Failed
+        };
     }
 
     // ③ 신선한 훅이 있으면 그 값을 신뢰
@@ -42,7 +46,7 @@ mod tests {
     }
 
     #[test]
-    fn 프로세스_죽으면_훅과_출력_무관하게_done() {
+    fn 프로세스가_정상_종료되면_훅과_출력_무관하게_done() {
         let inputs = StatusInputs {
             process_alive: false,
             exit_code: Some(0),
@@ -51,6 +55,28 @@ mod tests {
             ms_since_last_output: 0, // 출력이 최근이어도
         };
         assert_eq!(reduce(&inputs), AgentStatus::Done);
+    }
+
+    #[test]
+    fn 프로세스가_비정상_종료되면_failed() {
+        let inputs = StatusInputs {
+            process_alive: false,
+            exit_code: Some(127),
+            hook_status: Some(HookStatus::Done),
+            hook_fresh: true,
+            ms_since_last_output: 999_999,
+        };
+        assert_eq!(reduce(&inputs), AgentStatus::Failed);
+    }
+
+    #[test]
+    fn 종료_코드를_읽지_못한_종료도_failed() {
+        let inputs = StatusInputs {
+            process_alive: false,
+            exit_code: None,
+            ..base()
+        };
+        assert_eq!(reduce(&inputs), AgentStatus::Failed);
     }
 
     #[test]

@@ -8,6 +8,7 @@ pub enum AgentStatus {
     Idle,
     Blocked,
     Done,
+    Failed,
 }
 
 /// 에이전트 훅(상태파일)이 노출하는 값. 상태파일 JSON의 "status" 필드와 대응.

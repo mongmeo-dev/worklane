@@ -15,6 +15,9 @@ describe("badgeClasses", () => {
   it("done은 done fg 텍스트", () => {
     expect(badgeClasses("done")).toContain("text-status-done-fg");
   });
+  it("failed는 오류 텍스트", () => {
+    expect(badgeClasses("failed")).toContain("text-destructive");
+  });
   it("idle은 idle 계열", () => {
     expect(badgeClasses("idle")).toContain("status-idle");
   });

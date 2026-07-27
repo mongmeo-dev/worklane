@@ -27,6 +27,12 @@ export function canCreateWorkspace(input: WorkspaceFormInput): boolean {
   return true;
 }
 
+/** 실행 커맨드의 첫 토큰을 프리플라이트 대상 실행 파일로 추출한다. */
+export function commandExecutable(command: string): string | null {
+  const match = command.trim().match(/^(?:"([^"]+)"|'([^']+)'|(\S+))/);
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
 /**
  * 작업 이름을 확정한다. 비어 있으면 브랜치 이름을 기본값으로 사용한다.
  * branch는 새 worktree의 브랜치이거나 공유하는 기존 에이전트의 브랜치다(호출부에서 확정).

@@ -1,5 +1,5 @@
 /** 에이전트의 실행 상태. 3계층 하이브리드 트래킹으로 판별되는 값이다. */
-export type AgentStatus = "running" | "idle" | "blocked" | "done";
+export type AgentStatus = "running" | "idle" | "blocked" | "done" | "failed";
 
 /** 에이전트 종류 식별자. 기본 제공 종류(claude-code·codex 등) 외에 사용자가 자유롭게
  * 추가할 수 있으므로 자유 문자열이다. "terminal"은 특정 에이전트 없이 기본 셸만 여는 빈 터미널.

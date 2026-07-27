@@ -44,11 +44,15 @@ impl Session {
         self.last_input_ms.store(now_ms, Ordering::Relaxed);
     }
 
-    /// ① 프로세스가 아직 살아있는지 확인한다.
-    pub fn is_alive(&self) -> bool {
+    /// ① 프로세스 생존 여부와 종료 코드를 한 번의 `try_wait`로 확인한다.
+    pub fn process_state(&self) -> (bool, Option<i32>) {
         match self.child.lock() {
-            Ok(mut child) => matches!(child.try_wait(), Ok(None)),
-            Err(_) => false,
+            Ok(mut child) => match child.try_wait() {
+                Ok(None) => (true, None),
+                Ok(Some(status)) => (false, Some(status.exit_code() as i32)),
+                Err(_) => (false, None),
+            },
+            Err(_) => (false, None),
         }
     }
 

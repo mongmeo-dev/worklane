@@ -2,6 +2,9 @@ import type { AgentStatus } from "$lib/types";
 
 export function agentRowClasses(status: AgentStatus, selected: boolean): string {
   const base = "relative flex w-full flex-col rounded-[9px] px-2.5 py-2 text-left transition-colors ring-inset";
+  if (status === "failed") {
+    return `${base} bg-destructive/7 ring-1 ${selected ? "ring-destructive/55" : "ring-destructive/35"}`;
+  }
   if (status === "blocked") {
     return `${base} bg-status-blocked/7 ring-1 ${selected ? "ring-status-blocked/55" : "ring-status-blocked/35"}`;
   }

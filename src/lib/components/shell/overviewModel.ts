@@ -9,7 +9,7 @@ export function filterAgents(agents: Agent[], filter: OverviewFilter): Agent[] {
 export type OverviewSort = "activity" | "name" | "status";
 
 /** 정렬 시 주의 필요 상태를 앞세우는 순서. */
-const STATUS_ORDER: Record<AgentStatus, number> = { blocked: 0, running: 1, done: 2, idle: 3 };
+const STATUS_ORDER: Record<AgentStatus, number> = { failed: 0, blocked: 1, running: 2, done: 3, idle: 4 };
 
 /** 제목/브랜치/프로젝트명으로 검색한다. projectNameOf는 agent→프로젝트명 조회. */
 export function searchAgents(

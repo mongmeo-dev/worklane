@@ -23,7 +23,8 @@ function project(id: string, name: string, agents: Agent[]): Project {
 }
 
 describe("needsAttention", () => {
-  it("blocked와 done만 주의 필요로 본다", () => {
+  it("failed, blocked, done을 주의 필요로 본다", () => {
+    expect(needsAttention("failed")).toBe(true);
     expect(needsAttention("blocked")).toBe(true);
     expect(needsAttention("done")).toBe(true);
     expect(needsAttention("running")).toBe(false);
@@ -33,7 +34,7 @@ describe("needsAttention", () => {
 });
 
 describe("attentionItems", () => {
-  it("여러 프로젝트를 가로질러 blocked/done만 모은다", () => {
+  it("여러 프로젝트를 가로질러 주의 필요 상태만 모은다", () => {
     const projects = [
       project("p1", "웹", [agent("a", "running", 1), agent("b", "blocked", 2)]),
       project("p2", "API", [agent("c", "done", 3), agent("d", "idle", 4)]),
@@ -68,18 +69,19 @@ describe("attentionItems", () => {
 });
 
 describe("attentionCounts", () => {
-  it("blocked/done/total을 센다", () => {
+  it("failed/blocked/done/total을 센다", () => {
     const projects = [
       project("p1", "웹", [
         agent("a", "blocked", 1),
         agent("b", "blocked", 2),
         agent("c", "done", 3),
+        agent("d", "failed", 4),
       ]),
     ];
-    expect(attentionCounts(attentionItems(projects))).toEqual({ total: 3, blocked: 2, done: 1 });
+    expect(attentionCounts(attentionItems(projects))).toEqual({ total: 4, failed: 1, blocked: 2, done: 1 });
   });
 
   it("빈 목록이면 모두 0", () => {
-    expect(attentionCounts([])).toEqual({ total: 0, blocked: 0, done: 0 });
+    expect(attentionCounts([])).toEqual({ total: 0, failed: 0, blocked: 0, done: 0 });
   });
 });

@@ -43,6 +43,7 @@
     { value: "running", labelKey: "overview.filter.running" },
     { value: "blocked", labelKey: "overview.filter.blocked" },
     { value: "done", labelKey: "overview.filter.done" },
+    { value: "failed", labelKey: "overview.filter.failed" },
   ];
 
   function filterCount(filter: OverviewFilter): number {
@@ -64,6 +65,7 @@
   function tileClass(agent: Agent): string {
     const status = agent.status ?? "idle";
     if (status === "blocked") return "border-status-blocked/55 shadow-[0_0_24px_color-mix(in_oklch,var(--status-blocked)_10%,transparent)]";
+    if (status === "failed") return "border-destructive/55 shadow-[0_0_24px_color-mix(in_oklch,var(--destructive)_10%,transparent)]";
     if (status === "idle") return "opacity-70";
     if (status === "done") return "opacity-90";
     return "";
@@ -108,10 +110,10 @@
       {#each filters as filter (filter.value)}
         <button
           type="button"
-          class="rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors {shell.overviewFilter === filter.value ? 'bg-accent text-foreground' : filter.value === 'blocked' ? 'text-status-blocked-fg' : 'text-muted-foreground hover:text-foreground'}"
+          class="rounded-full px-3 py-1 text-[11.5px] font-medium transition-colors {shell.overviewFilter === filter.value ? 'bg-accent text-foreground' : filter.value === 'blocked' ? 'text-status-blocked-fg' : filter.value === 'failed' ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'}"
           onclick={() => shell.setFilter(filter.value)}
         >
-          {t(filter.labelKey)}{filter.value === "blocked" && filterCount(filter.value) > 0 ? ` ${filterCount(filter.value)}` : ""}
+          {t(filter.labelKey)}{(filter.value === "blocked" || filter.value === "failed") && filterCount(filter.value) > 0 ? ` ${filterCount(filter.value)}` : ""}
         </button>
       {/each}
     </div>
@@ -143,14 +145,16 @@
               <pre class="max-h-full w-full whitespace-pre-wrap">{tail || `$ ${agent.terminals?.[0]?.command ?? agent.command}\n${t("overview.previewPlaceholder")}`}</pre>
             </div>
             <footer class="mt-2.5 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-              {#if status === "blocked"}
+              {#if status === "failed"}
+                <span class="rounded-full bg-destructive px-2 py-0.5 font-semibold text-destructive-foreground">{t("status.failed")}</span>
+              {:else if status === "blocked"}
                 <span class="rounded-full bg-status-blocked px-2 py-0.5 font-semibold text-status-blocked-on">{t("status.blocked")}</span>
               {:else}
                 <span>{agent.lastActivity ?? t("common.waitingActivity")}</span>
               {/if}
               <button
                 type="button"
-                class="ml-auto rounded-full px-2.5 py-1 font-semibold {status === 'blocked' ? 'bg-status-blocked text-status-blocked-on' : status === 'done' ? 'text-status-done-fg' : 'text-foreground'}"
+                class="ml-auto rounded-full px-2.5 py-1 font-semibold {status === 'failed' ? 'bg-destructive text-destructive-foreground' : status === 'blocked' ? 'bg-status-blocked text-status-blocked-on' : status === 'done' ? 'text-status-done-fg' : 'text-foreground'}"
                 onclick={(event) => openAction(event, agent)}
               >{tileAction(status)}</button>
             </footer>

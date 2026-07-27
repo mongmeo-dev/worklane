@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canCreateWorkspace,
   requiresCommand,
+  commandExecutable,
   resolveWorkspaceTitle,
   type WorkspaceFormInput,
 } from "./agentDialogModel";
@@ -45,6 +46,14 @@ describe("canCreateWorkspace", () => {
   it("워크스페이스는 브랜치와 분기 기준이 모두 필요하다", () => {
     expect(canCreateWorkspace({ ...base, branch: "" })).toBe(false);
     expect(canCreateWorkspace({ ...base, startPoint: "" })).toBe(false);
+  });
+});
+
+describe("commandExecutable", () => {
+  it("실행 커맨드의 첫 토큰을 추출한다", () => {
+    expect(commandExecutable("claude --dangerously-skip-permissions")).toBe("claude");
+    expect(commandExecutable('"/Applications/My CLI/bin/tool" --flag')).toBe("/Applications/My CLI/bin/tool");
+    expect(commandExecutable("   ")).toBeNull();
   });
 });
 

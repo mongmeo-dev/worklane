@@ -8,10 +8,11 @@
   import { Label } from "$lib/components/ui/label";
   import type { AgentKind, Project } from "$lib/types";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
-  import { canCreateWorkspace, requiresCommand, resolveWorkspaceTitle } from "./agentDialogModel";
+  import { canCreateWorkspace, commandExecutable, requiresCommand, resolveWorkspaceTitle } from "./agentDialogModel";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { shell } from "$lib/stores/shell.svelte";
   import { t } from "$lib/i18n";
+  import { preflightCommand } from "$lib/ipc/system";
 
   let { open = $bindable(false), project }: { open?: boolean; project: Project } = $props();
 
@@ -22,6 +23,30 @@
   let startPoint = $state("main");
   let worktreePath = $state("");
   let error = $state("");
+  let commandCheck = $state<"checking" | "available" | "unavailable" | "error" | null>(null);
+  let checkedExecutable = $state("");
+  let commandCheckGeneration = 0;
+
+  $effect(() => {
+    const executable = commandExecutable(command);
+    const generation = ++commandCheckGeneration;
+    commandCheck = null;
+    checkedExecutable = executable ?? "";
+    if (!executable || !requiresCommand(kind)) return;
+
+    const timer = window.setTimeout(async () => {
+      commandCheck = "checking";
+      try {
+        const result = await preflightCommand(executable);
+        if (generation === commandCheckGeneration) {
+          commandCheck = result.available ? "available" : "unavailable";
+        }
+      } catch {
+        if (generation === commandCheckGeneration) commandCheck = "error";
+      }
+    }, 250);
+    return () => window.clearTimeout(timer);
+  });
 
   // kind 변경 시 command를 해당 기본값으로 자동 채움 (사용자가 이후 수정 가능).
   function onKindChange(v: string) {
@@ -76,6 +101,24 @@
       <div class="flex flex-col gap-1.5">
         <Label for="ag-cmd">{requiresCommand(kind) ? t("agentDialog.command") : t("agentDialog.commandOptional")}</Label>
         <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : t("agentDialog.commandPlaceholderShell")} />
+        {#if commandCheck}
+          <p
+            class="text-[10.5px] {commandCheck === 'available'
+              ? 'text-status-done-fg'
+              : commandCheck === 'unavailable'
+                ? 'text-destructive'
+                : 'text-muted-foreground'}"
+            aria-live="polite"
+          >
+            {commandCheck === "checking"
+              ? t("agentDialog.commandChecking", { command: checkedExecutable })
+              : commandCheck === "available"
+                ? t("agentDialog.commandAvailable", { command: checkedExecutable })
+                : commandCheck === "unavailable"
+                  ? t("agentDialog.commandUnavailable", { command: checkedExecutable })
+                  : t("agentDialog.commandCheckFailed", { command: checkedExecutable })}
+          </p>
+        {/if}
       </div>
       <div class="flex flex-col gap-1.5">
         <Label for="ag-branch">{t("agentDialog.branch")}</Label>
@@ -94,7 +137,7 @@
       {/if}
     </div>
     <Dialog.Footer>
-      <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint })}>
+      <Button onclick={submit} disabled={!canCreateWorkspace({ title, kind, command, branch, startPoint }) || commandCheck === "unavailable"}>
         {t("common.add")}
       </Button>
     </Dialog.Footer>

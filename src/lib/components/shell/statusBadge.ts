@@ -10,6 +10,7 @@ export function badgeClasses(status: AgentStatus): string {
     running: "text-status-running-fg bg-status-running/10",
     idle: "text-status-idle bg-status-idle/10",
     done: "text-status-done-fg bg-status-done/10",
+    failed: "text-destructive bg-destructive/10",
   };
   return `${base} ${tint[status]}`;
 }

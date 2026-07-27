@@ -9,11 +9,11 @@ import { t } from "$lib/i18n";
  * 이전 상태에서 현재 상태로의 전이가 OS 알림을 발생시켜야 하는지 판정한다.
  * - 최초 관측(prev === undefined)은 앱 시작 시 하이드레이션이므로 알리지 않는다(시작 스팸 방지).
  * - 같은 상태 반복은 알리지 않는다.
- * - 입력 대기(blocked)/완료(done)로 새로 진입할 때만 알린다.
+ * - 실패(failed)/입력 대기(blocked)/완료(done)로 새로 진입할 때만 알린다.
  */
 export function shouldNotify(prev: AgentStatus | undefined, next: AgentStatus): boolean {
   if (prev === undefined || prev === next) return false;
-  return next === "blocked" || next === "done";
+  return next === "failed" || next === "blocked" || next === "done";
 }
 
 export interface AttentionMeta {
@@ -23,14 +23,17 @@ export interface AttentionMeta {
 
 /** 상태 전이에 대한 알림 제목/본문을 만든다. */
 export function attentionNotification(
-  status: "blocked" | "done",
+  status: "failed" | "blocked" | "done",
   meta: AttentionMeta,
 ): { title: string; body: string } {
-  const label = status === "blocked" ? t("notify.blocked") : t("notify.done");
+  const label =
+    status === "failed" ? t("notify.failed") : status === "blocked" ? t("notify.blocked") : t("notify.done");
   const body =
-    status === "blocked"
-      ? t("notify.blockedBody", { project: meta.projectName })
-      : t("notify.doneBody", { project: meta.projectName });
+    status === "failed"
+      ? t("notify.failedBody", { project: meta.projectName })
+      : status === "blocked"
+        ? t("notify.blockedBody", { project: meta.projectName })
+        : t("notify.doneBody", { project: meta.projectName });
   return { title: `${meta.agentTitle} · ${label}`, body };
 }
 
@@ -55,7 +58,7 @@ class AttentionNotifier {
         if (!shouldNotify(before, e.status)) return;
         const meta = resolve(e.sessionId);
         if (!meta) return;
-        const msg = attentionNotification(e.status as "blocked" | "done", meta);
+        const msg = attentionNotification(e.status as "failed" | "blocked" | "done", meta);
         void sendAttentionNotification(msg.title, msg.body);
         notifyWebhook(integrations.webhookUrl, `${msg.title} — ${msg.body}`);
       });

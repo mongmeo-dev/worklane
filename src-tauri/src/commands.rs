@@ -596,6 +596,16 @@ pub async fn read_system_resources(
 }
 
 #[tauri::command]
+pub async fn preflight_command(executable: String) -> Result<crate::system::CommandPreflight, String> {
+    if executable.trim().is_empty() || executable.contains(['\0', '\n', '\r']) {
+        return Err("INVALID_EXECUTABLE".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || crate::system::preflight_command(executable))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn read_codex_usage() -> Result<crate::usage::UsageInfo, String> {
     tauri::async_runtime::spawn_blocking(crate::usage::codex::read_usage)
         .await

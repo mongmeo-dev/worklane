@@ -20,8 +20,9 @@ export function representativeTerminalId(agent: Agent): string {
   return agent.terminals?.[0]?.id ?? agent.id;
 }
 
-/** 여러 터미널 상태를 워크스페이스 단위 하나로 합친다. 우선순위: blocked > running > idle > done. */
+/** 여러 터미널 상태를 워크스페이스 단위 하나로 합친다. 우선순위: failed > blocked > running > idle > done. */
 export function aggregateStatus(statuses: (AgentStatus | undefined)[]): AgentStatus {
+  if (statuses.includes("failed")) return "failed";
   if (statuses.includes("blocked")) return "blocked";
   if (statuses.includes("running")) return "running";
   if (statuses.includes("idle")) return "idle";
@@ -35,7 +36,7 @@ export function hasDefaultWorkspace(project: Project): boolean {
 }
 
 export function statusCounts(projects: Project[]): StatusCounts {
-  const counts: StatusCounts = { running: 0, blocked: 0, idle: 0, done: 0 };
+  const counts: StatusCounts = { running: 0, blocked: 0, idle: 0, done: 0, failed: 0 };
   for (const agent of allAgents(projects)) counts[agent.status ?? "idle"] += 1;
   return counts;
 }
