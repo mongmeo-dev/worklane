@@ -20,12 +20,18 @@
   let kind = $state<AgentKind>(agentKindStore.selectableKindIds[0]);
   let command = $state(agentKindStore.defaultCommandOf(agentKindStore.selectableKindIds[0]));
   let branch = $state("");
-  let startPoint = $state("main");
+  let startPoint = $state("");
   let worktreePath = $state("");
   let error = $state("");
   let commandCheck = $state<"checking" | "available" | "unavailable" | "error" | null>(null);
   let checkedExecutable = $state("");
   let commandCheckGeneration = 0;
+  let wasOpen = false;
+
+  $effect(() => {
+    if (open && !wasOpen) startPoint = project.defaultBranch;
+    wasOpen = open;
+  });
 
   $effect(() => {
     const executable = commandExecutable(command);

@@ -127,6 +127,13 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
             PRAGMA user_version = 8;",
         )?;
     }
+    if version < 9 {
+        // 저장소의 기본 브랜치를 워크스페이스 생성 기본값으로 재사용한다.
+        conn.execute_batch(
+            "ALTER TABLE projects ADD COLUMN default_branch TEXT;
+             PRAGMA user_version = 9;",
+        )?;
+    }
     Ok(())
 }
 
@@ -150,20 +157,30 @@ fn row_to_agent(row: &rusqlite::Row) -> rusqlite::Result<Agent> {
 
 pub fn list_projects(conn: &Connection) -> rusqlite::Result<Vec<Project>> {
     let mut pstmt = conn.prepare(
-        "SELECT id, name, path, created_at, updated_at FROM projects ORDER BY created_at",
+        "SELECT id, name, path, default_branch, created_at, updated_at FROM projects ORDER BY created_at",
     )?;
-    let projects: Vec<Project> = pstmt
+    let mut projects: Vec<Project> = pstmt
         .query_map([], |row| {
             Ok(Project {
                 id: row.get("id")?,
                 name: row.get("name")?,
                 path: row.get("path")?,
+                default_branch: row.get::<_, Option<String>>("default_branch")?.unwrap_or_default(),
                 created_at: row.get("created_at")?,
                 updated_at: row.get("updated_at")?,
                 agents: Vec::new(),
             })
         })?
         .collect::<rusqlite::Result<_>>()?;
+
+    // v9 이전 프로젝트는 최초 조회 시 저장소를 검사해 한 번만 백필한다.
+    for project in projects.iter_mut().filter(|project| project.default_branch.is_empty()) {
+        project.default_branch = crate::git::default_base_branch(&project.path);
+        conn.execute(
+            "UPDATE projects SET default_branch = ?1 WHERE id = ?2",
+            params![project.default_branch, project.id],
+        )?;
+    }
 
     let mut astmt = conn.prepare(
         "SELECT id, project_id, title, kind, command, branch, worktree_path,
@@ -197,15 +214,17 @@ pub fn insert_project(
     now: i64,
 ) -> rusqlite::Result<Project> {
     let id = uuid::Uuid::new_v4().to_string();
+    let default_branch = crate::git::default_base_branch(path);
     conn.execute(
-        "INSERT INTO projects (id, name, path, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?4)",
-        params![id, name, path, now],
+        "INSERT INTO projects (id, name, path, default_branch, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        params![id, name, path, default_branch, now],
     )?;
     Ok(Project {
         id,
         name: name.into(),
         path: path.into(),
+        default_branch,
         created_at: now,
         updated_at: now,
         agents: Vec::new(),
@@ -903,6 +922,29 @@ mod tests {
         assert_eq!(projects[0].agents.len(), 1);
         assert_eq!(projects[0].agents[0].command, "codex");
         assert!(projects[0].agents[0].worktree_managed);
+        assert_eq!(projects[0].default_branch, "main");
+    }
+
+    #[test]
+    fn 기본_브랜치가_없는_기존_프로젝트를_조회하면_백필한다() {
+        let conn = mem();
+        conn.execute(
+            "INSERT INTO projects (id, name, path, default_branch, created_at, updated_at)
+             VALUES ('legacy', 'legacy', '/tmp/not-a-repo', NULL, 1, 1)",
+            [],
+        )
+        .unwrap();
+
+        let projects = list_projects(&conn).unwrap();
+        assert_eq!(projects[0].default_branch, "main");
+        let stored: String = conn
+            .query_row(
+                "SELECT default_branch FROM projects WHERE id = 'legacy'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(stored, "main");
     }
 
     #[test]

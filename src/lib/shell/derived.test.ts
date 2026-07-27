@@ -12,6 +12,7 @@ const project: Project = {
   id: "project-1",
   name: "Worklane",
   path: "/repo",
+  defaultBranch: "main",
   createdAt: 1,
   updatedAt: 1,
   agents: [

@@ -3,7 +3,7 @@ import type { Agent, Project } from "$lib/types";
 import { agentItems, filterPalette, type PaletteItem } from "./model";
 
 function project(id: string, name: string, agents: Agent[]): Project {
-  return { id, name, path: `/r/${id}`, createdAt: 0, updatedAt: 0, agents };
+  return { id, name, path: `/r/${id}`, defaultBranch: "main", createdAt: 0, updatedAt: 0, agents };
 }
 
 function agent(id: string, title: string): Agent {

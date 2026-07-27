@@ -44,6 +44,7 @@
   $effect(() => {
     if (open && !wasOpen) {
       syncRows();
+      startPoint = project.defaultBranch;
       if (seed) {
         title = seed.title;
         prompt = seed.prompt;
@@ -60,7 +61,7 @@
 
   let title = $state("");
   let prompt = $state("");
-  let startPoint = $state("main");
+  let startPoint = $state("");
 
   /** 현재 등록된 CLI 종류로 팬아웃 행을 새로 만든다(앞 2개 기본 선택). */
   function freshRows(): Row[] {
@@ -112,7 +113,7 @@
 
   function applyPlaybook(pb: Playbook) {
     prompt = pb.prompt;
-    startPoint = pb.base.trim() || "main";
+    startPoint = pb.base.trim() || project.defaultBranch;
     if (!title.trim()) title = pb.name;
     rows = agentKindStore.cliKinds.map((k) => {
       const member = pb.members.find((m) => m.kind === k.id);
@@ -205,7 +206,7 @@
   function reset() {
     title = "";
     prompt = "";
-    startPoint = "main";
+    startPoint = project.defaultBranch;
     rows = freshRows();
     error = "";
   }

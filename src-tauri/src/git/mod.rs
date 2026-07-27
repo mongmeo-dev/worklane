@@ -511,14 +511,21 @@ pub fn push_current_branch(worktree: &str) -> Result<String, String> {
     Ok(branch)
 }
 
-/// 저장소 기본 브랜치명을 origin/HEAD로 추정한다. 실패 시 "main".
+/// 저장소 기본 브랜치명을 origin/HEAD로 추정하고, 없으면 현재 브랜치를 사용한다.
 pub fn default_base_branch(worktree: &str) -> String {
-    run_git_allow_fail(worktree, &["rev-parse", "--abbrev-ref", "origin/HEAD"])
+    let remote = run_git_allow_fail(worktree, &["rev-parse", "--abbrev-ref", "origin/HEAD"])
         .unwrap_or_default()
         .trim()
         .strip_prefix("origin/")
-        .map(|b| b.to_string())
-        .filter(|b| !b.is_empty())
+        .map(str::to_string)
+        .filter(|branch| !branch.is_empty() && branch != "HEAD");
+    remote
+        .or_else(|| {
+            run_git_allow_fail(worktree, &["branch", "--show-current"])
+                .ok()
+                .map(|branch| branch.trim().to_string())
+                .filter(|branch| !branch.is_empty())
+        })
         .unwrap_or_else(|| "main".to_string())
 }
 
@@ -1086,6 +1093,19 @@ mod worktree_tests {
         Command::new("git").args(["add", "."]).current_dir(p).output().unwrap();
         Command::new("git").args(["commit", "-m", "init"]).current_dir(p).output().unwrap();
         dir
+    }
+
+    #[test]
+    fn origin_head가_없으면_현재_브랜치를_기본값으로_사용한다() {
+        let dir = std::env::temp_dir().join(format!("default-branch-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        Command::new("git")
+            .args(["init", "-b", "master"])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert_eq!(default_base_branch(dir.to_str().unwrap()), "master");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

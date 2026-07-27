@@ -56,6 +56,8 @@ export interface Project {
   name: string;
   /** 로컬 저장소 경로 */
   path: string;
+  /** 저장소에서 감지해 저장한 기본 브랜치 */
+  defaultBranch: string;
   createdAt: number;
   updatedAt: number;
   agents: Agent[];

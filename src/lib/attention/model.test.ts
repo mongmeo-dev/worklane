@@ -19,7 +19,7 @@ function agent(id: string, status: AgentStatus | undefined, updatedAt: number): 
 }
 
 function project(id: string, name: string, agents: Agent[]): Project {
-  return { id, name, path: `/repo/${id}`, createdAt: 0, updatedAt: 0, agents };
+  return { id, name, path: `/repo/${id}`, defaultBranch: "main", createdAt: 0, updatedAt: 0, agents };
 }
 
 describe("needsAttention", () => {

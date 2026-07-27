@@ -55,6 +55,7 @@ pub struct Project {
     pub id: String,
     pub name: String,
     pub path: String,
+    pub default_branch: String,
     pub created_at: i64,
     pub updated_at: i64,
     pub agents: Vec<Agent>,

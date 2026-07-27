@@ -51,6 +51,7 @@ describe("fanoutGroups", () => {
         id: "p1",
         name: "웹",
         path: "/repo",
+        defaultBranch: "main",
         createdAt: 0,
         updatedAt: 0,
         agents: [
@@ -69,7 +70,7 @@ describe("fanoutGroups", () => {
 
   it("groupId 없는 에이전트만 있으면 그룹이 없다", () => {
     const projects: Project[] = [
-      { id: "p1", name: "웹", path: "/r", createdAt: 0, updatedAt: 0, agents: [agent("a", null)] },
+      { id: "p1", name: "웹", path: "/r", defaultBranch: "main", createdAt: 0, updatedAt: 0, agents: [agent("a", null)] },
     ];
     expect(fanoutGroups(projects)).toEqual([]);
   });
@@ -82,6 +83,7 @@ describe("groupOf", () => {
         id: "p1",
         name: "웹",
         path: "/r",
+        defaultBranch: "main",
         createdAt: 0,
         updatedAt: 0,
         agents: [agent("a", "g1"), agent("b", "g1")],
