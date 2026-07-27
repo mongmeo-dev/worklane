@@ -260,6 +260,10 @@ export class PooledTerminal {
     if (!this.disposed && this.term.rows > 0) this.term.refresh(0, this.term.rows - 1);
   }
 
+  /** 현재 터미널의 키보드 입력 영역으로 포커스를 이동한다. */
+  focus(): void {
+    if (!this.disposed) this.term.focus();
+  }
   /**
    * 오버뷰 미리보기용으로 현재 화면(활성 버퍼)의 마지막 비어있지 않은 줄들을 반환한다.
    * xterm이 ANSI·OSC·커서 이동·alt-screen을 모두 해석한 뒤의 실제 표시 텍스트라,

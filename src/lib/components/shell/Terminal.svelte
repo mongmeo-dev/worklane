@@ -154,6 +154,7 @@
       handle = instance;
       el.appendChild(instance.container);
       instance.remount();
+      instance.focus();
       attachKeyboardOrigin(instance);
       terminalObserver = new MutationObserver(() => {
         if (handle === instance && instance.container.parentElement !== el) deactivateTerminalMenu();
