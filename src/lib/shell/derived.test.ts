@@ -4,6 +4,10 @@ import {
   aggregateStatus,
   hasDefaultWorkspace,
   representativeTerminalId,
+  cycleAgentId,
+  jumpTargetId,
+  nextAttentionAgentId,
+  projectRollup,
   statusCounts,
   worktreeGroups,
 } from "./derived";
@@ -68,4 +72,41 @@ describe("shell 파생 데이터", () => {
     expect(representativeTerminalId(project.agents[0])).toBe("a1");
   });
 
+});
+
+describe("키보드 내비게이션 파생", () => {
+  const second: Project = {
+    ...project,
+    id: "project-2",
+    name: "Docs",
+    agents: [
+      { id: "b1", projectId: "project-2", title: "실패", kind: "codex", command: "codex", branch: "x", worktreePath: "/wt/x", worktreeManaged: true, createdAt: 1, updatedAt: 1, status: "failed" },
+    ],
+  };
+
+  it("프로젝트 롤업은 총합과 주의 필요 건수를 함께 낸다", () => {
+    expect(projectRollup(project)).toMatchObject({ running: 1, blocked: 1, done: 1, total: 3, attention: 1 });
+    expect(projectRollup(second)).toMatchObject({ failed: 1, total: 1, attention: 1 });
+  });
+
+  it("점프 인덱스는 사이드바 표시 순서를 따른다", () => {
+    expect(jumpTargetId([project, second], 0)).toBe("a1");
+    expect(jumpTargetId([project, second], 3)).toBe("b1");
+    expect(jumpTargetId([project, second], 9)).toBeUndefined();
+  });
+
+  it("순환 이동은 목록 끝에서 반대편으로 넘어간다", () => {
+    expect(cycleAgentId([project, second], "a1", 1)).toBe("a2");
+    expect(cycleAgentId([project, second], "b1", 1)).toBe("a1");
+    expect(cycleAgentId([project, second], "a1", -1)).toBe("b1");
+    expect(cycleAgentId([project, second], null, 1)).toBe("a1");
+    expect(cycleAgentId([], null, 1)).toBeUndefined();
+  });
+
+  it("주의 필요 점프는 현재 위치 다음부터 찾고 한 바퀴 돈다", () => {
+    expect(nextAttentionAgentId([project, second], "a1")).toBe("a2");
+    expect(nextAttentionAgentId([project, second], "a2")).toBe("b1");
+    expect(nextAttentionAgentId([project, second], "b1")).toBe("a2");
+    expect(nextAttentionAgentId([{ ...project, agents: [project.agents[0]] }], null)).toBeUndefined();
+  });
 });
