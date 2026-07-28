@@ -29,6 +29,34 @@ export interface KeyLike {
   shiftKey: boolean;
 }
 
+/** 전역 단축키의 주 수식키가 무엇인지 결정하는 플랫폼 구분. */
+export type ShortcutPlatform = "mac" | "other";
+
+/**
+ * 현재 플랫폼의 주 수식키를 판별한다. macOS는 ⌘(meta), 그 외는 Ctrl이다.
+ *
+ * Ctrl은 터미널의 제어 문자(^B·^K·^N 등)를 만드는 키라, macOS에서 Ctrl 조합까지
+ * 전역 단축키로 가로채면 vim·tmux·readline 같은 TUI 입력이 앱 액션과 겹쳐 깨진다.
+ * UI에 표기된 단축키도 모두 ⌘ 기준이므로 macOS에서는 ⌘만 받는다.
+ */
+export function detectShortcutPlatform(): ShortcutPlatform {
+  if (typeof navigator === "undefined") return "other";
+  const hints = `${navigator.userAgent} ${navigator.platform ?? ""}`;
+  return /Mac|iPhone|iPad|iPod/i.test(hints) ? "mac" : "other";
+}
+
+let cachedPlatform: ShortcutPlatform | undefined;
+
+function currentPlatform(): ShortcutPlatform {
+  cachedPlatform ??= detectShortcutPlatform();
+  return cachedPlatform;
+}
+
+/** 주 수식키만 눌렸는지. 반대편 수식키가 같이 눌린 조합은 앱 단축키가 아니다. */
+function hasPrimaryModifier(event: KeyLike, platform: ShortcutPlatform): boolean {
+  return platform === "mac" ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+}
+
 function letterOf(event: KeyLike): string {
   if (event.code && /^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase();
   return event.key.length === 1 ? event.key.toLowerCase() : "";
@@ -43,9 +71,15 @@ function isSlash(event: KeyLike): boolean {
   return event.code === "Slash" || event.key === "/" || event.key === "?";
 }
 
-/** 단축키 조합을 액션으로 변환한다. 수식키(⌘/Ctrl) 없는 입력은 터미널에 양보한다. */
-export function resolveShortcut(event: KeyLike): ShortcutAction | null {
-  if (!(event.metaKey || event.ctrlKey)) return null;
+/**
+ * 단축키 조합을 액션으로 변환한다. 주 수식키(macOS ⌘ / 그 외 Ctrl) 없는 입력과
+ * 플랫폼의 주 수식키가 아닌 조합은 모두 터미널에 양보한다.
+ */
+export function resolveShortcut(
+  event: KeyLike,
+  platform: ShortcutPlatform = currentPlatform(),
+): ShortcutAction | null {
+  if (!hasPrimaryModifier(event, platform)) return null;
   const letter = letterOf(event);
 
   if (event.altKey) {
