@@ -14,15 +14,15 @@
 </script>
 
 <div class="flex flex-col gap-5">
-  <div class="rounded-[10px] border bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
+  <div class="rounded-[10px] border bg-muted/35 p-3 text-xs leading-relaxed text-muted-foreground">
     {t("settings.usage.intro")}
   </div>
 
   <section class="flex flex-col gap-3 rounded-[10px] border p-4">
     <div class="flex items-center gap-2">
       <TriangleAlert class="size-4 text-status-blocked-fg" />
-      <h2 class="text-[12.5px] font-semibold">{t("settings.usage.thresholdHeading")}</h2>
-      <span class="ml-auto font-mono text-[13px] font-bold">{value}%</span>
+      <h2 class="text-sm font-semibold">{t("settings.usage.thresholdHeading")}</h2>
+      <span class="ml-auto font-mono text-sm font-bold">{value}%</span>
     </div>
     <input
       type="range"
@@ -34,7 +34,7 @@
       class="w-full accent-status-blocked"
       aria-label={t("settings.usage.thresholdAria")}
     />
-    <p class="text-[10.5px] text-muted-foreground">
+    <p class="text-2xs text-muted-foreground">
       {t("settings.usage.thresholdDesc", { value })}
     </p>
   </section>

@@ -138,7 +138,7 @@
 </script>
 
 <div class="shrink-0 border-t bg-sidebar px-3 py-2.5">
-  <div class="flex items-center gap-2 text-[10px] text-muted-foreground">
+  <div class="flex items-center gap-2 text-2xs text-muted-foreground">
     <GitCommitHorizontal class="size-3.5" />
     <span class="font-semibold text-foreground">{t("review.heading")}</span>
     {#if status}
@@ -151,7 +151,7 @@
   </div>
 
   <textarea
-    class="mt-2 h-14 w-full resize-none rounded-md border bg-input/40 px-2 py-1.5 text-[11px] outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+    class="mt-2 h-14 w-full resize-none rounded-md border bg-input/40 px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
     placeholder={status && status.changedCount > 0 ? t("review.commitPlaceholder") : t("review.noChanges")}
     disabled={!status || status.changedCount === 0 || busy !== null}
     bind:value={message}
@@ -160,7 +160,7 @@
   <div class="mt-2 grid grid-cols-3 gap-1.5">
     <button
       type="button"
-      class="flex h-7 items-center justify-center gap-1 rounded-md bg-primary text-[10.5px] font-semibold text-primary-foreground disabled:opacity-40"
+      class="flex h-7 items-center justify-center gap-1 rounded-md bg-primary text-2xs font-semibold text-primary-foreground disabled:opacity-40"
       disabled={!status || !canCommit(status.changedCount, message) || busy !== null}
       onclick={commit}
     >
@@ -169,7 +169,7 @@
     </button>
     <button
       type="button"
-      class="flex h-7 items-center justify-center gap-1 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40"
+      class="flex h-7 items-center justify-center gap-1 rounded-md border bg-card text-2xs font-semibold hover:bg-accent disabled:opacity-40"
       disabled={!status || !canPush(status) || busy !== null}
       onclick={push}
     >
@@ -178,7 +178,7 @@
     </button>
     <button
       type="button"
-      class="flex h-7 items-center justify-center gap-1 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40"
+      class="flex h-7 items-center justify-center gap-1 rounded-md border bg-card text-2xs font-semibold hover:bg-accent disabled:opacity-40"
       disabled={!status || !status.hasRemote || busy !== null}
       onclick={pullRequest}
     >
@@ -191,18 +191,18 @@
     <div class="mt-1.5 flex items-center gap-1.5">
       <button
         type="button"
-        class="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-status-done text-[10.5px] font-bold text-background disabled:opacity-50"
+        class="flex h-7 flex-1 items-center justify-center gap-1 rounded-md bg-status-done text-2xs font-bold text-background disabled:opacity-50"
         disabled={merging}
         onclick={confirmMerge}
       >
         <GitMerge class="size-3.5" />{t("review.mergeInto", { base: pendingMerge.base })}
       </button>
-      <button type="button" class="h-7 rounded-md border px-2.5 text-[10.5px] hover:bg-accent" onclick={() => (pendingMerge = null)}>{t("common.cancel")}</button>
+      <button type="button" class="h-7 rounded-md border px-2.5 text-2xs hover:bg-accent" onclick={() => (pendingMerge = null)}>{t("common.cancel")}</button>
     </div>
   {:else}
     <button
       type="button"
-      class="mt-1.5 flex h-7 w-full items-center justify-center gap-1 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40"
+      class="mt-1.5 flex h-7 w-full items-center justify-center gap-1 rounded-md border bg-card text-2xs font-semibold hover:bg-accent disabled:opacity-40"
       disabled={!status || busy !== null || merging}
       onclick={previewMerge}
     >
@@ -211,16 +211,16 @@
   {/if}
 
   {#if mergeConflicts.length > 0}
-    <p class="mt-1.5 rounded-md border border-status-blocked/30 bg-status-blocked/10 px-2 py-1 text-[10px] text-status-blocked-fg">
+    <p class="mt-1.5 rounded-md border border-status-blocked/30 bg-status-blocked/10 px-2 py-1 text-2xs text-status-blocked-fg">
       {t("review.conflictSummary", { count: mergeConflicts.length, list: mergeConflicts.slice(0, 4).join(", ") })}{mergeConflicts.length > 4 ? " …" : ""}
     </p>
   {/if}
 
   {#if error}
-    <p class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] text-destructive">{error}</p>
+    <p class="mt-2 rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-2xs text-destructive">{error}</p>
   {:else if note}
-    <p class="mt-2 text-[10px] text-status-done-fg">{note}</p>
+    <p class="mt-2 text-2xs text-status-done-fg">{note}</p>
   {:else if status && !status.hasRemote}
-    <p class="mt-2 text-[10px] text-muted-foreground">{t("review.noRemote")}</p>
+    <p class="mt-2 text-2xs text-muted-foreground">{t("review.noRemote")}</p>
   {/if}
 </div>

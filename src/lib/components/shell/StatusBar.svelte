@@ -92,7 +92,7 @@
   });
 </script>
 
-<footer bind:this={root} class="flex h-[30px] shrink-0 items-center border-t bg-sidebar px-2 text-[9.5px] text-sidebar-foreground">
+<footer bind:this={root} class="flex h-[30px] shrink-0 items-center border-t bg-sidebar px-2 text-2xs text-sidebar-foreground">
   <span class="px-1.5 font-semibold text-muted-foreground">{t("usage.label")}</span>
   <div class="flex min-w-0 items-center gap-0.5">
     {#each usage as info (info.provider)}
@@ -103,7 +103,7 @@
           aria-expanded={shell.usagePopover === info.provider}
           onclick={() => shell.toggleUsagePopover(info.provider)}
         >
-          <span class="font-mono text-[9px] font-semibold text-muted-foreground">{shortLabels[info.provider]}</span>
+          <span class="font-mono text-2xs font-semibold text-muted-foreground">{shortLabels[info.provider]}</span>
           {#if info.connected && info.primaryPercent !== null}
             <span class="h-1 w-14 overflow-hidden rounded-full bg-muted">
               <span class="block h-full rounded-full {gaugeColorClass(info.primaryPercent)}" style:width={`${clampPercent(info.primaryPercent)}%`}></span>
@@ -112,9 +112,9 @@
             {#if overBudget(info.primaryPercent, budget.threshold)}
               <TriangleAlert class="size-3 text-status-blocked-fg" aria-label={t("usage.overBudgetAria", { threshold: budget.threshold })} />
             {/if}
-            <span class="hidden max-w-28 truncate text-muted-foreground/70 2xl:inline">{info.primaryReset ?? t("usage.resetUnknown")}</span>
+            <span class="hidden max-w-28 truncate text-muted-foreground 2xl:inline">{info.primaryReset ?? t("usage.resetUnknown")}</span>
           {:else}
-            <span class="rounded-full bg-muted px-1.5 py-0.5 text-[8.5px] text-muted-foreground">{t("usage.notConnected")}</span>
+            <span class="rounded-full bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">{t("usage.notConnected")}</span>
           {/if}
         </button>
         {#if shell.usagePopover === info.provider}<UsagePopover {info} />{/if}
@@ -124,12 +124,12 @@
 
   <div class="ml-auto flex items-center gap-3 px-1.5">
     <div class="flex items-center gap-1.5">
-      <span class="font-mono text-[9px] text-muted-foreground">CPU</span>
+      <span class="font-mono text-2xs text-muted-foreground">CPU</span>
       <span class="h-1 w-12 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full {gaugeColorClass(resources.cpuPercent)}" style:width={`${clampPercent(resources.cpuPercent)}%`}></span></span>
       <span class="font-mono font-semibold {gaugeTextClass(resources.cpuPercent)}">{Math.round(resources.cpuPercent)}%</span>
     </div>
     <div class="flex items-center gap-1.5">
-      <span class="font-mono text-[9px] text-muted-foreground">RAM</span>
+      <span class="font-mono text-2xs text-muted-foreground">RAM</span>
       <span class="h-1 w-12 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full {gaugeColorClass(ramPercent)}" style:width={`${clampPercent(ramPercent)}%`}></span></span>
       <span class="font-mono font-semibold {gaugeTextClass(ramPercent)}">{resources.ramTotalGb > 0 ? resourceLabel(resources.ramUsedGb, resources.ramTotalGb) : "—"}</span>
     </div>

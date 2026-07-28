@@ -39,7 +39,7 @@
     <Bell class="size-4" />
     {#if counts.total > 0}
       <span
-        class="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-bold leading-none {counts.blocked > 0 ? 'bg-status-blocked text-status-blocked-on' : 'bg-status-done text-background'}"
+        class="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-2xs font-bold leading-none {counts.blocked > 0 ? 'bg-status-blocked text-status-blocked-on' : 'bg-status-done text-background'}"
       >{counts.total}</span>
     {/if}
   </button>
@@ -51,10 +51,10 @@
       aria-label={t("attention.inboxAria")}
     >
       <header class="flex items-center gap-2 border-b px-3.5 py-2.5">
-        <h2 class="text-[12.5px] font-semibold">{t("attention.heading")}</h2>
-        <span class="text-[10px] text-muted-foreground">{t("attention.allProjects")}</span>
+        <h2 class="text-sm font-semibold">{t("attention.heading")}</h2>
+        <span class="text-2xs text-muted-foreground">{t("attention.allProjects")}</span>
         {#if counts.total > 0}
-          <span class="ml-auto flex items-center gap-2 font-mono text-[10px]">
+          <span class="ml-auto flex items-center gap-2 font-mono text-2xs">
             {#if counts.failed > 0}<span class="text-destructive">{t("attention.failedCount", { count: counts.failed })}</span>{/if}
             {#if counts.blocked > 0}<span class="text-status-blocked-fg">{t("attention.blockedCount", { count: counts.blocked })}</span>{/if}
             {#if counts.done > 0}<span class="text-status-done-fg">{t("attention.doneCount", { count: counts.done })}</span>{/if}
@@ -80,16 +80,16 @@
                 ></span>
                 <span class="min-w-0 flex-1">
                   <span class="flex items-center gap-1.5">
-                    <span class="min-w-0 flex-1 truncate text-[12px] font-semibold">{item.agentTitle}</span>
+                    <span class="min-w-0 flex-1 truncate text-sm font-semibold">{item.agentTitle}</span>
                     <span
-                      class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold {item.status === 'failed'
+                      class="shrink-0 rounded-full px-1.5 py-0.5 text-2xs font-semibold {item.status === 'failed'
                         ? 'bg-destructive/10 text-destructive'
                         : item.status === 'blocked'
                           ? 'bg-status-blocked text-status-blocked-on'
                           : 'bg-status-done/10 text-status-done-fg'}"
                     >{statusLabel(item.status)}</span>
                   </span>
-                  <span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <span class="mt-0.5 flex items-center gap-1.5 text-2xs text-muted-foreground">
                     <span class="truncate">{item.projectName}</span>
                     <span class="opacity-40">·</span>
                     <GitBranch class="size-3 shrink-0" />
@@ -101,7 +101,7 @@
           {/each}
         </ul>
       {:else}
-        <p class="px-3.5 py-6 text-center text-[11px] text-muted-foreground">
+        <p class="px-3.5 py-6 text-center text-xs text-muted-foreground">
           {t("attention.empty")}
         </p>
       {/if}

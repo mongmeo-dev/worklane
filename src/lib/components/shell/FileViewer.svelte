@@ -51,29 +51,29 @@
 </script>
 
 <div class="flex h-full min-h-0 flex-col bg-editor text-white/80">
-  <header class="flex h-10 shrink-0 items-center gap-2 border-b border-white/8 bg-editor-chrome px-3 font-mono text-[10px]">
+  <header class="flex h-10 shrink-0 items-center gap-2 border-b border-white/8 bg-editor-chrome px-3 font-mono text-2xs">
     <span class="min-w-0 flex-1 truncate">{path}</span>
     {#if entry?.change && entry.change !== "none"}
-      <span class="rounded-full bg-white/8 px-1.5 py-0.5 text-[9px]">{entry.change === "new" ? t("fileViewer.new") : entry.change === "deleted" ? t("fileViewer.deleted") : t("fileViewer.modified")}</span>
+      <span class="rounded-full bg-white/8 px-1.5 py-0.5 text-2xs">{entry.change === "new" ? t("fileViewer.new") : entry.change === "deleted" ? t("fileViewer.deleted") : t("fileViewer.modified")}</span>
       {#if sharedCount > 1}<span class="text-accent-share">{t("fileViewer.lastEdited", { title: agent.title })}</span>{/if}
       <span class="text-diff-add">+{entry.add}</span><span class="text-diff-remove">−{entry.del}</span>
     {/if}
   </header>
 
-  <div class="min-h-0 flex-1 overflow-auto font-mono text-[11px] leading-[1.75]">
+  <div class="min-h-0 flex-1 overflow-auto font-mono text-xs leading-[1.75]">
     {#if loading}
-      <p class="p-4 text-white/45">{t("fileViewer.loading")}</p>
+      <p class="p-4 text-white/62">{t("fileViewer.loading")}</p>
     {:else if error}
       <div class="m-3 rounded-lg border border-diff-remove/30 bg-diff-remove/10 p-3 text-diff-remove">{error}</div>
     {:else if content?.isBinary}
-      <div class="grid h-full place-items-center text-white/45">{t("fileViewer.binary")}</div>
+      <div class="grid h-full place-items-center text-white/62">{t("fileViewer.binary")}</div>
     {:else if diff.length > 0}
       <table class="w-full border-collapse">
         <tbody>
           {#each diff as line, index (`${line.oldNo}-${line.newNo}-${index}`)}
             <tr class={rowClass(line.kind)}>
-              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/25">{line.oldNo ?? ""}</td>
-              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/25">{line.newNo ?? ""}</td>
+              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/62">{line.oldNo ?? ""}</td>
+              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/62">{line.newNo ?? ""}</td>
               <td class="whitespace-pre px-3"><span class="mr-2 select-none opacity-70">{line.kind === "add" ? "+" : line.kind === "del" ? "−" : " "}</span>{line.text}</td>
             </tr>
           {/each}
@@ -84,7 +84,7 @@
         <tbody>
           {#each lines as line (line.no)}
             <tr>
-              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/25">{line.no}</td>
+              <td class="w-11 select-none border-r border-white/5 px-2 text-right text-white/62">{line.no}</td>
               <td class="whitespace-pre px-3 text-white/72">{line.text || " "}</td>
             </tr>
           {/each}
@@ -93,7 +93,7 @@
     {/if}
   </div>
 
-  <footer class="flex h-7 shrink-0 items-center border-t border-white/8 bg-editor-chrome px-3 font-mono text-[9px] text-white/35">
+  <footer class="flex h-7 shrink-0 items-center border-t border-white/8 bg-editor-chrome px-3 font-mono text-2xs text-white/60">
     {t("fileViewer.readonly")} <span class="ml-auto">{agent.branch}</span>
   </footer>
 </div>

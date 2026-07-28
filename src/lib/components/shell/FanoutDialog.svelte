@@ -251,23 +251,23 @@
     <div class="flex flex-col gap-3 py-2">
       <div class="flex items-center gap-1.5 rounded-lg border bg-muted/30 px-2.5 py-1.5">
         <BookMarked class="size-3.5 text-muted-foreground" />
-        <span class="text-[11px] font-semibold text-muted-foreground">{t("fanout.playbook")}</span>
+        <span class="text-xs font-semibold text-muted-foreground">{t("fanout.playbook")}</span>
         <div class="relative">
-          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent {pbOpen ? 'bg-accent' : ''}" disabled={playbookStore.playbooks.length === 0} onclick={() => (pbOpen = !pbOpen)}>
+          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent {pbOpen ? 'bg-accent' : ''}" disabled={playbookStore.playbooks.length === 0} onclick={() => (pbOpen = !pbOpen)}>
             {t("fanout.load")}{playbookStore.playbooks.length > 0 ? ` (${playbookStore.playbooks.length})` : ""}
           </button>
           {#if pbOpen}
             <div class="absolute left-0 top-[calc(100%+4px)] z-50 max-h-52 w-64 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
               {#each playbookStore.playbooks as pb (pb.id)}
                 <div class="flex items-center gap-1 px-1 py-0.5">
-                  <button type="button" class="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-[11px] hover:bg-accent" onclick={() => applyPlaybook(pb)}>{t("fanout.playbookItem", { name: pb.name, count: pb.members.length })}</button>
+                  <button type="button" class="min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-xs hover:bg-accent" onclick={() => applyPlaybook(pb)}>{t("fanout.playbookItem", { name: pb.name, count: pb.members.length })}</button>
                   <button type="button" class="grid size-6 shrink-0 place-items-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={t("fanout.deletePlaybook")} onclick={() => playbookStore.remove(pb.id)}><Trash2 class="size-3" /></button>
                 </div>
               {/each}
             </div>
           {/if}
         </div>
-        <button type="button" class="ml-auto flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!title.trim() || selected.length === 0} onclick={savePlaybook}>
+        <button type="button" class="ml-auto flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent disabled:opacity-40" disabled={!title.trim() || selected.length === 0} onclick={savePlaybook}>
           <Save class="size-3" />{pbSaved ? t("common.saved") : t("fanout.saveCurrent")}
         </button>
       </div>
@@ -275,22 +275,22 @@
         <div class="flex items-center gap-2">
           <Label for="fo-title" class="flex-1">{t("fanout.taskName")}</Label>
           <div class="relative">
-            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {issuesOpen ? 'bg-accent' : ''}" onclick={toggleIssues}>
+            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent {issuesOpen ? 'bg-accent' : ''}" onclick={toggleIssues}>
               <CircleDot class="size-3" />{t("fanout.githubIssue")}
             </button>
             {#if issuesOpen}
               <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
                 {#if issuesLoading}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.loadingIssues")}</p>
+                  <p class="px-3 py-3 text-xs text-muted-foreground">{t("fanout.loadingIssues")}</p>
                 {:else if issuesError}
-                  <p class="px-3 py-3 text-[10.5px] text-destructive">{issuesError}</p>
+                  <p class="px-3 py-3 text-2xs text-destructive">{issuesError}</p>
                 {:else if issues.length === 0}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.noOpenIssues")}</p>
+                  <p class="px-3 py-3 text-xs text-muted-foreground">{t("fanout.noOpenIssues")}</p>
                 {:else}
                   {#each issues as issue (issue.number)}
                     <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickIssue(issue)}>
-                      <span class="shrink-0 font-mono text-[10px] text-muted-foreground">#{issue.number}</span>
-                      <span class="min-w-0 flex-1 truncate text-[11px]">{issue.title}</span>
+                      <span class="shrink-0 font-mono text-2xs text-muted-foreground">#{issue.number}</span>
+                      <span class="min-w-0 flex-1 truncate text-xs">{issue.title}</span>
                     </button>
                   {/each}
                 {/if}
@@ -298,22 +298,22 @@
             {/if}
           </div>
           <div class="relative">
-            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {linearOpen ? 'bg-accent' : ''}" onclick={toggleLinear}>
+            <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent {linearOpen ? 'bg-accent' : ''}" onclick={toggleLinear}>
               <CircleDot class="size-3" />Linear
             </button>
             {#if linearOpen}
               <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-60 w-72 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
                 {#if linearLoading}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.loadingIssues")}</p>
+                  <p class="px-3 py-3 text-xs text-muted-foreground">{t("fanout.loadingIssues")}</p>
                 {:else if linearError}
-                  <p class="px-3 py-3 text-[10.5px] text-destructive">{linearError}</p>
+                  <p class="px-3 py-3 text-2xs text-destructive">{linearError}</p>
                 {:else if linearList.length === 0}
-                  <p class="px-3 py-3 text-[11px] text-muted-foreground">{t("fanout.noAssignedIssues")}</p>
+                  <p class="px-3 py-3 text-xs text-muted-foreground">{t("fanout.noAssignedIssues")}</p>
                 {:else}
                   {#each linearList as issue (issue.identifier)}
                     <button type="button" class="flex w-full items-start gap-1.5 px-3 py-1.5 text-left hover:bg-accent" onclick={() => pickLinear(issue)}>
-                      <span class="shrink-0 font-mono text-[10px] text-muted-foreground">{issue.identifier}</span>
-                      <span class="min-w-0 flex-1 truncate text-[11px]">{issue.title}</span>
+                      <span class="shrink-0 font-mono text-2xs text-muted-foreground">{issue.identifier}</span>
+                      <span class="min-w-0 flex-1 truncate text-xs">{issue.title}</span>
                     </button>
                   {/each}
                 {/if}
@@ -328,25 +328,25 @@
           <Label for="fo-prompt" class="flex-1">{t("fanout.promptOptional")}</Label>
           {#if promptStore.prompts.length > 0}
             <div class="relative">
-              <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent {libOpen ? 'bg-accent' : ''}" onclick={() => (libOpen = !libOpen)}>
+              <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent {libOpen ? 'bg-accent' : ''}" onclick={() => (libOpen = !libOpen)}>
                 <Library class="size-3" />{t("fanout.library")}
               </button>
               {#if libOpen}
                 <div class="absolute right-0 top-[calc(100%+4px)] z-50 max-h-52 w-56 overflow-auto rounded-lg border bg-popover text-popover-foreground shadow-xl">
                   {#each promptStore.prompts as p (p.id)}
-                    <button type="button" class="block w-full truncate px-3 py-1.5 text-left text-[11px] hover:bg-accent" onclick={() => insertPrompt(p.body, p.title)}>{p.title}</button>
+                    <button type="button" class="block w-full truncate px-3 py-1.5 text-left text-xs hover:bg-accent" onclick={() => insertPrompt(p.body, p.title)}>{p.title}</button>
                   {/each}
                 </div>
               {/if}
             </div>
           {/if}
-          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent disabled:opacity-40" disabled={!prompt.trim()} onclick={saveToLibrary}>
+          <button type="button" class="flex items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent disabled:opacity-40" disabled={!prompt.trim()} onclick={saveToLibrary}>
             <Save class="size-3" />{saved ? t("common.saved") : t("common.save")}
           </button>
         </div>
         <textarea
           id="fo-prompt"
-          class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
+          class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
           bind:value={prompt}
           placeholder={t("fanout.promptPlaceholder")}
         ></textarea>
@@ -369,9 +369,9 @@
               >
                 {#if row.selected}<Check class="size-3.5" />{/if}
               </button>
-              <span class="w-24 shrink-0 text-[12px] font-medium">{agentKindStore.labelOf(row.kind)}</span>
+              <span class="w-24 shrink-0 text-sm font-medium">{agentKindStore.labelOf(row.kind)}</span>
               <Input
-                class="h-8 flex-1 font-mono text-[11px]"
+                class="h-8 flex-1 font-mono text-xs"
                 bind:value={row.command}
                 disabled={!row.selected}
                 aria-label={t("fanout.kindCommand", { kind: agentKindStore.labelOf(row.kind) })}

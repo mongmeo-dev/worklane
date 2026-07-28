@@ -147,7 +147,7 @@
 <div class="flex h-full min-h-0 flex-col bg-editor">
   <header class="flex h-10 shrink-0 items-center gap-1.5 border-b border-white/8 bg-editor-chrome px-2.5" role="toolbar" tabindex="-1" aria-label={t("contextMenu.preview")} oncontextmenu={previewContextMenu.oncontextmenu} onkeydown={onKey}>
     <input
-      class="min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-[11px] text-white/85 outline-none focus:border-white/25"
+      class="min-w-0 flex-1 rounded-md border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-xs text-white/85 outline-none focus:border-white/25"
       value={preview.draftUrl}
       oninput={(event) => previewStore.setDraft(agent.id, event.currentTarget.value)}
       onblur={persist}
@@ -173,12 +173,12 @@
         <div bind:this={portMenu} id="preview-port-menu" class="absolute right-0 top-[calc(100%+6px)] z-40 w-40 overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-xl" role="menu" tabindex="-1" aria-label={t("preview.detectPorts")} onkeydown={onKey}>
           {#if ports.length > 0}
             {#each ports as port (port)}
-              <button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left font-mono text-[11px] hover:bg-accent" onclick={() => pickPort(port)}>localhost:{port}</button>
+              <button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left font-mono text-xs hover:bg-accent" onclick={() => pickPort(port)}>localhost:{port}</button>
             {/each}
           {:else if portError}
-            <p class="px-3 py-2 text-[10.5px] text-destructive" role="alert">{t("preview.portDetectionError")}</p>
+            <p class="px-3 py-2 text-2xs text-destructive" role="alert">{t("preview.portDetectionError")}</p>
           {:else}
-            <p class="px-3 py-2 text-[10.5px] text-muted-foreground">{t("preview.noPorts")}</p>
+            <p class="px-3 py-2 text-2xs text-muted-foreground">{t("preview.noPorts")}</p>
           {/if}
         </div>
       {/if}
@@ -217,10 +217,10 @@
         ></iframe>
       {/key}
     {:else}
-      <div class="grid h-full place-items-center bg-editor px-6 text-center text-[11px] text-white/45" role="region" aria-label={t("contextMenu.preview")} oncontextmenu={previewContextMenu.oncontextmenu}>
+      <div class="grid h-full place-items-center bg-editor px-6 text-center text-xs text-white/62" role="region" aria-label={t("contextMenu.preview")} oncontextmenu={previewContextMenu.oncontextmenu}>
         <div>
           <p>{t("preview.emptyMain")}</p>
-          <p class="mt-1 font-mono text-white/30">{t("preview.emptyExample", { url: DEFAULT_PREVIEW_URL })}</p>
+          <p class="mt-1 font-mono text-white/55">{t("preview.emptyExample", { url: DEFAULT_PREVIEW_URL })}</p>
         </div>
       </div>
     {/if}

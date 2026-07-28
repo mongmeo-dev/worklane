@@ -109,7 +109,7 @@
         <Input id="ag-cmd" bind:value={command} placeholder={requiresCommand(kind) ? "" : t("agentDialog.commandPlaceholderShell")} />
         {#if commandCheck}
           <p
-            class="text-[10.5px] {commandCheck === 'available'
+            class="text-2xs {commandCheck === 'available'
               ? 'text-status-done-fg'
               : commandCheck === 'unavailable'
                 ? 'text-destructive'

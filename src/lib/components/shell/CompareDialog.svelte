@@ -128,16 +128,16 @@
   <Dialog.Content class="w-[720px] max-w-[calc(100%-2rem)] gap-0 overflow-hidden rounded-[14px] p-0 sm:max-w-[720px]">
     {#if group}
       <Dialog.Header class="border-b px-5 py-3.5">
-        <Dialog.Title class="text-[14px] font-semibold">{t("compare.title", { title: group.title })}</Dialog.Title>
-        <Dialog.Description class="text-[11px]">{t("compare.desc", { project: group.projectName, count: group.members.length })}</Dialog.Description>
+        <Dialog.Title class="text-base font-semibold">{t("compare.title", { title: group.title })}</Dialog.Title>
+        <Dialog.Description class="text-xs">{t("compare.desc", { project: group.projectName, count: group.members.length })}</Dialog.Description>
       </Dialog.Header>
 
       {#if group.prompt}
         <div class="flex items-start gap-2 border-b bg-muted/40 px-5 py-2.5">
-          <p class="min-w-0 flex-1 whitespace-pre-wrap text-[11px] text-muted-foreground">{group.prompt}</p>
+          <p class="min-w-0 flex-1 whitespace-pre-wrap text-xs text-muted-foreground">{group.prompt}</p>
           <button
             type="button"
-            class="flex shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 text-[10px] font-semibold hover:bg-accent"
+            class="flex shrink-0 items-center gap-1 rounded-md border bg-card px-2 py-1 text-2xs font-semibold hover:bg-accent"
             onclick={copyPrompt}
           >
             {#if copied}<Check class="size-3" />{t("compare.copied")}{:else}<Copy class="size-3" />{t("compare.copyPrompt")}{/if}
@@ -148,7 +148,7 @@
       <div class="flex items-center gap-1.5 border-b px-5 py-2.5">
         <FlaskConical class="size-3.5 shrink-0 text-muted-foreground" />
         <input
-          class="min-w-0 flex-1 rounded-md border bg-input/40 px-2.5 py-1 font-mono text-[11px] outline-none focus:ring-1 focus:ring-ring"
+          class="min-w-0 flex-1 rounded-md border bg-input/40 px-2.5 py-1 font-mono text-xs outline-none focus:ring-1 focus:ring-ring"
           bind:value={verifyCommand}
           placeholder={t("compare.verifyPlaceholder")}
           onkeydown={(e) => e.key === "Enter" && runVerify()}
@@ -156,7 +156,7 @@
         />
         <button
           type="button"
-          class="flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-40"
+          class="flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground disabled:opacity-40"
           disabled={verifying || !verifyCommand.trim()}
           onclick={runVerify}
         >{verifying ? t("compare.verifying") : t("compare.runVerify")}</button>
@@ -169,17 +169,17 @@
           <div class="flex flex-col gap-2.5 rounded-xl border bg-tile p-3.5 {recommended === member.id ? 'border-status-done ring-1 ring-status-done/40' : ''}">
             <div class="flex items-center gap-2">
               <StatusDot {status} size={8} />
-              <span class="text-[12px] font-semibold">{agentKindStore.labelOf(member.kind)}</span>
+              <span class="text-sm font-semibold">{agentKindStore.labelOf(member.kind)}</span>
               {#if recommended === member.id}
-                <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-[9px] font-bold text-status-done-fg"><Trophy class="size-3" />{t("compare.recommended")}</span>
+                <span class="ml-auto flex items-center gap-1 rounded-full bg-status-done/15 px-2 py-0.5 text-2xs font-bold text-status-done-fg"><Trophy class="size-3" />{t("compare.recommended")}</span>
               {:else}
-                <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-[9px] font-semibold text-muted-foreground">{statusLabel(status)}</span>
+                <span class="ml-auto rounded-full bg-muted px-2 py-0.5 text-2xs font-semibold text-muted-foreground">{statusLabel(status)}</span>
               {/if}
             </div>
-            <div class="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+            <div class="flex items-center gap-1.5 font-mono text-2xs text-muted-foreground">
               <GitBranch class="size-3" /><span class="truncate">{member.branch}</span>
             </div>
-            <div class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-mono text-[11px]">
+            <div class="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 font-mono text-xs">
               {#if loading && stat === undefined}
                 <span class="text-muted-foreground">{t("compare.loading")}</span>
               {:else if stat}
@@ -193,42 +193,42 @@
             {#if results[member.id] !== undefined}
               {@const r = results[member.id]}
               {#if r === null}
-                <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-[10.5px] text-destructive">{t("compare.verifyFailed")}</div>
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-2xs text-destructive">{t("compare.verifyFailed")}</div>
               {:else}
-                <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 font-mono text-[10.5px]">
-                  <span class="rounded-full px-1.5 py-0.5 text-[9px] font-bold {r.success ? 'bg-status-done/15 text-status-done-fg' : 'bg-status-blocked text-status-blocked-on'}">{r.success ? t("compare.pass") : `${t("compare.fail")}${r.exitCode !== null ? ` ·${r.exitCode}` : ""}`}</span>
+                <div class="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 font-mono text-2xs">
+                  <span class="rounded-full px-1.5 py-0.5 text-2xs font-bold {r.success ? 'bg-status-done/15 text-status-done-fg' : 'bg-status-blocked text-status-blocked-on'}">{r.success ? t("compare.pass") : `${t("compare.fail")}${r.exitCode !== null ? ` ·${r.exitCode}` : ""}`}</span>
                   <span class="text-muted-foreground">{(r.durationMs / 1000).toFixed(1)}s</span>
                   {#if r.outputTail}
-                    <button type="button" class="ml-auto text-[10px] text-muted-foreground hover:text-foreground" onclick={() => (showOutput = showOutput === member.id ? null : member.id)}>{t("compare.output")}</button>
+                    <button type="button" class="ml-auto text-2xs text-muted-foreground hover:text-foreground" onclick={() => (showOutput = showOutput === member.id ? null : member.id)}>{t("compare.output")}</button>
                   {/if}
                 </div>
                 {#if showOutput === member.id && r.outputTail}
-                  <pre class="max-h-28 overflow-auto rounded-lg border bg-terminal p-2 font-mono text-[9.5px] leading-relaxed text-white/70">{r.outputTail}</pre>
+                  <pre class="max-h-28 overflow-auto rounded-lg border bg-terminal p-2 font-mono text-2xs leading-relaxed text-white/70">{r.outputTail}</pre>
                 {/if}
               {/if}
             {/if}
             <div class="mt-auto flex items-center gap-1.5">
               <button
                 type="button"
-                class="flex h-7 flex-1 items-center justify-center rounded-md border bg-card text-[11px] font-semibold hover:bg-accent"
+                class="flex h-7 flex-1 items-center justify-center rounded-md border bg-card text-xs font-semibold hover:bg-accent"
                 onclick={() => shell.selectAgent(member.id)}
               >{t("common.open")}</button>
               {#if pendingAdopt === member.id}
                 <button
                   type="button"
-                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-status-blocked text-[11px] font-bold text-status-blocked-on disabled:opacity-50"
+                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-status-blocked text-xs font-bold text-status-blocked-on disabled:opacity-50"
                   disabled={busy}
                   onclick={() => adopt(member.id)}
                 >{t("compare.adoptClean")}</button>
                 <button
                   type="button"
-                  class="flex h-7 items-center justify-center rounded-md border px-2 text-[11px] hover:bg-accent"
+                  class="flex h-7 items-center justify-center rounded-md border px-2 text-xs hover:bg-accent"
                   onclick={() => (pendingAdopt = null)}
                 >{t("common.cancel")}</button>
               {:else}
                 <button
                   type="button"
-                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-primary text-[11px] font-semibold text-primary-foreground disabled:opacity-50"
+                  class="flex h-7 flex-1 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   disabled={busy || group.members.length < 2}
                   onclick={() => (pendingAdopt = member.id)}
                 >{t("compare.adopt")}</button>

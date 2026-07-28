@@ -21,7 +21,7 @@
   {#each chips as chip (chip.status)}
     <button
       type="button"
-      class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10.5px] font-medium transition-[filter,background-color] hover:brightness-125 {chip.className}"
+      class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-2xs font-medium transition-[filter,background-color] hover:brightness-125 {chip.className}"
       aria-label={t("statusChips.view", { count: counts[chip.status], label: statusLabel(chip.status) })}
       onclick={() => shell.setFilter(chip.filter)}
     >

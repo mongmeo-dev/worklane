@@ -26,7 +26,7 @@
 <Dialog.Root open={settingsUi.isOpen} onOpenChange={(open) => (open ? settingsUi.open() : settingsUi.close())}>
   <Dialog.Content class="flex h-[460px] w-[640px] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-[14px] border p-0 sm:max-w-[640px]">
     <Dialog.Header class="flex h-12 shrink-0 justify-center border-b px-4">
-      <Dialog.Title class="text-[14px] font-semibold">{t("settings.title")}</Dialog.Title>
+      <Dialog.Title class="text-base font-semibold">{t("settings.title")}</Dialog.Title>
     </Dialog.Header>
 
     <div class="flex min-h-0 flex-1">
@@ -34,7 +34,7 @@
         {#each tabs as tab (tab.id)}
           <button
             type="button"
-            class="flex h-8 items-center gap-2 rounded-lg px-3 text-left text-[12.5px] font-medium {settingsUi.activeTab === tab.id ? 'bg-sidebar-accent text-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground'}"
+            class="flex h-8 items-center gap-2 rounded-lg px-3 text-left text-sm font-medium {settingsUi.activeTab === tab.id ? 'bg-sidebar-accent text-foreground' : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground'}"
             onclick={() => settingsUi.setTab(tab.id)}
           >
             <tab.icon class="size-3.5" />{t(tab.labelKey)}

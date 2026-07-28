@@ -62,15 +62,15 @@
 </script>
 
 <div class="flex flex-col gap-4">
-  <div class="rounded-[10px] border bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
+  <div class="rounded-[10px] border bg-muted/35 p-3 text-xs leading-relaxed text-muted-foreground">
     {t("settings.prompts.intro")}
   </div>
 
   <section class="flex flex-col gap-2 rounded-[10px] border p-3">
-    <h2 class="text-[11px] font-semibold text-muted-foreground">{t("settings.prompts.newHeading")}</h2>
+    <h2 class="text-xs font-semibold text-muted-foreground">{t("settings.prompts.newHeading")}</h2>
     <Input bind:value={draftTitle} placeholder={t("settings.prompts.titlePlaceholder")} />
     <textarea
-      class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
+      class="h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
       bind:value={draftBody}
       placeholder={t("settings.prompts.bodyPlaceholder")}
     ></textarea>
@@ -84,9 +84,9 @@
   {/if}
 
   <section class="flex flex-col gap-2">
-    <h2 class="text-[11px] font-semibold text-muted-foreground">{t("settings.prompts.savedHeading", { count: prompts.length })}</h2>
+    <h2 class="text-xs font-semibold text-muted-foreground">{t("settings.prompts.savedHeading", { count: prompts.length })}</h2>
     {#if prompts.length === 0}
-      <p class="rounded-[10px] border border-dashed px-3 py-6 text-center text-[11px] text-muted-foreground">{t("settings.prompts.empty")}</p>
+      <p class="rounded-[10px] border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">{t("settings.prompts.empty")}</p>
     {:else}
       <div class="flex flex-col gap-2">
         {#each prompts as prompt (prompt.id)}
@@ -94,7 +94,7 @@
             {#if editingId === prompt.id}
               <Input bind:value={editTitle} class="mb-2" />
               <textarea
-                class="mb-2 h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-[12px] outline-none focus:ring-1 focus:ring-ring"
+                class="mb-2 h-20 w-full resize-none rounded-md border bg-input/40 px-2.5 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
                 bind:value={editBody}
               ></textarea>
               <div class="flex justify-end gap-1.5">
@@ -104,9 +104,9 @@
             {:else}
               <div class="flex items-start gap-2">
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-[12.5px] font-semibold">{prompt.title}</p>
+                  <p class="truncate text-sm font-semibold">{prompt.title}</p>
                   {#if prompt.body}
-                    <p class="mt-1 line-clamp-2 whitespace-pre-wrap text-[11px] text-muted-foreground">{prompt.body}</p>
+                    <p class="mt-1 line-clamp-2 whitespace-pre-wrap text-xs text-muted-foreground">{prompt.body}</p>
                   {/if}
                 </div>
                 <button type="button" class="grid size-6 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={t("common.edit")} onclick={() => startEdit(prompt.id, prompt.title, prompt.body)}>

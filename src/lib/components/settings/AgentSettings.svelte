@@ -70,11 +70,11 @@
 </script>
 
 <div class="flex flex-col gap-5">
-  <div class="rounded-[10px] border bg-muted/35 p-3 text-[11px] leading-relaxed text-muted-foreground">
+  <div class="rounded-[10px] border bg-muted/35 p-3 text-xs leading-relaxed text-muted-foreground">
     {t("settings.agents.intro")}
   </div>
   <section>
-    <h2 class="mb-2 text-[11px] font-semibold text-muted-foreground">{t("settings.agents.kindsHeading")}</h2>
+    <h2 class="mb-2 text-xs font-semibold text-muted-foreground">{t("settings.agents.kindsHeading")}</h2>
     <div class="overflow-hidden rounded-[10px] border" role="list">
       {#each agentKindStore.cliKinds as kind, index (kind.id)}
         <div
@@ -95,15 +95,15 @@
             <GripVertical class="size-4" />
           </button>
           <Input
-            class="h-8 w-32 text-[12px] font-medium"
+            class="h-8 w-32 text-sm font-medium"
             value={kind.label}
             aria-label={t("settings.agents.kindNameLabel")}
             onchange={(e) => agentKindStore.update(kind.id, { label: e.currentTarget.value })}
           />
           <div class="flex min-w-0 flex-1 items-center gap-1.5">
-            <span class="select-none font-mono text-[11px] text-muted-foreground">$</span>
+            <span class="select-none font-mono text-xs text-muted-foreground">$</span>
             <Input
-              class="h-8 flex-1 font-mono text-[11px]"
+              class="h-8 flex-1 font-mono text-xs"
               value={kind.defaultCommand}
               placeholder={t("settings.agents.commandPlaceholder")}
               aria-label={t("settings.agents.defaultCommandLabel")}
@@ -121,7 +121,7 @@
         </div>
       {/each}
       {#if agentKindStore.cliKinds.length === 0}
-        <p class="px-3 py-4 text-center text-[11px] text-muted-foreground">
+        <p class="px-3 py-4 text-center text-xs text-muted-foreground">
           {t("settings.agents.empty")}
         </p>
       {/if}
@@ -129,14 +129,14 @@
 
     <div class="mt-2 flex items-end gap-2">
       <Input
-        class="h-9 w-32 text-[12px]"
+        class="h-9 w-32 text-sm"
         bind:value={newLabel}
         placeholder={t("settings.agents.newNamePlaceholder")}
         aria-label={t("settings.agents.newNameLabel")}
         onkeydown={(e) => e.key === "Enter" && addKind()}
       />
       <Input
-        class="h-9 flex-1 font-mono text-[11px]"
+        class="h-9 flex-1 font-mono text-xs"
         bind:value={newCommand}
         placeholder={t("settings.agents.newCommandPlaceholder")}
         aria-label={t("settings.agents.newCommandLabel")}
@@ -147,12 +147,12 @@
       </Button>
     </div>
     {#if addError}
-      <p class="mt-1.5 text-[11px] text-destructive">{addError}</p>
+      <p class="mt-1.5 text-xs text-destructive">{addError}</p>
     {/if}
   </section>
 
   <section>
-    <h2 class="mb-2 text-[11px] font-semibold text-muted-foreground">{t("settings.agents.autoCheckpointHeading")}</h2>
+    <h2 class="mb-2 text-xs font-semibold text-muted-foreground">{t("settings.agents.autoCheckpointHeading")}</h2>
     <label class="flex items-center gap-3 rounded-[10px] border p-3">
       <input
         type="checkbox"
@@ -161,8 +161,8 @@
         onchange={(e) => autoCheckpoint.setEnabled(e.currentTarget.checked)}
       />
       <div class="min-w-0 flex-1">
-        <p class="text-[12px] font-medium">{t("settings.agents.autoSaveTitle")}</p>
-        <p class="mt-0.5 text-[10.5px] text-muted-foreground">{t("settings.agents.autoSaveDesc")}</p>
+        <p class="text-sm font-medium">{t("settings.agents.autoSaveTitle")}</p>
+        <p class="mt-0.5 text-2xs text-muted-foreground">{t("settings.agents.autoSaveDesc")}</p>
       </div>
     </label>
   </section>

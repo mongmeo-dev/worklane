@@ -2,7 +2,7 @@ import type { AgentStatus } from "$lib/types";
 
 /** 상태 pill 클래스. blocked만 솔리드 강조, 나머지는 틴트. */
 export function badgeClasses(status: AgentStatus): string {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold";
+  const base = "inline-flex items-center rounded-full px-2 py-0.5 text-2xs font-semibold";
   if (status === "blocked") {
     return `${base} bg-status-blocked text-status-blocked-on font-bold`;
   }
