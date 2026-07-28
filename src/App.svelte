@@ -26,6 +26,10 @@
   import StatusBar from "$lib/components/shell/StatusBar.svelte";
   import ContextMenuHost from "$lib/components/context-menu/ContextMenuHost.svelte";
   import ActionErrorRegion from "$lib/components/context-menu/ActionErrorRegion.svelte";
+  import ShortcutsDialog from "$lib/components/shell/ShortcutsDialog.svelte";
+  import { settingsUi } from "$lib/stores/settingsUi.svelte";
+  import { cycleAgentId, jumpTargetId, nextAttentionAgentId } from "$lib/shell/derived";
+  import { allowedWhileModal, resolveShortcut, type ShortcutAction } from "$lib/shell/keymap";
 
   const STORAGE_KEY = "shell:sidebar-size";
 
@@ -81,11 +85,64 @@
     eventRecorder.start();
     updater.start();
 
-    const onKeydown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        shell.togglePalette();
+    function applyShortcut(action: ShortcutAction): void {
+      const projects = projectStore.projects;
+      switch (action.type) {
+        case "palette":
+          shell.togglePalette();
+          break;
+        case "help":
+          shell.toggleShortcuts();
+          break;
+        case "overview":
+          shell.goOverview();
+          break;
+        case "jump": {
+          const id = jumpTargetId(projects, action.index);
+          if (id) shell.selectAgent(id);
+          break;
+        }
+        case "cycle": {
+          const id = cycleAgentId(projects, shell.selectedAgentId, action.delta);
+          if (id) shell.selectAgent(id);
+          break;
+        }
+        case "attention": {
+          const id = nextAttentionAgentId(projects, shell.selectedAgentId);
+          if (id) shell.selectAgent(id);
+          break;
+        }
+        case "toggleLeft":
+          shell.toggleLeftPanel();
+          break;
+        case "toggleRight":
+          shell.toggleRightPanel();
+          break;
+        case "settings":
+          settingsUi.open();
+          break;
+        case "newAgent":
+          if (projects.length > 0) newAgentOpen = true;
+          break;
+        case "fanout":
+          if (projects.length > 0) composer.openFanout();
+          break;
+        case "tasks":
+          taskBoardOpen = true;
+          break;
       }
+    }
+
+    const onKeydown = (event: KeyboardEvent) => {
+      // 한글 IME 조합 중에는 키를 가로채지 않는다.
+      if (event.isComposing) return;
+      const action = resolveShortcut(event);
+      if (!action) return;
+      // 모달이 떠 있으면 맥락이 어긋나는 이동은 막고 오버레이 계열만 허용한다.
+      const modalOpen = document.querySelector('[data-slot="dialog-content"]') !== null;
+      if (modalOpen && !allowedWhileModal(action)) return;
+      event.preventDefault();
+      applyShortcut(action);
     };
     window.addEventListener("keydown", onKeydown);
     const onContextMenu = (event: MouseEvent) => {
@@ -129,6 +186,7 @@
 
   <SettingsDialog />
   <CompareDialog />
+  <ShortcutsDialog />
   <TaskBoard bind:open={taskBoardOpen} projects={projectStore.projects} />
   {#if newAgentProject}
     <AgentDialog bind:open={newAgentOpen} project={newAgentProject} />

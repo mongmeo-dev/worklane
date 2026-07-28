@@ -2,6 +2,18 @@ export type OverviewFilter = "all" | "running" | "blocked" | "done" | "failed";
 
 const LEFT_KEY = "shell:left-open";
 const RIGHT_KEY = "shell:right-open";
+const RECENT_KEY = "shell:recent-agents";
+const RECENT_LIMIT = 8;
+
+function loadRecent(): string[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 function loadBoolean(key: string, fallback: boolean): boolean {
   if (typeof localStorage === "undefined") return fallback;
@@ -24,6 +36,9 @@ export class ShellStore {
   #paletteOpen = $state(false);
   // 현재 워크스페이스에서 활성화된 터미널 탭 id(null이면 첫 터미널).
   #selectedTerminalId = $state<string | null>(null);
+  #shortcutsOpen = $state(false);
+  // 최근 방문한 워크스페이스(최신 우선). 팔레트 기본 정렬에 쓴다.
+  #recentAgentIds = $state<string[]>(loadRecent());
 
   get selectedAgentId(): string | null { return this.#selectedAgentId; }
   get overviewFilter(): OverviewFilter { return this.#overviewFilter; }
@@ -38,6 +53,8 @@ export class ShellStore {
   get worktreeRev(): number { return this.#worktreeRev; }
   get paletteOpen(): boolean { return this.#paletteOpen; }
   get selectedTerminalId(): string | null { return this.#selectedTerminalId; }
+  get shortcutsOpen(): boolean { return this.#shortcutsOpen; }
+  get recentAgentIds(): string[] { return this.#recentAgentIds; }
 
   selectAgent(id: string): void {
     this.#selectedAgentId = id;
@@ -48,6 +65,15 @@ export class ShellStore {
     this.#attentionOpen = false;
     this.#compareGroupId = null;
     this.#paletteOpen = false;
+    this.#shortcutsOpen = false;
+    this.#pushRecent(id);
+  }
+
+  #pushRecent(id: string): void {
+    this.#recentAgentIds = [id, ...this.#recentAgentIds.filter((each) => each !== id)].slice(0, RECENT_LIMIT);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(this.#recentAgentIds));
+    }
   }
 
   /** 워크스페이스 안에서 특정 터미널 탭을 활성화한다. */
@@ -123,10 +149,20 @@ export class ShellStore {
 
   togglePalette(): void {
     this.#paletteOpen = !this.#paletteOpen;
+    if (this.#paletteOpen) this.#shortcutsOpen = false;
   }
 
   closePalette(): void {
     this.#paletteOpen = false;
+  }
+
+  toggleShortcuts(): void {
+    this.#shortcutsOpen = !this.#shortcutsOpen;
+    if (this.#shortcutsOpen) this.#paletteOpen = false;
+  }
+
+  setShortcutsOpen(open: boolean): void {
+    this.#shortcutsOpen = open;
   }
 
   toggleAttention(): void {
