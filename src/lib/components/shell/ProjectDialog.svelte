@@ -11,9 +11,8 @@
   import { shell } from "$lib/stores/shell.svelte";
   import { agentKindStore } from "$lib/stores/agentKinds.svelte";
   import type { AgentKind } from "$lib/types";
+  import { projectDialogUi } from "$lib/stores/projectDialogUi.svelte";
   import { t } from "$lib/i18n";
-
-  let { open = $bindable(false) }: { open?: boolean } = $props();
 
   let name = $state("");
   let path = $state("");
@@ -42,7 +41,7 @@
       );
       const defaultAgent = project.agents[0];
       if (defaultAgent) shell.selectAgent(defaultAgent.id);
-      open = false;
+      projectDialogUi.close();
       name = "";
       path = "";
       kind = agentKindStore.selectableKindIds[0];
@@ -54,7 +53,7 @@
   }
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root open={projectDialogUi.isOpen} onOpenChange={(value) => projectDialogUi.setOpen(value)}>
   <Dialog.Content>
     <Dialog.Header>
       <Dialog.Title>{t("projectDialog.title")}</Dialog.Title>
@@ -78,14 +77,14 @@
             {/each}
           </Select.Content>
         </Select.Root>
-        <p class="text-[10px] text-muted-foreground">
+        <p class="text-2xs text-muted-foreground">
           {t("projectDialog.firstAgentNote")}
         </p>
       </div>
       <div class="flex flex-col gap-1.5">
         <Label for="proj-path">{t("projectDialog.path")}</Label>
         <div class="flex gap-2">
-          <Input id="proj-path" bind:value={path} placeholder={t("projectDialog.pathPlaceholder")} readonly />
+          <Input id="proj-path" bind:value={path} placeholder={t("projectDialog.pathPlaceholder")} spellcheck="false" autocapitalize="off" autocorrect="off" />
           <Button variant="secondary" onclick={pickDir}>{t("common.select")}</Button>
         </div>
       </div>

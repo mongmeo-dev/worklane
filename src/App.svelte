@@ -27,6 +27,7 @@
   import ContextMenuHost from "$lib/components/context-menu/ContextMenuHost.svelte";
   import ActionErrorRegion from "$lib/components/context-menu/ActionErrorRegion.svelte";
   import ShortcutsDialog from "$lib/components/shell/ShortcutsDialog.svelte";
+  import ProjectDialog from "$lib/components/shell/ProjectDialog.svelte";
   import { settingsUi } from "$lib/stores/settingsUi.svelte";
   import { cycleAgentId, jumpTargetId, nextAttentionAgentId } from "$lib/shell/derived";
   import { allowedWhileModal, resolveShortcut, type ShortcutAction } from "$lib/shell/keymap";
@@ -187,6 +188,7 @@
   <SettingsDialog />
   <CompareDialog />
   <ShortcutsDialog />
+  <ProjectDialog />
   <TaskBoard bind:open={taskBoardOpen} projects={projectStore.projects} />
   {#if newAgentProject}
     <AgentDialog bind:open={newAgentOpen} project={newAgentProject} />
