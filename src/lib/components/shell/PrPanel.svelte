@@ -80,10 +80,10 @@
   });
 </script>
 
-<div bind:this={root} class="relative">
+<div bind:this={root} class="relative shrink-0">
   <button
     type="button"
-    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
+    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-2xs font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
     aria-label={t("prPanel.aria")}
     aria-expanded={open}
     onclick={toggle}
@@ -98,16 +98,16 @@
       aria-label={t("prPanel.aria")}
     >
       {#if loading && status === undefined}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("common.loading")}</p>
+        <p class="px-3 py-5 text-center text-xs text-muted-foreground">{t("common.loading")}</p>
       {:else if error}
-        <p class="px-3.5 py-3 text-[10.5px] text-destructive">{error}</p>
+        <p class="px-3.5 py-3 text-2xs text-destructive">{error}</p>
       {:else if status === null}
-        <p class="px-3.5 py-4 text-center text-[11px] text-muted-foreground">{t("prPanel.none")}</p>
+        <p class="px-3.5 py-4 text-center text-xs text-muted-foreground">{t("prPanel.none")}</p>
       {:else if status}
         <header class="flex items-start gap-2 border-b px-3.5 py-2.5">
           <span class="min-w-0 flex-1">
-            <span class="block truncate text-[12px] font-semibold">#{status.number} {status.title}</span>
-            <span class="mt-0.5 flex items-center gap-1.5 text-[9.5px]">
+            <span class="block truncate text-sm font-semibold">#{status.number} {status.title}</span>
+            <span class="mt-0.5 flex items-center gap-1.5 text-2xs">
               <span class="rounded-full bg-muted px-1.5 py-0.5 font-semibold text-muted-foreground">{status.state}</span>
               {#if status.reviewDecision}<span class="text-muted-foreground">{status.reviewDecision}</span>{/if}
               {#if status.mergeable === "CONFLICTING"}<span class="text-diff-remove">{t("prPanel.conflicting")}</span>{/if}
@@ -129,24 +129,24 @@
                 {:else}
                   <Circle class="size-3 shrink-0 {conclusionTone(check.conclusion)}" />
                 {/if}
-                <span class="min-w-0 flex-1 truncate text-[11px]">{check.name}</span>
-                <span class="shrink-0 text-[9.5px] {conclusionTone(check.conclusion)}">{check.conclusion || check.status}</span>
+                <span class="min-w-0 flex-1 truncate text-xs">{check.name}</span>
+                <span class="shrink-0 text-2xs {conclusionTone(check.conclusion)}">{check.conclusion || check.status}</span>
               </li>
             {/each}
           </ul>
         {/if}
 
-        {#if error}<p class="px-3.5 py-1.5 text-[10px] text-destructive">{error}</p>{/if}
-        {#if note}<p class="px-3.5 py-1.5 text-[10px] text-status-done-fg">{note}</p>{/if}
+        {#if error}<p class="px-3.5 py-1.5 text-2xs text-destructive">{error}</p>{/if}
+        {#if note}<p class="px-3.5 py-1.5 text-2xs text-status-done-fg">{note}</p>{/if}
 
         {#if status.state === "OPEN"}
           <div class="grid grid-cols-3 gap-1.5 p-2.5">
-            <button type="button" class="h-7 rounded-md bg-primary text-[10.5px] font-semibold text-primary-foreground disabled:opacity-40" disabled={busy} onclick={() => merge("squash")}>Squash</button>
-            <button type="button" class="h-7 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={busy} onclick={() => merge("merge")}>Merge</button>
-            <button type="button" class="h-7 rounded-md border bg-card text-[10.5px] font-semibold hover:bg-accent disabled:opacity-40" disabled={busy} onclick={() => merge("rebase")}>Rebase</button>
+            <button type="button" class="h-7 rounded-md bg-primary text-2xs font-semibold text-primary-foreground disabled:opacity-40" disabled={busy} onclick={() => merge("squash")}>Squash</button>
+            <button type="button" class="h-7 rounded-md border bg-card text-2xs font-semibold hover:bg-accent disabled:opacity-40" disabled={busy} onclick={() => merge("merge")}>Merge</button>
+            <button type="button" class="h-7 rounded-md border bg-card text-2xs font-semibold hover:bg-accent disabled:opacity-40" disabled={busy} onclick={() => merge("rebase")}>Rebase</button>
           </div>
         {:else}
-          <p class="px-3.5 py-2 text-[10.5px] text-muted-foreground">{t("prPanel.stateStatus", { state: status.state })}</p>
+          <p class="px-3.5 py-2 text-2xs text-muted-foreground">{t("prPanel.stateStatus", { state: status.state })}</p>
         {/if}
       {/if}
     </div>

@@ -66,10 +66,10 @@
   });
 </script>
 
-<div bind:this={root} class="relative">
+<div bind:this={root} class="relative shrink-0">
   <button
     type="button"
-    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
+    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-2xs font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
     aria-label={t("timeline.button")}
     aria-expanded={open}
     onclick={toggle}
@@ -83,19 +83,19 @@
       role="dialog"
       aria-label={t("timeline.sessionAria")}
     >
-      <header class="border-b px-3.5 py-2.5 text-[12px] font-semibold">{t("timeline.heading")}</header>
+      <header class="border-b px-3.5 py-2.5 text-sm font-semibold">{t("timeline.heading")}</header>
       {#if loading}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("common.loading")}</p>
+        <p class="px-3 py-5 text-center text-xs text-muted-foreground">{t("common.loading")}</p>
       {:else if events.length === 0}
-        <p class="px-3 py-5 text-center text-[11px] text-muted-foreground">{t("timeline.empty")}</p>
+        <p class="px-3 py-5 text-center text-xs text-muted-foreground">{t("timeline.empty")}</p>
       {:else}
         <ul class="max-h-[340px] overflow-auto py-1">
           {#each events as event (event.id)}
             <li class="flex items-start gap-2.5 px-3.5 py-1.5">
-              <span class="mt-0.5 w-16 shrink-0 text-[9.5px] font-semibold {meta(event.kind).cls}">{meta(event.kind).label}</span>
+              <span class="mt-0.5 w-16 shrink-0 text-2xs font-semibold {meta(event.kind).cls}">{meta(event.kind).label}</span>
               <span class="min-w-0 flex-1">
-                <span class="block truncate text-[11px]">{event.detail}</span>
-                <span class="block font-mono text-[9px] text-muted-foreground">{formatTime(event.createdAt)}</span>
+                <span class="block truncate text-xs">{event.detail}</span>
+                <span class="block font-mono text-2xs text-muted-foreground">{formatTime(event.createdAt)}</span>
               </span>
             </li>
           {/each}

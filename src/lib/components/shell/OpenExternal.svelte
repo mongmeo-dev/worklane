@@ -39,10 +39,10 @@
   });
 </script>
 
-<div bind:this={root} class="relative">
+<div bind:this={root} class="relative shrink-0">
   <button
     type="button"
-    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-[10.5px] font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
+    class="flex items-center gap-1 rounded-full border bg-card px-2.5 py-1 text-2xs font-semibold hover:bg-accent {open ? 'bg-accent' : ''}"
     aria-label={t("openExternal.aria")}
     aria-expanded={open}
     onclick={() => (open = !open)}
@@ -58,13 +58,13 @@
       {#each items as item (item.app)}
         <button
           type="button"
-          class="flex w-full items-center px-3 py-1.5 text-left text-[11.5px] hover:bg-accent"
+          class="flex w-full items-center px-3 py-1.5 text-left text-xs hover:bg-accent"
           role="menuitem"
           onclick={() => choose(item.app)}
         >{item.label}</button>
       {/each}
       {#if error}
-        <p class="border-t px-3 py-1.5 text-[10px] text-destructive">{error}</p>
+        <p class="border-t px-3 py-1.5 text-2xs text-destructive">{error}</p>
       {/if}
     </div>
   {/if}
